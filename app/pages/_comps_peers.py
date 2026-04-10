@@ -72,8 +72,10 @@ def render_peer_fundamentals(data_manager, ticker: str, sector: str | None) -> N
     if not rows:
         st.markdown(inline_status_line("OFF", source="FMP"), unsafe_allow_html=True)
         return
-    # Sector median (computed across the peers we DID fetch).
-    median_row = {"Ticker": "Sector median"}
+    # Sector median (computed across the peers we DID fetch). Uses a
+    # distinct label so the highlight CSS can style it as a summary
+    # row rather than a real ticker.
+    median_row = {"Ticker": "MEDIAN"}
     for label, _key, fmt in METRIC_COLS:
         median_row[label] = format_metric(_median_ignoring_nan(raw_values[label]), fmt)
     rows.append(median_row)
@@ -92,11 +94,11 @@ def render_peer_fundamentals(data_manager, ticker: str, sector: str | None) -> N
                 "font-weight: 800; border-top: 1px solid rgba(224,112,32,0.55); "
                 "border-bottom: 1px solid rgba(224,112,32,0.55);"
             ] * len(row)
-        if label == "SECTOR MEDIAN":
+        if label == "MEDIAN":
             return [
                 f"background-color: {median_bg}; color: {muted}; "
                 "font-style: italic; font-weight: 600; "
-                "border-top: 1px solid rgba(255,255,255,0.14);"
+                "border-top: 2px solid rgba(255,255,255,0.18);"
             ] * len(row)
         return [""] * len(row)
 

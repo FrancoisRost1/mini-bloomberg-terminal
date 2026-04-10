@@ -123,13 +123,28 @@ def sector_summary(deals: pd.DataFrame) -> dict[str, Any]:
     return {row["sector"]: row.to_dict() for _, row in by_sector.iterrows()}
 
 
+def _coverage(table: pd.DataFrame, column: str) -> float:
+    """Fraction of rows in ``table`` with a non-null, non-zero value
+    in ``column``. Returns 0.0 if the column is missing entirely."""
+    if table.empty or column not in table.columns:
+        return 0.0
+    s = pd.to_numeric(table[column], errors="coerce")
+    present = s.notna() & (s != 0)
+    return float(present.sum()) / float(len(table))
+
+
 def run_comps(
     sector: str,
     project_root: Path | None = None,
     max_rows: int = 10,
     allow_synthetic: bool = False,
 ) -> dict[str, Any]:
-    """Adapter entry point. Returns standardized status dict."""
+    """Adapter entry point. Returns standardized status dict.
+
+    Also reports coverage of the EV/EBITDA column on the returned
+    slice so the UI can warn when most deals lack the metric (the
+    public M&A dataset often does not disclose it).
+    """
     deals, source = load_deals(project_root, allow_synthetic)
     if source == "missing":
         return {
@@ -139,11 +154,14 @@ def run_comps(
             "comps_table": pd.DataFrame(),
             "sector_summary": {},
             "data_source": source,
+            "coverage": {"ev_ebitda": 0.0},
         }
+    comps_table = query_sector_comps(deals, sector, max_rows)
     return {
         "status": "success",
         "source_project": SOURCE_PROJECT,
-        "comps_table": query_sector_comps(deals, sector, max_rows),
+        "comps_table": comps_table,
         "sector_summary": sector_summary(deals),
         "data_source": source,
+        "coverage": {"ev_ebitda": _coverage(comps_table, "ev_ebitda")},
     }

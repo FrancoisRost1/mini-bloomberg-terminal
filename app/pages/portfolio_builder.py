@@ -127,7 +127,7 @@ def _render_method_pane(method: str, w: dict[str, float], returns: pd.DataFrame)
         {"label": "MIN W", "value": fmt_pct(min(w.values()) if w else 0)},
         {"label": "ASSETS", "value": str(sum(1 for v in w.values() if v > 1e-4))},
     ]
-    st.markdown(dense_kpi_row(items, min_cell_px=105), unsafe_allow_html=True)
+    st.markdown(dense_kpi_row(items, min_cell_px=125), unsafe_allow_html=True)
     rows = [{"Asset": a, "Weight": f"{wt * 100:.1f}%",
              "60D Trend": (1 + returns[a]).cumprod().tail(60).tolist() if a in returns.columns else []}
             for a, wt in sorted(w.items(), key=lambda kv: -kv[1])]
@@ -144,7 +144,7 @@ def _render_concentration(weights: dict[str, dict[str, float]]) -> None:
         items.append({"label": f"{method.upper()} HHI", "value": fmt_ratio(herf, decimals=3, suffix="")})
         items.append({"label": f"{method.upper()} EFF N", "value": f"{eff_n:.1f}"})
         items.append({"label": f"{method.upper()} TOP", "value": fmt_pct(max(w.values()) if w else 0)})
-    st.markdown(dense_kpi_row(items, min_cell_px=110), unsafe_allow_html=True)
+    st.markdown(dense_kpi_row(items, min_cell_px=120), unsafe_allow_html=True)
 
 
 def _render_validate_pane() -> None:

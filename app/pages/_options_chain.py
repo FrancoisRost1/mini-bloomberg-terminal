@@ -41,9 +41,27 @@ def render_chain_table(expiry_chain: pd.DataFrame, spot: float) -> None:
         st.markdown(inline_status_line("OFF", source="yfinance"), unsafe_allow_html=True)
         return
     merged = pd.merge(calls, puts, on="Strike", how="outer", suffixes=("", "")).sort_values("Strike")
+    # pd.merge(how="outer") inserts NaN / None for rows where one
+    # side has no entry. Those leak as the string "None" when a pandas
+    # Styler renders them. Normalise every missing cell to a dash so
+    # the table reads cleanly.
+    string_cols = [c for c in merged.columns if c != "Strike"]
+    for c in string_cols:
+        merged[c] = merged[c].fillna(_DASH)
+    # Drop any strike where every quote column on both sides is a
+    # dash. A row like that carries no information.
+    if string_cols:
+        row_has_data = merged[string_cols].apply(
+            lambda row: any(str(v) != _DASH for v in row),
+            axis=1,
+        )
+        merged = merged[row_has_data]
+    merged = merged.sort_values("Strike").reset_index(drop=True)
+    if merged.empty:
+        st.markdown(inline_status_line("PARTIAL", source="yfinance"), unsafe_allow_html=True)
+        return
     raw_strikes = merged["Strike"].astype(float).to_numpy()
     atm_idx = int(np.argmin(np.abs(raw_strikes - spot))) if len(raw_strikes) else -1
-    merged = merged.reset_index(drop=True)
     merged["Strike"] = merged["Strike"].map(lambda v: f"{v:,.2f}")
     col_order = ["C Bid", "C Ask", "C Vol", "C OI", "C IV", "Strike", "P Bid", "P Ask", "P Vol", "P OI", "P IV"]
     merged = merged.reindex(columns=[c for c in col_order if c in merged.columns])
@@ -77,21 +95,51 @@ def render_chain_table(expiry_chain: pd.DataFrame, spot: float) -> None:
     st.caption(f"Spot {spot:,.2f}. ATM row accent orange, ITM side amber tint. Strikes inside the ATM band usually have the tightest bid ask.")
 
 
+_DASH = "-"
+
+
+def _fmt_price(v) -> str:
+    return f"{v:,.2f}" if v is not None and v == v else _DASH
+
+
+def _fmt_int(v) -> str:
+    if v is None or (isinstance(v, float) and v != v):
+        return _DASH
+    try:
+        return f"{int(v):,}"
+    except (TypeError, ValueError):
+        return _DASH
+
+
+def _fmt_iv(v) -> str:
+    if v is None or (isinstance(v, float) and v != v) or not (v > 0):
+        return _DASH
+    return f"{v * 100:.1f}%"
+
+
 def _side_frame(chain: pd.DataFrame, side: str) -> pd.DataFrame:
     df = chain[chain["type"] == side].copy()
+    if df.empty:
+        return pd.DataFrame()
+    # Drop rows where bid AND ask are both missing on this side. Those
+    # strikes carry no quotes and only bloat the chain table.
+    bid = df.get("bid", pd.Series(dtype=float))
+    ask = df.get("ask", pd.Series(dtype=float))
+    has_quote = bid.notna() | ask.notna()
+    df = df[has_quote].copy()
     if df.empty:
         return pd.DataFrame()
     prefix = "C " if side == "call" else "P "
     out = pd.DataFrame({
         "Strike": df["strike"].astype(float),
-        f"{prefix}Bid": df.get("bid", pd.Series(dtype=float)).map(lambda v: f"{v:,.2f}" if v == v else "n/a"),
-        f"{prefix}Ask": df.get("ask", pd.Series(dtype=float)).map(lambda v: f"{v:,.2f}" if v == v else "n/a"),
-        f"{prefix}Vol": df.get("volume", pd.Series(dtype=float)).fillna(0).astype(int).map(lambda v: f"{v:,}"),
-        f"{prefix}OI":  df.get("open_interest", pd.Series(dtype=float)).fillna(0).astype(int).map(lambda v: f"{v:,}"),
+        f"{prefix}Bid": df.get("bid", pd.Series(dtype=float)).map(_fmt_price),
+        f"{prefix}Ask": df.get("ask", pd.Series(dtype=float)).map(_fmt_price),
+        f"{prefix}Vol": df.get("volume", pd.Series(dtype=float)).map(_fmt_int),
+        f"{prefix}OI":  df.get("open_interest", pd.Series(dtype=float)).map(_fmt_int),
     })
     iv = df.get("implied_volatility")
     if iv is not None:
-        out[f"{prefix}IV"] = iv.map(lambda v: f"{v * 100:.1f}%" if v == v and v > 0 else "n/a")
+        out[f"{prefix}IV"] = iv.map(_fmt_iv)
     return out
 
 

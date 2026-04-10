@@ -34,7 +34,7 @@ def render_valuation_card(fundamentals, config) -> None:
         fmt = m.get("format", "ratio")
         value = fundamentals.key_ratios.get(m["key"])
         items.append({"label": m["label"].upper(), "value": format_metric(value, fmt)})
-    st.markdown(dense_kpi_row(items, min_cell_px=110), unsafe_allow_html=True)
+    st.markdown(dense_kpi_row(items, min_cell_px=120), unsafe_allow_html=True)
 
 
 def render_pe_score(ratios, config) -> None:
@@ -117,4 +117,11 @@ def render_ma_comps(sector, config) -> None:
     }
     display = display.rename(columns={k: v for k, v in rename.items() if k in display.columns})
     st.dataframe(display, use_container_width=True, hide_index=True)
-    st.caption(f"Showing {len(display)} deals in sector '{sector}' from Project 4 (ma-database).")
+    coverage = float((comps.get("coverage") or {}).get("ev_ebitda", 0.0))
+    caption = f"Showing {len(display)} deals in sector '{sector}' from Project 4 (ma-database)."
+    if coverage < 0.5:
+        caption += (
+            f" EV/EBITDA limited coverage ({coverage * 100:.0f}% disclosed); "
+            "public M&A datasets often omit the multiple."
+        )
+    st.caption(caption)

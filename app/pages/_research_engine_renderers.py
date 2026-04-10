@@ -16,7 +16,7 @@ import os
 
 from app.pages._research_visuals import render_memo_card
 from terminal.synthesis.llm_client import generate_memo, is_available as llm_is_available
-from terminal.utils.density import dense_kpi_row, section_bar, signed_color
+from terminal.utils.density import dense_kpi_row, dense_kpi_rows, section_bar, signed_color
 from terminal.utils.error_handling import inline_status_line, is_error, status_pill
 
 
@@ -33,7 +33,7 @@ def render_pe_engine(e: dict[str, Any]) -> None:
             "value": f"{v:.0f}" if v == v else "n/a",
             "value_color": signed_color(v - 50) if v == v else None,
         })
-    st.markdown(dense_kpi_row(items, min_cell_px=105), unsafe_allow_html=True)
+    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=120), unsafe_allow_html=True)
     if e.get("red_flags"):
         st.caption("Flags: " + ", ".join(e["red_flags"]))
 
@@ -50,7 +50,10 @@ def render_factor_engine(e: dict[str, Any]) -> None:
             "value": f"{v:.2f}" if v == v else "n/a",
             "value_color": signed_color(v - 0.5) if v == v else None,
         })
-    st.markdown(dense_kpi_row(items, min_cell_px=105), unsafe_allow_html=True)
+    # 7 cells maximum (composite + conf + 5 factors) -> single row
+    # at a comfortable width. Bumps the min width so factor labels
+    # like "LOW VOL" don't clip.
+    st.markdown(dense_kpi_row(items, min_cell_px=118), unsafe_allow_html=True)
 
 
 def render_tsmom_engine(e: dict[str, Any]) -> None:
@@ -64,7 +67,7 @@ def render_tsmom_engine(e: dict[str, Any]) -> None:
         {"label": "POSITION", "value": f"{e['position']:+.2f}",
          "value_color": signed_color(e["position"])},
     ]
-    st.markdown(dense_kpi_row(items, min_cell_px=108), unsafe_allow_html=True)
+    st.markdown(dense_kpi_row(items, min_cell_px=120), unsafe_allow_html=True)
 
 
 def render_lbo_engine(e: dict[str, Any]) -> None:
@@ -76,7 +79,7 @@ def render_lbo_engine(e: dict[str, Any]) -> None:
         {"label": "SPONSOR EQ", "value": f"${e['sponsor_equity'] / 1e9:.1f}B"},
         {"label": "EQUITY EXIT", "value": f"${e['equity_at_exit'] / 1e9:.1f}B"},
     ]
-    st.markdown(dense_kpi_row(items, min_cell_px=105), unsafe_allow_html=True)
+    st.markdown(dense_kpi_row(items, min_cell_px=118), unsafe_allow_html=True)
 
 
 def render_llm_memo(packet: dict[str, Any], config: dict[str, Any]) -> None:

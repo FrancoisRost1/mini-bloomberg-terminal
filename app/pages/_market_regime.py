@@ -65,7 +65,7 @@ def render_regime(data_manager, config) -> None:
         {"label": "HY SPREAD", "value": f"{sigs['hy_spread']:.2f}%"
          if _is_num(sigs["hy_spread"]) else "n/a"},
     ]
-    st.markdown(dense_kpi_row(items, min_cell_px=110), unsafe_allow_html=True)
+    st.markdown(dense_kpi_row(items, min_cell_px=120), unsafe_allow_html=True)
 
     # Raw signals tell the story. Integer scores collapse to zero when no
     # stress threshold is breached, which reads like the engine is broken.

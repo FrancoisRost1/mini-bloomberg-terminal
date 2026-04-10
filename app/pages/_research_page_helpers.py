@@ -26,7 +26,7 @@ from app.pages._research_visuals import (
     render_score_stacked_bar as _render_score_stacked_bar,  # noqa: F401
 )
 from terminal.utils.chart_helpers import line_chart
-from terminal.utils.density import dense_kpi_row, period_returns_tape, section_bar, signed_color
+from terminal.utils.density import dense_kpi_row, dense_kpi_rows, period_returns_tape, section_bar, signed_color
 from terminal.utils.error_handling import inline_status_line, is_error, status_pill
 from terminal.utils.formatting import fmt_money, fmt_pct, fmt_ratio, fmt_ratio_with_note
 from terminal.utils.skeletons import chart_skeleton
@@ -116,6 +116,10 @@ def render_phase1_stats(packet: dict[str, Any]) -> None:
     notes = ratios.get("_notes") if isinstance(ratios, dict) else None
     market_cap = getattr(fundamentals, "market_cap", float("nan")) if fundamentals and not is_error(fundamentals) else float("nan")
     rev_growth = ratios.get("revenue_growth")
+    # Two rows of six. First row = "what does the market pay": size,
+    # valuation, profitability. Second row = growth + balance sheet
+    # + income mix. This keeps labels from clipping and groups the
+    # metrics by the question they answer.
     items = [
         {"label": "MARKET CAP", "value": fmt_money(market_cap)},
         {"label": "P/E", "value": fmt_ratio(ratios.get("pe_ratio"), suffix="")},
@@ -130,7 +134,7 @@ def render_phase1_stats(packet: dict[str, Any]) -> None:
         {"label": "BETA", "value": fmt_ratio(ratios.get("beta"), suffix="")},
         {"label": "DIV YIELD", "value": fmt_pct(ratios.get("dividend_yield"))},
     ]
-    st.markdown(dense_kpi_row(items, min_cell_px=118), unsafe_allow_html=True)
+    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=125), unsafe_allow_html=True)
     close = _close_series(packet)
     render_52w_range_bar(close)
     if fundamentals is None or is_error(fundamentals):

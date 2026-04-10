@@ -81,6 +81,32 @@ def dense_kpi_row(items: list[dict[str, Any]], min_cell_px: int = 110) -> str:
     )
 
 
+def dense_kpi_rows(items: list[dict[str, Any]], rows: int = 2, min_cell_px: int = 118) -> str:
+    """Split ``items`` across ``rows`` balanced dense KPI rows.
+
+    When a single row would cram too many cells and clip labels, call
+    this helper with ``rows=2`` (or 3 for very long lists). The
+    function divides items into near-equal chunks in order, renders
+    each chunk with ``dense_kpi_row``, and concatenates the HTML. A
+    small vertical gap separates the rows so they read as a 2D grid.
+
+    The split is by COUNT not by content type, so callers ordering
+    matters: put the most important KPIs first so they always land in
+    the first row.
+    """
+    if not items:
+        return ""
+    rows = max(1, int(rows))
+    per_row = (len(items) + rows - 1) // rows
+    html_parts: list[str] = []
+    for r in range(rows):
+        chunk = items[r * per_row:(r + 1) * per_row]
+        if not chunk:
+            continue
+        html_parts.append(dense_kpi_row(chunk, min_cell_px=min_cell_px))
+    return "".join(html_parts)
+
+
 def section_bar(label: str, tape: str = "", source: str = "") -> str:
     """Loud section header. Bright orange uppercase mono on a 2px
     underline. Higher contrast on the new #080808 background.

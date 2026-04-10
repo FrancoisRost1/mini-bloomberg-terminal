@@ -109,7 +109,7 @@ def _render_combined_kpis(combined: dict[str, float], legs: list[dict[str, Any]]
          "value_color": signed_color(combined["vega"])},
         {"label": "LEGS",   "value": str(len(legs))},
     ]
-    st.markdown(dense_kpi_row(items, min_cell_px=110), unsafe_allow_html=True)
+    st.markdown(dense_kpi_row(items, min_cell_px=120), unsafe_allow_html=True)
 
 
 def _render_combined_chart(grid: np.ndarray, pnl: np.ndarray, spot: float, legs: list[dict[str, Any]], preset: str) -> None:

@@ -118,20 +118,27 @@ def sector_treemap(
         [0.5, TOKENS["bg_elevated"]],
         [1.0, TOKENS["accent_success"]],
     ]
+    # Pre-format every string server side. Plotly Treemap's textinfo
+    # can fall back to rendering ``values`` when ``text`` is short on
+    # a small tile, which leaks the raw float (e.g. "0.38712...%") onto
+    # the block. We pin ``texttemplate="%{text}"`` and provide the
+    # already-formatted strings so there is no fallback path.
     if sizes is not None and any(s and s > 0 for s in sizes):
-        # Sanitise: non-positive or missing -> floor so the tile is still visible.
         floor = max(1.0, max(sizes) * 0.01)
         values = [float(s) if (s and s > 0) else floor for s in sizes]
-        text = [f"{lbl}<br><b>{r:+.2f}%</b><br>${int(sz):,}B" for lbl, r, sz in zip(labels, returns_pct, values)]
+        text = [f"{lbl}<br><b>{r:+.2f}%</b><br>${int(sz):,}B"
+                for lbl, r, sz in zip(labels, returns_pct, values)]
     else:
         values = [1] * len(labels)
         text = [f"{lbl}<br><b>{r:+.2f}%</b>" for lbl, r in zip(labels, returns_pct)]
+    hover_text = [f"<b>{lbl}</b><br>1D {r:+.2f}%" for lbl, r in zip(labels, returns_pct)]
     fig = go.Figure(go.Treemap(
         labels=labels,
         values=values,
         parents=[""] * len(labels),
         text=text,
         textinfo="text",
+        texttemplate="%{text}",
         textfont={"family": "JetBrains Mono, monospace", "size": 12},
         marker={
             "colors": returns_pct,
@@ -139,8 +146,8 @@ def sector_treemap(
             "cmid": 0.0,
             "line": {"color": "#080808", "width": 1},
         },
-        hovertemplate="<b>%{label}</b><br>%{customdata:+.2f}%<extra></extra>",
-        customdata=returns_pct,
+        hovertext=hover_text,
+        hoverinfo="text",
     ))
     fig.update_layout(title={"text": title}, height=height,
                       margin={"l": 4, "r": 4, "t": 30, "b": 4})

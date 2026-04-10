@@ -54,11 +54,7 @@ def render() -> None:
     with tab_val:
         if fund_ok:
             render_valuation_card(fundamentals, config)
-            render_ev_growth_scatter(
-                ticker,
-                ratios.get("ev_ebitda"),
-                ratios.get("revenue_growth"),
-            )
+            render_ev_growth_scatter(ticker, data_manager=data_manager, sector=sector)
         else:
             st.markdown(inline_status_line("OFF", source="FMP"), unsafe_allow_html=True)
     with tab_hist:

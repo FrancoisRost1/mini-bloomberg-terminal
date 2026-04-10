@@ -22,7 +22,7 @@ from app.pages._lbo_helpers import render_credit_metrics, render_sources_and_use
 from terminal.adapters.lbo_adapter import run_base_case, sensitivity_grid  # noqa: E402
 from terminal.engines.pnl_engine import compute_lbo_equity_bridge  # noqa: E402
 from terminal.utils.chart_helpers import heatmap, interpretation_callout_html, waterfall  # noqa: E402
-from terminal.utils.density import colored_dataframe, dense_kpi_row, section_bar, signed_color  # noqa: E402
+from terminal.utils.density import colored_dataframe, dense_kpi_row, dense_kpi_rows, section_bar, signed_color  # noqa: E402
 from terminal.utils.formatting import fmt_money, fmt_pct, fmt_ratio  # noqa: E402
 
 
@@ -74,7 +74,10 @@ def _render_summary(result) -> None:
         {"label": "MOIC", "value": fmt_ratio(moic),
          "delta_color": signed_color(moic - 1.0) if moic == moic else None},
     ]
-    st.markdown(dense_kpi_row(items, min_cell_px=110), unsafe_allow_html=True)
+    # 11 KPIs with wide labels ("EQUITY EXIT", "ENTRY EBITDA") do not
+    # fit in a single row without clipping. Split into two rows of six
+    # and five: row 1 = entry side, row 2 = exit side + returns.
+    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=125), unsafe_allow_html=True)
     debt_rate = float(st.session_state["_config"]["lbo_quick_calc"]["defaults"]["debt_rate"])
     render_credit_metrics(result, debt_rate=debt_rate)
     render_sources_and_uses(result)

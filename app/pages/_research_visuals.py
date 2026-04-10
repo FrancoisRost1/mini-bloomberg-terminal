@@ -17,7 +17,7 @@ import streamlit as st
 from style_inject import TOKENS, apply_plotly_theme, styled_card
 
 from terminal.utils.chart_helpers import interpretation_callout_html
-from terminal.utils.density import dense_kpi_row, section_bar, signed_color
+from terminal.utils.density import dense_kpi_row, dense_kpi_rows, section_bar, signed_color
 
 
 # Sub score colors. Order matters: same as the bar segment order.
@@ -47,7 +47,9 @@ def render_phase3_recommendation(packet: dict[str, Any]) -> None:
     for key, val in (rec.get("sub_scores") or {}).items():
         items.append({"label": key.upper(), "value": f"{val:.1f}" if val == val else "n/a",
                       "value_color": signed_color(val - 50) if val == val else None})
-    st.markdown(dense_kpi_row(items, min_cell_px=118), unsafe_allow_html=True)
+    # 7 cells with wide labels ("COMPOSITE", "CONFIDENCE", "VALUATION",
+    # "MOMENTUM") clip on a single row. Split into two balanced rows.
+    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=125), unsafe_allow_html=True)
     render_score_stacked_bar(rec)
     obs = f"Composite score {composite:.1f}." if composite == composite else "Composite unavailable."
     styled_card(

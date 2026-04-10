@@ -2,16 +2,18 @@
 
 - Per metric bar chart for the PE Score tab. Each bar is the current
   value, the band overlay shows the ideal -> penalty range.
-- EV/EBITDA vs revenue growth scatter for the active ticker, with a
-  vertical and horizontal reference line at the sector medians.
-  v1 plots a single point; when peer data lands in v2 the same chart
-  populates with peer dots.
+- EV/EBITDA vs revenue growth scatter. Plots the active ticker plus
+  its four sector peers (via sector_peers.peers_for), highlighting
+  the active ticker in the project accent. Crosshairs show the
+  median of the peers that actually landed on screen, so the "sector
+  median" line updates with the underlying data.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -82,40 +84,82 @@ def render_pe_metric_bars(ratios: dict[str, float], bands: dict[str, dict[str, A
 
 def render_ev_growth_scatter(
     ticker: str,
-    ev_ebitda: float | None,
-    revenue_growth: float | None,
-    sector_median_ev: float = 11.0,
-    sector_median_growth: float = 0.06,
+    data_manager=None,
+    sector: str | None = None,
 ) -> None:
-    """Single ticker scatter with sector median reference lines.
+    """Peer scatter of EV/EBITDA vs Revenue Growth.
 
-    The sector medians are static placeholders (typical large cap
-    sector medians) until peer data lands in v2.
+    Fetches the same five sector peers as the PEER FUNDAMENTALS tab
+    (via ``sector_peers.peers_for``) and plots every peer with real
+    data. The active ticker is drawn in the project accent and in a
+    larger size. Crosshairs are the median of the plotted peers, so
+    the "sector median" is computed from the actual dots on screen.
     """
-    if ev_ebitda is None or ev_ebitda != ev_ebitda or revenue_growth is None or revenue_growth != revenue_growth:
-        st.caption("DATA OFF | EV/EBITDA or revenue growth not available for this ticker")
+    from terminal.utils.error_handling import is_error
+    from terminal.utils.sector_peers import peers_for
+
+    if data_manager is None:
+        st.caption("DATA OFF | data manager not wired into scatter")
         return
+    peers = peers_for(sector, ticker, limit=5)
+    xs: list[float] = []
+    ys: list[float] = []
+    labels: list[str] = []
+    for tkr in peers:
+        f = data_manager.get_fundamentals(tkr)
+        if is_error(f):
+            continue
+        ratios = f.key_ratios or {}
+        ev = ratios.get("ev_ebitda")
+        rg = ratios.get("revenue_growth")
+        if ev is None or rg is None or ev != ev or rg != rg:
+            continue
+        xs.append(float(rg) * 100.0)
+        ys.append(float(ev))
+        labels.append(tkr)
+
+    if not xs:
+        st.caption("DATA OFF | no peer EV/EBITDA or revenue growth available")
+        return
+
+    median_x = float(pd.Series(xs).median())
+    median_y = float(pd.Series(ys).median())
+
     fig = go.Figure()
+    colors: list[str] = []
+    sizes: list[int] = []
+    for lbl in labels:
+        if lbl.upper() == ticker.upper():
+            colors.append(TOKENS["accent_primary"])
+            sizes.append(20)
+        else:
+            colors.append(TOKENS["accent_info"])
+            sizes.append(13)
     fig.add_trace(go.Scatter(
-        x=[float(revenue_growth) * 100], y=[float(ev_ebitda)],
-        mode="markers+text", name=ticker,
-        marker={"color": TOKENS["accent_primary"], "size": 16, "line": {"color": "#080808", "width": 1}},
-        text=[ticker], textposition="top center",
-        textfont={"family": "JetBrains Mono, monospace", "size": 11, "color": TOKENS["text_primary"]},
-        hovertemplate=f"{ticker}<br>Growth %{{x:.1f}}%<br>EV/EBITDA %{{y:.1f}}<extra></extra>",
+        x=xs, y=ys, mode="markers+text",
+        marker={"color": colors, "size": sizes, "line": {"color": "#080808", "width": 1}},
+        text=labels, textposition="top center",
+        textfont={"family": "JetBrains Mono, monospace", "size": 11,
+                  "color": TOKENS["text_primary"]},
+        hovertemplate="<b>%{text}</b><br>Growth %{x:.1f}%<br>EV/EBITDA %{y:.1f}x<extra></extra>",
+        name="peers",
     ))
-    fig.add_vline(x=sector_median_growth * 100,
-                  line={"color": TOKENS["text_muted"], "width": 1, "dash": "dash"},
-                  annotation_text=f"sector median growth {sector_median_growth * 100:.0f}%",
-                  annotation_position="top")
-    fig.add_hline(y=sector_median_ev,
-                  line={"color": TOKENS["text_muted"], "width": 1, "dash": "dash"},
-                  annotation_text=f"sector median EV/EBITDA {sector_median_ev:.0f}x",
-                  annotation_position="right")
+    fig.add_vline(
+        x=median_x,
+        line={"color": TOKENS["text_muted"], "width": 1, "dash": "dash"},
+        annotation_text=f"median growth {median_x:.1f}%",
+        annotation_position="top right",
+    )
+    fig.add_hline(
+        y=median_y,
+        line={"color": TOKENS["text_muted"], "width": 1, "dash": "dash"},
+        annotation_text=f"median EV/EBITDA {median_y:.1f}x",
+        annotation_position="top left",
+    )
     fig.update_xaxes(title_text="Revenue growth (%)", ticksuffix="%")
     fig.update_yaxes(title_text="EV / EBITDA")
     fig.update_layout(
-        title={"text": "Valuation vs Growth. peer dots populate in v2"},
+        title={"text": f"Valuation vs Growth. {len(labels)} sector peers, dashed lines = peer median"},
         height=SECONDARY_HEIGHT, showlegend=False,
     )
     apply_plotly_theme(fig)
