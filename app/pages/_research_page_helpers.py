@@ -28,7 +28,7 @@ from app.pages._research_visuals import (
 from terminal.utils.chart_helpers import line_chart
 from terminal.utils.density import dense_kpi_row, period_returns_tape, section_bar, signed_color
 from terminal.utils.error_handling import inline_status_line, is_error, status_pill
-from terminal.utils.formatting import fmt_money, fmt_pct, fmt_ratio
+from terminal.utils.formatting import fmt_money, fmt_pct, fmt_ratio, fmt_ratio_with_note
 from terminal.utils.skeletons import chart_skeleton
 from terminal.utils.tv_chart import build_tv_chart_html
 
@@ -80,6 +80,7 @@ def render_phase1_stats(packet: dict[str, Any]) -> None:
     st.markdown(section_bar("KEY STATS", source="FMP"), unsafe_allow_html=True)
     fundamentals = packet.get("fundamentals")
     ratios = _ratios(packet)
+    notes = ratios.get("_notes") if isinstance(ratios, dict) else None
     market_cap = getattr(fundamentals, "market_cap", float("nan")) if fundamentals and not is_error(fundamentals) else float("nan")
     rev_growth = ratios.get("revenue_growth")
     items = [
@@ -91,7 +92,8 @@ def render_phase1_stats(packet: dict[str, Any]) -> None:
         {"label": "ROE", "value": fmt_pct(ratios.get("roe"))},
         {"label": "REV GROWTH", "value": fmt_pct(rev_growth), "value_color": signed_color(rev_growth)},
         {"label": "ND/EBITDA", "value": fmt_ratio(ratios.get("net_debt_ebitda"))},
-        {"label": "INT COVERAGE", "value": fmt_ratio(ratios.get("interest_coverage"))},
+        {"label": "INT COVERAGE", "value": fmt_ratio_with_note(
+            ratios.get("interest_coverage"), notes, "interest_coverage")},
         {"label": "BETA", "value": fmt_ratio(ratios.get("beta"), suffix="")},
         {"label": "DIV YIELD", "value": fmt_pct(ratios.get("dividend_yield"))},
     ]

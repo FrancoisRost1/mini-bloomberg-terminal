@@ -21,10 +21,19 @@ DENSITY_CSS = f"""
 [data-testid="stToolbar"] {{ display: none !important; }}
 [data-testid="stDecoration"] {{ display: none !important; }}
 
+/* Defensive: never render a stPageLink (nav link button) in the main
+   content area. Some Streamlit versions auto-emit these for the first
+   page in st.navigation if the user's current page has no title hook;
+   we only want navigation in the sidebar. */
+section[data-testid="stMain"] [data-testid="stPageLink"],
+section[data-testid="stMain"] a[data-testid="stPageLink-NavLink"] {{
+    display: none !important;
+}}
+
 /* Page container: minimum padding, full width */
 .block-container {{
-    padding-top: 0.25rem !important;
-    padding-bottom: 0.3rem !important;
+    padding-top: 0.15rem !important;
+    padding-bottom: 0.15rem !important;
     padding-left: 0.7rem !important;
     padding-right: 0.7rem !important;
     max-width: 1700px !important;
@@ -33,12 +42,12 @@ DENSITY_CSS = f"""
 .stApp {{ background-color: #080808 !important; }}
 
 /* Vertical block stacking: collapse all default gaps */
-[data-testid="stVerticalBlock"] {{ gap: 0.18rem !important; }}
-[data-testid="stHorizontalBlock"] {{ gap: 0.3rem !important; }}
+[data-testid="stVerticalBlock"] {{ gap: 0.12rem !important; }}
+[data-testid="stHorizontalBlock"] {{ gap: 0.25rem !important; }}
 [data-testid="element-container"] {{ margin-bottom: 0 !important; }}
 
 /* Section dividers */
-hr {{ margin: 0.25rem 0 !important; border-color: {TOKENS["border_subtle"]} !important; }}
+hr {{ margin: 0.18rem 0 !important; border-color: {TOKENS["border_subtle"]} !important; }}
 
 /* Compact metric cards */
 div[data-testid="stMetric"] {{ padding: 0.3rem 0.5rem !important; }}
@@ -60,14 +69,14 @@ code, pre, kbd, samp {{ font-family: {TOKENS["font_mono"]} !important; }}
 /* Compact dataframe rows. Bloomberg target: ~10-11px, near zero padding. */
 .stDataFrame [role="cell"], .stDataFrame [role="columnheader"] {{
     font-size: 0.66rem !important;
-    padding: 0.06rem 0.32rem !important;
-    line-height: 1.1 !important;
+    padding: 0.04rem 0.32rem !important;
+    line-height: 1.05 !important;
 }}
-.stDataFrame [role="row"] {{ min-height: 1.3rem !important; }}
-.stDataFrame {{ margin-bottom: 0.25rem !important; }}
+.stDataFrame [role="row"] {{ min-height: 1.2rem !important; }}
+.stDataFrame {{ margin-bottom: 0.1rem !important; }}
 
 /* Plotly chart container: minimal padding, no gap below */
-.stPlotlyChart {{ padding: 0.2rem !important; margin-bottom: 0.15rem !important; }}
+.stPlotlyChart {{ padding: 0.15rem !important; margin-bottom: 0.08rem !important; }}
 
 /* Tabs: dense Bloomberg style. Mono caps, tight padding, orange underline. */
 .stTabs [data-baseweb="tab-list"] {{ gap: 0 !important; padding: 0 !important; }}
@@ -83,7 +92,7 @@ code, pre, kbd, samp {{ font-family: {TOKENS["font_mono"]} !important; }}
 .stTabs [data-baseweb="tab-panel"] {{ padding-top: 0.25rem !important; }}
 
 /* Section labels (h3 from canonical) tighter top margin */
-h3 {{ margin-top: 0.2rem !important; margin-bottom: 0.1rem !important; }}
+h3 {{ margin-top: 0.1rem !important; margin-bottom: 0.05rem !important; }}
 
 /* Form inputs: tighter */
 .stTextInput > div > div input,
@@ -150,9 +159,10 @@ section[data-testid="stSidebarNav"] span[class*="StyledNavSection"] {{
 .stButton > button {{ padding: 0.18rem 0.55rem !important; font-size: 0.66rem !important; }}
 
 /* Page title h1: max 0.5rem from first content. Zero top margin. */
-h1 {{ margin-top: 0 !important; margin-bottom: 0.05rem !important; font-size: 1.1rem !important; line-height: 1.15 !important; }}
+h1 {{ margin-top: 0 !important; margin-bottom: 0.02rem !important; font-size: 1.1rem !important; line-height: 1.15 !important; }}
 /* Custom styled_header wrapper margin (designs use a 1.25rem margin-bottom inline). */
-.stMarkdown div[style*="margin-bottom: 1.25rem"] {{ margin-bottom: 0.4rem !important; }}
+.stMarkdown div[style*="margin-bottom: 1.25rem"] {{ margin-bottom: 0.2rem !important; }}
+.stMarkdown div[style*="margin-bottom: 0.4rem"] {{ margin-bottom: 0.15rem !important; }}
 
 /* Markdown body line height tighter */
 .stMarkdown p {{ margin: 0.08rem 0 !important; line-height: 1.25 !important; }}
@@ -184,8 +194,8 @@ h1 {{ margin-top: 0 !important; margin-bottom: 0.05rem !important; font-size: 1.
    in app/footer.py so the timestamp is always live. */
 .freshness-footer {{
     border-top: 1px solid {TOKENS["border_subtle"]};
-    margin-top: 0.6rem;
-    padding: 0.25rem 0.4rem;
+    margin-top: 0.2rem;
+    padding: 0.15rem 0.4rem;
     font-family: {TOKENS["font_mono"]};
     font-size: 0.6rem;
     color: {TOKENS["text_muted"]};

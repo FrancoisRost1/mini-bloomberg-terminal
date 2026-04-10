@@ -35,6 +35,38 @@ SEED_DEALS: list[dict[str, Any]] = [
 ]
 
 
+def _normalize_real_deals(df: pd.DataFrame) -> pd.DataFrame:
+    """Map the P4 (ma-database) schema onto the terminal's canonical columns.
+
+    The real_deals CSV from Project 4 uses target_name / acquirer_name /
+    sector_name / announcement_date / ev_to_ebitda / enterprise_value /
+    acquirer_type etc. The terminal comps table expects target, acquirer,
+    sector, year, ev_ebitda, ev_usd, deal_type. This function is a pure
+    projection + rename so the adapter stays agnostic of Project 4's
+    storage format.
+    """
+    if "target_name" in df.columns and "target" not in df.columns:
+        df = df.rename(columns={"target_name": "target"})
+    if "acquirer_name" in df.columns and "acquirer" not in df.columns:
+        df = df.rename(columns={"acquirer_name": "acquirer"})
+    if "sector_name" in df.columns and "sector" not in df.columns:
+        df = df.rename(columns={"sector_name": "sector"})
+    if "ev_to_ebitda" in df.columns and "ev_ebitda" not in df.columns:
+        df = df.rename(columns={"ev_to_ebitda": "ev_ebitda"})
+    if "enterprise_value" in df.columns and "ev_usd" not in df.columns:
+        # ma-database stores EV in USD millions; terminal expects USD. Scale up.
+        df = df.rename(columns={"enterprise_value": "ev_usd"})
+        df["ev_usd"] = pd.to_numeric(df["ev_usd"], errors="coerce") * 1e6
+    if "announcement_date" in df.columns and "year" not in df.columns:
+        years = pd.to_datetime(df["announcement_date"], errors="coerce").dt.year
+        df["year"] = years.fillna(0).astype(int)
+    if "deal_type" not in df.columns and "acquirer_type" in df.columns:
+        df["deal_type"] = df["acquirer_type"]
+    if "synthetic" not in df.columns:
+        df["synthetic"] = False
+    return df
+
+
 def load_deals(project_root: Path | None, allow_synthetic: bool) -> tuple[pd.DataFrame, str]:
     """Return ``(deals_df, source)`` where source is ``csv``, ``synthetic``, or ``missing``.
 
@@ -47,8 +79,7 @@ def load_deals(project_root: Path | None, allow_synthetic: bool) -> tuple[pd.Dat
         if csv_path.exists():
             try:
                 df = pd.read_csv(csv_path)
-                if "synthetic" not in df.columns:
-                    df["synthetic"] = False
+                df = _normalize_real_deals(df)
                 return df, "csv"
             except Exception:
                 pass
@@ -57,8 +88,16 @@ def load_deals(project_root: Path | None, allow_synthetic: bool) -> tuple[pd.Dat
     return pd.DataFrame(), "missing"
 
 
+_DISPLAY_COLS = ["year", "target", "acquirer", "sector", "deal_type", "ev_usd", "ev_ebitda"]
+
+
 def query_sector_comps(deals: pd.DataFrame, sector: str, max_rows: int = 10) -> pd.DataFrame:
-    """Return the most recent deals in the given sector, sorted by year."""
+    """Return the most recent deals in the given sector, sorted by year.
+
+    Only the small projection of columns the terminal UI actually
+    renders is returned, so the page stays focused (year, target,
+    acquirer, sector, deal_type, EV $, EV/EBITDA).
+    """
     if deals.empty:
         return deals
     if sector:
@@ -67,7 +106,9 @@ def query_sector_comps(deals: pd.DataFrame, sector: str, max_rows: int = 10) -> 
             filtered = deals
     else:
         filtered = deals
-    return filtered.sort_values("year", ascending=False).head(max_rows).reset_index(drop=True)
+    filtered = filtered.sort_values("year", ascending=False).head(max_rows).reset_index(drop=True)
+    cols = [c for c in _DISPLAY_COLS if c in filtered.columns]
+    return filtered[cols]
 
 
 def sector_summary(deals: pd.DataFrame) -> dict[str, Any]:

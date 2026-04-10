@@ -30,6 +30,7 @@ data/terminal.db-journal
 data/processed/*
 data/raw/*
 !data/raw/.gitkeep
+!data/raw/ma_deals.csv
 !data/processed/.gitkeep
 !data/cache/.gitkeep
 

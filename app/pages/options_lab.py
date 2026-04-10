@@ -96,7 +96,7 @@ def render() -> None:
             label="payoff", source="local",
         )
     with tab_s:
-        safe_render(lambda: render_scenario(greeks, spot), label="scenario", source="local")
+        safe_render(lambda: render_scenario(greeks, spot, price), label="scenario", source="local")
     with tab_iv:
         safe_render(
             lambda: render_iv_smile_moneyness(expiry_chain, spot, tau, rate, config),

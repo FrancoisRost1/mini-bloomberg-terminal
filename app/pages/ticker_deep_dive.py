@@ -37,6 +37,12 @@ def render() -> None:
 
     styled_header(f"Research. {ticker}", "Deterministic pipeline | Sub scores | Memo synthesis")
 
+    # Fetch the raw building blocks BEFORE the pipeline runs so Phase 1
+    # KPIs always have data to render, even when a downstream engine
+    # raises and the pipeline is reduced to a hard_failure packet.
+    raw_prices = data_manager.get_stock_prices(ticker, config["research"]["default_price_period"])
+    raw_fundamentals = data_manager.get_fundamentals(ticker)
+
     chart_slot = chart_skeleton(height=380)
     kpi_slot = kpi_skeleton(rows=2, cells=6)
     with st.spinner(f"Running research pipeline for {ticker}."):
@@ -57,6 +63,12 @@ def render() -> None:
         "sub_scores": {}, "override_reason": None, "rule_trace": [],
     })
     packet.setdefault("scenarios", [])
+    # Inject raw price + fundamentals into the packet if the pipeline
+    # itself did not. On success these are already present (same
+    # objects, since data_manager is cache-backed). On hard_failure the
+    # key is absent and Phase 1 would otherwise show all n/a.
+    packet.setdefault("prices", raw_prices)
+    packet.setdefault("fundamentals", raw_fundamentals)
 
     row1_l, row1_r = st.columns([1, 1])
     with row1_l:

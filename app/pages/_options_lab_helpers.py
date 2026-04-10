@@ -16,7 +16,7 @@ import streamlit as st
 
 from terminal.engines.pnl_engine import compute_option_scenario
 from terminal.utils.chart_helpers import line_chart
-from terminal.utils.density import dense_kpi_row, signed_color
+from terminal.utils.density import colored_dataframe, dense_kpi_row, signed_color
 from terminal.utils.error_handling import is_error
 from terminal.utils.formatting import fmt_ratio
 
@@ -38,7 +38,15 @@ def render_greeks_kpis(price: float, greeks: dict[str, float]) -> None:
     st.markdown(dense_kpi_row(items, min_cell_px=110), unsafe_allow_html=True)
 
 
-def render_scenario(greeks: dict[str, float], spot: float) -> None:
+def render_scenario(greeks: dict[str, float], spot: float, price: float) -> None:
+    """Greeks-based P&L scenario chart + numeric grid.
+
+    Chart shows the full spot range; the table sits next to it and
+    resolves P&L, resulting option value, and percent return at seven
+    fixed spot moves (-20, -10, -5, 0, +5, +10, +20%). Per-contract
+    quantities are unit (1 share); the Options Lab header reminds the
+    reader this is a Taylor expansion approximation.
+    """
     spot_range = np.linspace(spot * 0.8, spot * 1.2, 100)
     df = compute_option_scenario(greeks, spot_range, vol_shift=0.0, time_decay_days=7)
     chart_col, table_col = st.columns([2, 3])
@@ -50,16 +58,27 @@ def render_scenario(greeks: dict[str, float], spot: float) -> None:
         )
         st.plotly_chart(fig, use_container_width=True)
     with table_col:
-        pct_levels = [-0.2, -0.1, -0.05, 0, 0.05, 0.1, 0.2]
-        rows = []
+        pct_levels = [-0.2, -0.1, -0.05, 0.0, 0.05, 0.1, 0.2]
+        rows: list[dict[str, str]] = []
         idx_values = df.index.to_numpy()
+        premium = float(price) if price and price == price else 0.0
         for p in pct_levels:
             target = spot * (1 + p)
             nearest_pos = int(np.abs(idx_values - target).argmin())
             nearest = df.index[nearest_pos]
-            pnl = df.loc[nearest, "pnl"]
-            rows.append((f"{p * 100:+.0f}%", f"${pnl:+,.0f}"))
-        st.dataframe(pd.DataFrame(rows, columns=["Move", "P&L"]), use_container_width=True, hide_index=True)
+            pnl = float(df.loc[nearest, "pnl"])
+            opt_value = max(0.0, premium + pnl)
+            pnl_pct = (pnl / premium) * 100.0 if premium > 0 else float("nan")
+            rows.append({
+                "Spot":         f"${float(nearest):,.2f}",
+                "Move":         f"{p * 100:+.0f}%",
+                "Opt Value":    f"${opt_value:,.2f}",
+                "P&L ($)":      f"${pnl:+,.2f}",
+                "P&L (%)":      f"{pnl_pct:+.1f}%" if pnl_pct == pnl_pct else "n/a",
+            })
+        table = pd.DataFrame(rows)
+        styler = colored_dataframe(table, ["P&L ($)", "P&L (%)"])
+        st.dataframe(styler, use_container_width=True, hide_index=True)
 
 
 def render_strike_selector(expiry_chain: pd.DataFrame, atm_strike: float) -> float:

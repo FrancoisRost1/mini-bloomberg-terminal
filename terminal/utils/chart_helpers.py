@@ -102,22 +102,33 @@ def sector_treemap(
     returns_pct: list[float],
     title: str,
     height: int = MAIN_HEIGHT,
+    sizes: list[float] | None = None,
 ) -> go.Figure:
-    """Equal-weight treemap colored by 1D return.
+    """Treemap colored by 1D return, optionally sized by weight.
 
-    ``returns_pct`` is in percent (e.g. -1.23 for -1.23%). Cells are
-    sized equally so the heatmap reads as pure direction; color comes
-    from the canonical danger / elevated / success ramp.
+    ``returns_pct`` is in percent (e.g. -1.23 for -1.23%). When
+    ``sizes`` is provided (e.g. AUM in USD billions, market cap), cells
+    scale proportionally so the visual weight reflects real importance.
+    When ``sizes`` is None every cell is equal weight and the heatmap
+    reads as pure direction. Color comes from the canonical danger /
+    elevated / success ramp in both cases.
     """
     colorscale = [
         [0.0, TOKENS["accent_danger"]],
         [0.5, TOKENS["bg_elevated"]],
         [1.0, TOKENS["accent_success"]],
     ]
-    text = [f"{lbl}<br><b>{r:+.2f}%</b>" for lbl, r in zip(labels, returns_pct)]
+    if sizes is not None and any(s and s > 0 for s in sizes):
+        # Sanitise: non-positive or missing -> floor so the tile is still visible.
+        floor = max(1.0, max(sizes) * 0.01)
+        values = [float(s) if (s and s > 0) else floor for s in sizes]
+        text = [f"{lbl}<br><b>{r:+.2f}%</b><br>${int(sz):,}B" for lbl, r, sz in zip(labels, returns_pct, values)]
+    else:
+        values = [1] * len(labels)
+        text = [f"{lbl}<br><b>{r:+.2f}%</b>" for lbl, r in zip(labels, returns_pct)]
     fig = go.Figure(go.Treemap(
         labels=labels,
-        values=[1] * len(labels),
+        values=values,
         parents=[""] * len(labels),
         text=text,
         textinfo="text",

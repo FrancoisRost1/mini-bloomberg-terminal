@@ -97,7 +97,12 @@ def compute_ratios(
         "pe_ratio": float("nan"),
         "beta": safe_float(profile.get("beta")),
         "dividend_yield": derive_dividend_yield(profile, quote, cashflow, price),
+        # Always seeded so the KPI strip can distinguish "truly nan" from
+        # "key absent because the compute path bailed early". Populated
+        # below where the data supports it.
+        "interest_coverage": float("nan"),
     }
+    notes: dict[str, str] = {}
     revenue = ebitda = float("nan")
     net_income_latest = float("nan")
     if not income.empty:
@@ -113,9 +118,16 @@ def compute_ratios(
         ebit = income.get("operatingIncome", pd.Series(dtype=float)).dropna()
         if ebit.empty:
             ebit = income.get("ebit", pd.Series(dtype=float)).dropna()
-        interest = income.get("interestExpense", pd.Series(dtype=float)).dropna()
+        interest_col = income.get("interestExpense", pd.Series(dtype=float))
+        interest = interest_col.dropna() if interest_col is not None else pd.Series(dtype=float)
         if not ebit.empty and not interest.empty and abs(interest.iloc[-1]) > 0:
             ratios["interest_coverage"] = float(ebit.iloc[-1] / abs(interest.iloc[-1]))
+        elif not ebit.empty and (interest.empty or abs(interest.iloc[-1]) == 0):
+            # EBIT is fine but there is no interest expense to divide by.
+            # Either FMP did not return the field for this filer, or the
+            # company is debt free. Either way, show "not reported" rather
+            # than a generic "n/a" in the KPI strip.
+            notes["interest_coverage"] = "not reported"
     ratios["pe_ratio"] = _resolve_pe(price, profile, quote, net_income_latest)
     if revenue == revenue and revenue > 0 and ebitda == ebitda:
         ratios["ebitda_margin"] = float(ebitda / revenue)
@@ -139,4 +151,6 @@ def compute_ratios(
         if not ocf.empty and not capex.empty:
             fcf = float(ocf.iloc[-1]) - abs(float(capex.iloc[-1]))
             ratios["fcf_conversion"] = float(fcf / ebitda)
+    if notes:
+        ratios["_notes"] = notes  # type: ignore[assignment]
     return ratios

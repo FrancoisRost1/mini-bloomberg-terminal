@@ -15,9 +15,13 @@ import streamlit as st  # noqa: E402
 from style_inject import styled_header  # noqa: E402
 
 from app.pages._portfolio_alloc import render_allocation_donuts, render_efficient_frontier  # noqa: E402
-from app.pages._portfolio_helpers import render_backtest_chart, render_correlation_heatmap  # noqa: E402
+from app.pages._portfolio_helpers import (  # noqa: E402
+    render_backtest_chart,
+    render_correlation_heatmap,
+    render_drawdown_chart,
+    render_risk_contributions,
+)
 from terminal.adapters.optimizer_adapter import run_optimizer  # noqa: E402
-from terminal.utils.chart_helpers import bar_chart  # noqa: E402
 from terminal.utils.density import dense_kpi_row, section_bar, signed_color  # noqa: E402
 from terminal.utils.error_handling import degraded_card, is_error, status_pill  # noqa: E402
 from terminal.utils.formatting import fmt_pct, fmt_ratio  # noqa: E402
@@ -49,7 +53,9 @@ def render() -> None:
     else:
         st.caption(f"DATA LIVE | TIER {tier} | {returns.shape[1]} assets / {len(returns)} obs")
 
-    weights = run_optimizer(returns, config["portfolio"])["weights"]
+    optimizer_out = run_optimizer(returns, config["portfolio"])
+    weights = optimizer_out["weights"]
+    cov = optimizer_out.get("cov")
     methods = list(weights.keys())
 
     row1_l, row1_r = st.columns([1, 1])
@@ -68,6 +74,12 @@ def render() -> None:
         render_efficient_frontier(returns, weights)
     with row2_r:
         render_backtest_chart(returns, weights)
+        render_drawdown_chart(returns, weights)
+
+    row3_l, row3_r = st.columns([1, 1])
+    with row3_l:
+        render_risk_contributions(returns, weights, cov)
+    with row3_r:
         render_correlation_heatmap(returns)
     _render_validate_pane()
 
@@ -121,10 +133,6 @@ def _render_method_pane(method: str, w: dict[str, float], returns: pd.DataFrame)
             for a, wt in sorted(w.items(), key=lambda kv: -kv[1])]
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True,
                  column_config={"60D Trend": st.column_config.LineChartColumn("60D", width="small")})
-    st.plotly_chart(
-        bar_chart({k: float(v) for k, v in w.items()}, title=f"{method} weights", y_unit="weight"),
-        use_container_width=True,
-    )
 
 
 def _render_concentration(weights: dict[str, dict[str, float]]) -> None:

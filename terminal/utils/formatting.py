@@ -66,3 +66,18 @@ def format_metric(value: Any, fmt: str) -> str:
     if fmt == "bps":
         return fmt_bps(value)
     return fmt_ratio(value)
+
+
+def fmt_ratio_with_note(value: Any, notes: dict[str, str] | None, key: str,
+                        decimals: int = 2, suffix: str = "x") -> str:
+    """Ratio formatter that honors a companion ``_notes`` dict.
+
+    If the value is nan AND the notes dict has an explanatory entry for
+    ``key`` (e.g. ``"not reported"``), render that phrase uppercased in
+    monospace space instead of the generic ``n/a`` placeholder.
+    """
+    if value is None or (isinstance(value, float) and math.isnan(value)):
+        if notes and key in notes:
+            return notes[key].upper()
+        return "n/a"
+    return f"{value:.{decimals}f}{suffix}"

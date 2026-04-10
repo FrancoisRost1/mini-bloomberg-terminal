@@ -75,21 +75,23 @@ def main() -> None:
     ticker_state = render_sidebar_ticker(data_manager)
     render_header(data_manager, watchlist, config, ticker_state)
 
+    # Short nav titles fit the 180px sidebar without truncation.
+    # url_path stays stable so bookmarks keep working.
     analytics: list = [
-        st.Page("pages/lbo_quick_calc.py", title="LBO Quick Calc", url_path="lbo-quick-calc"),
-        st.Page("pages/comps_relative_value.py", title="Comps Relative Value", url_path="comps-relative-value"),
+        st.Page("pages/lbo_quick_calc.py", title="LBO", url_path="lbo-quick-calc"),
+        st.Page("pages/comps_relative_value.py", title="Comps", url_path="comps-relative-value"),
     ]
     # Options chain comes from yfinance regardless of which equity provider
     # is wired (FMP Starter does not include options). The page renders if
     # the options provider reports it can serve the endpoint.
     if data_manager.registry.options_provider().supports_options_chain():
-        analytics.insert(0, st.Page("pages/options_lab.py", title="Options Lab", url_path="options-lab"))
+        analytics.insert(0, st.Page("pages/options_lab.py", title="Options", url_path="options-lab"))
 
     pages = {
-        "MARKET": [st.Page("pages/market_overview.py", title="Market Overview", url_path="market-overview")],
-        "RESEARCH": [st.Page("pages/ticker_deep_dive.py", title="Ticker Deep Dive", url_path="ticker-deep-dive")],
+        "MARKET": [st.Page("pages/market_overview.py", title="Market", url_path="market-overview")],
+        "RESEARCH": [st.Page("pages/ticker_deep_dive.py", title="Research", url_path="ticker-deep-dive")],
         "ANALYTICS": analytics,
-        "PORTFOLIO": [st.Page("pages/portfolio_builder.py", title="Portfolio Builder", url_path="portfolio-builder")],
+        "PORTFOLIO": [st.Page("pages/portfolio_builder.py", title="Portfolio", url_path="portfolio-builder")],
     }
     navigation = st.navigation(pages)
     navigation.run()

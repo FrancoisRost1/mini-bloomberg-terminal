@@ -5,12 +5,11 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from style_inject import TOKENS, styled_card
+from style_inject import TOKENS
 
 from app.pages._market_heatmap import render_sector_heatmap as render_sector_heatmap  # noqa: F401  re export
-from terminal.adapters.regime_adapter import run_regime
+from app.pages._market_regime import render_regime as render_regime  # noqa: F401  re export
 from terminal.engines.breadth_engine import compute_breadth
-from terminal.utils.chart_helpers import bar_chart, interpretation_callout_html
 from terminal.utils.density import (
     colored_dataframe,
     dense_kpi_row,
@@ -76,45 +75,41 @@ def render_rates_and_vol(data_manager, config) -> None:
                  column_config={"60D Trend": st.column_config.LineChartColumn("60D", width="medium")})
 
 
-def render_regime(data_manager, config) -> None:
-    spy = data_manager.get_index_prices("SPY", period="2y")
-    hy_id = config["market"]["macro_series"]["volatility"]["hy_spread_series"]
-    hy = data_manager.get_macro([hy_id])
-    if is_error(spy):
-        st.markdown(section_bar("REGIME CLASSIFIER", source="yfinance + FRED"), unsafe_allow_html=True)
-        st.markdown(degraded_card(spy.reason, spy.provider), unsafe_allow_html=True)
-        return
-    spy_close = spy.prices["close"] if not spy.is_empty() else pd.Series(dtype=float)
-    hy_series = hy.series.get(hy_id) if not is_error(hy) else None
-    regime = run_regime(spy_close, hy_series, config["market"]["regime"])
-    label = regime["regime"]
-    color_map = {"RISK_ON": TOKENS["accent_success"], "NEUTRAL": TOKENS["accent_warning"], "RISK_OFF": TOKENS["accent_danger"]}
-    accent = color_map.get(label, TOKENS["accent_primary"])
-    st.markdown(section_bar("REGIME CLASSIFIER", tape=period_returns_tape(spy_close), source="yfinance + FRED"), unsafe_allow_html=True)
-    sigs = regime["signals"]
-    nan_check = lambda v: v == v
-    items = [
-        {"label": "REGIME", "value": label, "delta": f"conf {regime['confidence']:.2f}", "delta_color": accent, "value_color": accent},
-        {"label": "TREND", "value": f"{sigs['trend_return_pct'] * 100:+.1f}%", "value_color": signed_color(sigs["trend_return_pct"])},
-        {"label": "VOL ANN", "value": f"{sigs['annualized_vol'] * 100:.1f}%" if nan_check(sigs["annualized_vol"]) else "n/a"},
-        {"label": "DRAWDOWN", "value": f"{sigs['drawdown_pct'] * 100:+.1f}%", "value_color": signed_color(sigs["drawdown_pct"])},
-        {"label": "HY SPREAD", "value": f"{sigs['hy_spread']:.2f}%" if nan_check(sigs["hy_spread"]) else "n/a"},
-    ]
-    st.markdown(dense_kpi_row(items, min_cell_px=110), unsafe_allow_html=True)
-    chart_col, table_col = st.columns([2, 3])
-    with chart_col:
-        st.plotly_chart(bar_chart(regime["scores"], title="Regime Signal Decomposition", y_unit="score", color_by_sign=True), use_container_width=True)
-    with table_col:
-        scores_df = pd.DataFrame([(k.upper(), v) for k, v in regime["scores"].items()], columns=["Signal", "Score"])
-        st.dataframe(colored_dataframe(scores_df, ["Score"]), use_container_width=True, hide_index=True)
-    styled_card(
-        interpretation_callout_html(
-            observation=f"Composite score {regime['scores']['composite']:+d}.",
-            interpretation="Each signal scored in {-1, 0, +1}; sum maps to the regime label.",
-            implication="Regime transitions are slower than headlines. Treat as a filter, not a timing signal.",
-        ),
-        accent_color=accent,
-    )
+def _pct_change_bars(series: pd.Series, bars: int) -> float:
+    """Percent change over the last ``bars`` trading days, nan if too short."""
+    if series is None or len(series) <= bars:
+        return float("nan")
+    last = float(series.iloc[-1])
+    prior = float(series.iloc[-1 - bars])
+    if prior == 0:
+        return float("nan")
+    return (last / prior - 1.0) * 100.0
+
+
+def _ytd_pct(series: pd.Series) -> float:
+    """Year-to-date percent return from the last observation before Jan 1."""
+    if series is None or series.empty:
+        return float("nan")
+    idx = series.index
+    try:
+        year = idx[-1].year
+    except AttributeError:
+        return float("nan")
+    jan1 = pd.Timestamp(f"{year}-01-01")
+    prior_segment = series[series.index < jan1]
+    if prior_segment.empty:
+        start = float(series.iloc[0])
+    else:
+        start = float(prior_segment.iloc[-1])
+    if start == 0:
+        return float("nan")
+    return (float(series.iloc[-1]) / start - 1.0) * 100.0
+
+
+def _fmt_signed_pct(value: float) -> str:
+    if value != value:  # nan
+        return "n/a"
+    return f"{value:+.2f}%"
 
 
 def render_breadth(data_manager, config) -> None:
@@ -142,9 +137,23 @@ def render_breadth(data_manager, config) -> None:
         {"label": "NET HL", "value": f"{nhl['net']:+d}", "value_color": signed_color(nhl["net"])},
     ]
     st.markdown(dense_kpi_row(items, min_cell_px=110), unsafe_allow_html=True)
-    rows = [{"Sector": t, "Last": f"{float(s.iloc[-1]):,.2f}",
-             "1Y %": f"{(float(s.iloc[-1]) / float(s.iloc[0]) - 1) * 100:+.1f}%" if float(s.iloc[0]) else "0.0%",
-             "60D Trend": s.tail(60).tolist()} for t, s in closes.items()]
-    st.dataframe(colored_dataframe(pd.DataFrame(rows), ["1Y %"]),
-                 use_container_width=True, hide_index=True,
-                 column_config={"60D Trend": st.column_config.LineChartColumn("60D", width="small")})
+    rows = [
+        {
+            "Sector":   t,
+            "Last":     f"{float(s.iloc[-1]):,.2f}",
+            "1D %":     _fmt_signed_pct(_pct_change_bars(s, 1)),
+            "1W %":     _fmt_signed_pct(_pct_change_bars(s, 5)),
+            "1M %":     _fmt_signed_pct(_pct_change_bars(s, 21)),
+            "YTD %":    _fmt_signed_pct(_ytd_pct(s)),
+            "1Y %":     _fmt_signed_pct(_pct_change_bars(s, min(252, len(s) - 1))),
+            "60D Trend": s.tail(60).tolist(),
+        }
+        for t, s in closes.items()
+    ]
+    color_cols = ["1D %", "1W %", "1M %", "YTD %", "1Y %"]
+    st.dataframe(
+        colored_dataframe(pd.DataFrame(rows), color_cols),
+        use_container_width=True,
+        hide_index=True,
+        column_config={"60D Trend": st.column_config.LineChartColumn("60D", width="small")},
+    )
