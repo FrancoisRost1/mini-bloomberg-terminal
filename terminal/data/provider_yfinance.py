@@ -77,7 +77,7 @@ class YFinanceProvider(MarketDataProvider):
             "pe_ratio": float(info.get("trailingPE") or float("nan")),
             "ev_ebitda": float(info.get("enterpriseToEbitda") or float("nan")),
             "ebitda_margin": float(info.get("ebitdaMargins") or float("nan")),
-            "roic": float(info.get("returnOnEquity") or float("nan")),
+            "roe": float(info.get("returnOnEquity") or float("nan")),
             "dividend_yield": div_yield,
             "beta": float(info.get("beta") or float("nan")),
             "revenue_growth": float(info.get("revenueGrowth") or float("nan")),

@@ -3,35 +3,31 @@
 Single-ticker scoring: converts the key ratios from a Fundamentals object
 into a 0..100 percentile-style score with red flag detection. Used by
 the Research pipeline and the Comps workspace.
+
+The scoring bands live in ``config.yaml`` under ``comps.pe_scoring_bands``.
+Each entry has ``ideal``, ``penalty``, and ``higher_better``. Bands are
+NOT hardcoded -- mutating config.yaml changes the scores, and a config
+truthfulness test (``test_pe_scoring_adapter.test_bands_driven_by_config``)
+guarantees that.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+
 SOURCE_PROJECT = "P2: PE Target Screener"
 SIMPLIFICATIONS = ["Single-ticker scoring", "No universe screen", "No Monte Carlo"]
 
 
-# Per-metric ideal bands. Values inside the ideal range score 100, values
-# at the penalty edge score 0. Bands mirror the P2 scoring bible.
-BANDS: dict[str, dict[str, float]] = {
-    "ebitda_margin":   {"ideal": 0.30, "penalty": 0.05, "higher_better": True},
-    "fcf_conversion":  {"ideal": 0.90, "penalty": 0.30, "higher_better": True},
-    "roic":            {"ideal": 0.25, "penalty": 0.05, "higher_better": True},
-    "revenue_growth":  {"ideal": 0.15, "penalty": -0.05, "higher_better": True},
-    "ev_ebitda":       {"ideal": 8.0,  "penalty": 18.0,  "higher_better": False},
-    "pe_ratio":        {"ideal": 15.0, "penalty": 35.0,  "higher_better": False},
-    "net_debt_ebitda": {"ideal": 1.5,  "penalty": 5.0,   "higher_better": False},
-}
-
-
-def _band_score(value: float, band: dict[str, float]) -> float:
-    if value is None or value != value:  # NaN
+def score_band(value: float, band: dict[str, float]) -> float:
+    """Linear-interpolate ``value`` between ``ideal`` (100) and ``penalty`` (0)."""
+    if value is None or value != value:
         return float("nan")
-    ideal = band["ideal"]
-    penalty = band["penalty"]
-    if band["higher_better"]:
+    ideal = float(band["ideal"])
+    penalty = float(band["penalty"])
+    higher_better = bool(band["higher_better"])
+    if higher_better:
         if value >= ideal:
             return 100.0
         if value <= penalty:
@@ -44,16 +40,16 @@ def _band_score(value: float, band: dict[str, float]) -> float:
     return float(100.0 * (penalty - value) / (penalty - ideal))
 
 
-def score_single_ticker(ratios: dict[str, float]) -> dict[str, Any]:
-    """Score a single ticker's ratios and return a summary dict.
+def score_single_ticker(ratios: dict[str, float], bands: dict[str, dict[str, float]]) -> dict[str, Any]:
+    """Score a single ticker against the configured bands.
 
-    Returns both per-metric scores and a simple average aggregate. Red
-    flags are triggered by individual metric failures and surfaced so
-    the recommendation engine's override rules can consume them.
+    ``bands`` MUST come from config (``cfg["comps"]["pe_scoring_bands"]``);
+    this function takes them as a parameter so the config flows in
+    explicitly and config truthfulness tests stay meaningful.
     """
     per_metric: dict[str, float] = {}
-    for metric, band in BANDS.items():
-        per_metric[metric] = _band_score(ratios.get(metric, float("nan")), band)
+    for metric, band in bands.items():
+        per_metric[metric] = score_band(ratios.get(metric, float("nan")), band)
     valid = [v for v in per_metric.values() if v == v]
     pe_score = float(sum(valid) / len(valid)) if valid else float("nan")
     red_flags = _detect_red_flags(ratios)
@@ -68,6 +64,9 @@ def score_single_ticker(ratios: dict[str, float]) -> dict[str, Any]:
 
 
 def _detect_red_flags(ratios: dict[str, float]) -> list[str]:
+    """Hard sanity checks. These are independent of band scoring -- they
+    fire on values that signal financial distress regardless of percentile.
+    """
     flags: list[str] = []
     ebitda_margin = ratios.get("ebitda_margin")
     if ebitda_margin is not None and ebitda_margin == ebitda_margin and ebitda_margin < 0:

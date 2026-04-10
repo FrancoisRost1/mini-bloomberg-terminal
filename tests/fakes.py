@@ -75,7 +75,7 @@ class FakeProvider(MarketDataProvider):
         )
         ratios = {
             "pe_ratio": 18.0, "ev_ebitda": 11.0, "ebitda_margin": 0.22,
-            "fcf_conversion": 0.76, "roic": 0.18, "revenue_growth": 0.10,
+            "fcf_conversion": 0.76, "roe": 0.18, "revenue_growth": 0.10,
             "net_debt_ebitda": 1.8, "interest_coverage": 7.5, "dividend_yield": 0.015, "beta": 1.1,
         }
         return Fundamentals(

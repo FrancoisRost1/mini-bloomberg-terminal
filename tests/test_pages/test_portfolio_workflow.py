@@ -1,7 +1,10 @@
-"""Integration test: Portfolio BUILD / DECOMPOSE / VALIDATE workflow.
+"""Integration test: Portfolio BUILD / DECOMPOSE workflow.
 
-Covered by the spec (Section 12). Runs the three-phase workflow on
-synthetic returns and asserts that each phase produces its contract.
+Phase 3 VALIDATE was removed from v1 because the original page-level
+implementation generated a fake trial matrix by perturbing weights with
+Gaussian noise, which produced theatrical PBO verdicts. The robustness
+adapter is still tested standalone in test_robustness_adapter.py and
+will be re-integrated into Phase 3 in v2 with a real parameter sweep.
 """
 
 from __future__ import annotations
@@ -13,7 +16,6 @@ import pandas as pd
 import pytest
 
 from terminal.adapters.optimizer_adapter import run_optimizer
-from terminal.adapters.robustness_adapter import run_robustness
 from terminal.engines.pnl_engine import compute_portfolio_attribution
 
 
@@ -45,22 +47,9 @@ def test_phase2_decompose_attribution(config, synthetic_portfolio_returns):
     assert set(attribution["asset_contribution"].keys()) == set(synthetic_portfolio_returns.columns)
 
 
-def test_phase3_validate_returns_verdict(config, synthetic_portfolio_returns):
-    weights = run_optimizer(synthetic_portfolio_returns, config["portfolio"])["weights"]["hrp"]
-    w = pd.Series(weights).reindex(synthetic_portfolio_returns.columns).fillna(0.0)
-    portfolio_returns = synthetic_portfolio_returns.dot(w)
-    rng = np.random.default_rng(7)
-    n_trials = 15
-    trials = pd.DataFrame(
-        rng.normal(0.0004, 0.011, (len(synthetic_portfolio_returns), n_trials)),
-        index=synthetic_portfolio_returns.index,
-        columns=[f"t{i}" for i in range(n_trials)],
-    )
-    metrics = pd.Series(rng.normal(1.0, 0.1, n_trials), index=trials.columns)
-    report = run_robustness(trials, metrics, portfolio_returns, config["portfolio"]["robustness"])
-    assert report["status"] == "success"
-    verdicts = set(config["portfolio"]["robustness"]["verdicts"].values())
-    assert report["verdict"] in verdicts
+# Phase 3 page integration test removed; the page itself no longer
+# renders Phase 3. The robustness adapter is still covered by
+# tests/test_adapters/test_robustness_adapter.py.
 
 
 def test_full_workflow_is_reproducible(config, synthetic_portfolio_returns):

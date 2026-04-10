@@ -34,11 +34,30 @@ Python: `python3` (not `python`). Package manager: `pip3`.
 
 ## Current state
 
-- Project scaffolded in Phase 2 (data layer, managers, adapters, engines, utils, pages, tests).
+- Project scaffolded in Phase 2 with two correctness/audit passes applied.
 - Parent `~/Documents/CODE/CLAUDE.md` carries cross-project universal rules and formulas. Read it before deviating from patterns.
-- Production provider is Alpha Vantage (`terminal/data/provider_alphavantage.py`). yfinance is dev-only. Mode enforcement lives in `terminal/data/provider_registry.py`.
-- All config flows through `terminal/config_loader.py`; no hardcoded numbers anywhere. Every key in `config.yaml` must be consumed.
+- Production provider is Alpha Vantage (`terminal/data/provider_alphavantage.py`) with auto-fallback from `TIME_SERIES_DAILY_ADJUSTED` (paid) to `TIME_SERIES_DAILY` (free) via `PremiumEndpointError`. yfinance is dev-only. Mode enforcement lives in `terminal/data/provider_registry.py`.
+- All config flows through `terminal/config_loader.py`; PE scoring bands and regime thresholds live in `config.yaml`. Every consumed key has a config-truthfulness test.
 - File size limit: ~150 lines per Python module. Split proactively.
+- Production stack: Railway (hosting) + Cloudflare (DNS) + Alpha Vantage (market data) + FRED (macro) + Anthropic (LLM) + SQLite (persistence). Streamlit Community Cloud is irrelevant.
+
+### Phase 2 audit fixes applied (reference)
+
+- VIX is fetched from FRED `VIXCLS`, not from the equity provider.
+- Options Lab uses naive `datetime.utcnow()` to avoid pandas 2.x tz-mismatch on expiry math.
+- Options Lab spot price comes from `get_prices` (AV `HISTORICAL_OPTIONS` does not return `underlying_price`).
+- LBO entry EBITDA in the Research pipeline is `revenue * margin` (not the previous `market_cap * margin`).
+- `roe` replaces the mislabelled `roic` field across config, parsers, factor adapter, and the recommendation pipeline.
+- PE scoring bands and regime thresholds moved from code into `config.yaml`.
+- Interest coverage is computed in `_alphavantage_parsers.compute_ratios` and the PE red flag now fires.
+- Options Lab risk-free rate is fetched from FRED via `risk_free_rate_series`.
+- Phase 4 LLM is wired into the Anthropic SDK via `terminal/synthesis/llm_client.py`. The deterministic rating is locked in the prompt and any contradictory output is flagged.
+
+### Deferred to v2
+
+- **Portfolio Phase 3 (robustness validation)**: removed from the page. The previous implementation generated a fake trial matrix by perturbing the fitted weights with Gaussian noise, producing theatrical PBO verdicts. The robustness adapter remains available standalone for v2 to wire into a real CSCV parameter sweep.
+- **Risk Parity and Black-Litterman optimizers** (already deferred in v1).
+- **Cold-render Alpha Vantage budget optimization**: Market Overview can exceed the free-tier rate limit on a single render. Mitigation requires either pre-warming on boot or accepting a paid-tier requirement.
 
 ---
 

@@ -52,7 +52,7 @@ def run_pipeline(
     ratios = dict(fundamentals.key_ratios)
     ratios["market_cap"] = fundamentals.market_cap
 
-    pe_result = score_single_ticker(ratios)
+    pe_result = score_single_ticker(ratios, config["comps"]["pe_scoring_bands"])
     factor_result = compute_factor_snapshot(ratios, price_series)
     tsmom_result = compute_signal(price_series)
     lbo_assumptions = subs.lbo_assumptions_from_fundamentals(fundamentals, config)

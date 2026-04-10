@@ -1,14 +1,16 @@
 """Alpha Vantage production provider.
 
-Full REST integration, not a stub. Covers: daily prices, company overview,
-annual income statement / balance sheet / cash flow, and options chain.
+Covers daily prices, company overview, annual statements, and options.
 
-Rate limit: 25 req/min free tier, 75 req/min paid. The configured value
-is respected here and exponential backoff is applied on 429 and on
-``Note``/``Information`` rate-limit responses.
+- Rate limit: 25/min free, 75/min paid. Respected via sliding-window
+  throttle and exponential backoff on Note responses.
+- Premium endpoint detection: AV returns ``Information`` keys for paid
+  endpoints. Surfaced as ``PremiumEndpointError`` so callers can fall
+  back rather than mistaking it for rate limiting.
+- Free-tier fallback: ``TIME_SERIES_DAILY_ADJUSTED`` is paid-only.
+  ``get_prices`` falls back to ``TIME_SERIES_DAILY`` automatically.
 
-Parsing logic lives in ``_alphavantage_parsers.py`` so this file stays
-within the per-module line budget.
+Parsing logic lives in ``_alphavantage_parsers.py``.
 """
 
 from __future__ import annotations
@@ -23,6 +25,10 @@ import requests
 from . import _alphavantage_parsers as parsers
 from .provider_interface import MarketDataProvider
 from .schemas import Fundamentals, MacroData, OptionsChain, PriceData
+
+
+class PremiumEndpointError(RuntimeError):
+    """Raised when AV returns an ``Information`` payload indicating a paid-only endpoint."""
 
 
 class AlphaVantageProvider(MarketDataProvider):
@@ -54,7 +60,7 @@ class AlphaVantageProvider(MarketDataProvider):
         self._last_calls.append(time.time())
 
     def _request(self, params: dict[str, str]) -> dict[str, Any]:
-        """Execute a GET with throttle, retry, and explicit rate-limit handling."""
+        """Execute a GET with throttle, retry, premium-endpoint detection, and rate-limit handling."""
         if not self.api_key:
             raise RuntimeError("ALPHA_VANTAGE_API_KEY environment variable not set")
         params = dict(params)
@@ -65,10 +71,17 @@ class AlphaVantageProvider(MarketDataProvider):
             resp = requests.get(self.base_url, params=params, timeout=20)
             resp.raise_for_status()
             data = resp.json()
-            if "Note" in data or "Information" in data:
+            # Premium-only endpoint: AV returns {"Information": "...premium endpoint..."}.
+            # This is distinct from rate limiting; do NOT retry, raise so the caller
+            # can fall back to a free-tier endpoint instead.
+            info = data.get("Information")
+            if isinstance(info, str) and ("premium" in info.lower() or "subscribe" in info.lower()):
+                raise PremiumEndpointError(info)
+            # Genuine rate limit (Note key, or non-premium Information)
+            if "Note" in data or info is not None:
                 if attempt >= self.max_retries:
                     raise RuntimeError(
-                        f"Alpha Vantage rate limit: {data.get('Note') or data.get('Information')}"
+                        f"Alpha Vantage rate limit: {data.get('Note') or info}"
                     )
                 time.sleep(self.backoff_base * (self.backoff_mult ** attempt))
                 attempt += 1
@@ -78,11 +91,25 @@ class AlphaVantageProvider(MarketDataProvider):
             return data
 
     def get_prices(self, ticker: str, period: str = "1y") -> PriceData:
-        payload = self._request({
-            "function": "TIME_SERIES_DAILY_ADJUSTED",
-            "symbol": ticker,
-            "outputsize": "full",
-        })
+        """Fetch daily prices.
+
+        Tries the adjusted endpoint (paid tier) first, falls back to the
+        free ``TIME_SERIES_DAILY`` endpoint on PremiumEndpointError. The
+        non-adjusted endpoint omits the ``adj_close`` column; the parser
+        falls back to ``close`` for adj_close in that case.
+        """
+        try:
+            payload = self._request({
+                "function": "TIME_SERIES_DAILY_ADJUSTED",
+                "symbol": ticker,
+                "outputsize": "full",
+            })
+        except PremiumEndpointError:
+            payload = self._request({
+                "function": "TIME_SERIES_DAILY",
+                "symbol": ticker,
+                "outputsize": "full",
+            })
         prices = parsers.parse_daily_series(payload, period)
         return PriceData(ticker, prices, "USD", self.name, datetime.utcnow(), period)
 

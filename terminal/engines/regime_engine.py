@@ -23,7 +23,7 @@ def _annualized_vol(returns: pd.Series, window: int = 21) -> float:
 
 
 def _drawdown(prices: pd.Series, lookback: int) -> float:
-    if prices is None or prices.empty:
+    if prices is None or prices.empty or lookback <= 0:
         return float("nan")
     window = prices.tail(lookback)
     peak = window.cummax()
@@ -53,12 +53,15 @@ def classify_regime(
     dict, and a simple confidence proxy based on agreement strength.
     """
     returns = spy_prices.pct_change().dropna() if spy_prices is not None else pd.Series(dtype=float)
-    trend = _trend_signal(spy_prices, int(regime_cfg["trend_lookback"]))
+    trend_lookback = int(regime_cfg["trend_lookback"])
+    trend_threshold = float(regime_cfg["trend_score_threshold"])
+    dd_lookback = trend_lookback * int(regime_cfg["drawdown_lookback_multiplier"])
+    trend = _trend_signal(spy_prices, trend_lookback)
     vol = _annualized_vol(returns, 21)
-    dd = _drawdown(spy_prices, int(regime_cfg["trend_lookback"]) * 2)
+    dd = _drawdown(spy_prices, dd_lookback)
     credit = float(hy_spread.dropna().iloc[-1]) if hy_spread is not None and not hy_spread.dropna().empty else float("nan")
 
-    trend_score = 1 if trend > 0.02 else (-1 if trend < -0.02 else 0)
+    trend_score = 1 if trend > trend_threshold else (-1 if trend < -trend_threshold else 0)
     vol_score = -1 if (vol == vol and vol > regime_cfg["vol_stress_threshold"]) else 0
     dd_score = -1 if (dd == dd and dd < regime_cfg["drawdown_threshold"]) else 0
     credit_score = -1 if (credit == credit and credit > regime_cfg["credit_spread_threshold"]) else 0

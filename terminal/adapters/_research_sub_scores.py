@@ -1,8 +1,7 @@
 """Sub-score blending helpers for the research adapter.
 
-Split out of ``research_adapter.py`` so the orchestration flow stays
-under the per-module line budget. Pure functions only -- no adapter
-calls, no data manager access.
+Pure functions only -- no adapter calls, no data manager access. Split
+out of ``research_adapter.py`` for the line-budget rule.
 """
 
 from __future__ import annotations
@@ -39,7 +38,7 @@ def build_sub_scores(
         "factor_q": (_factor_to_100(factor_scores.get("quality")), 0.4),
         "margin": (_scale_margin(ratios.get("ebitda_margin")), 0.2),
         "fcf": (_scale_margin(ratios.get("fcf_conversion")), 0.2),
-        "roic": (_scale_margin(ratios.get("roic")), 0.2),
+        "roe": (_scale_margin(ratios.get("roe")), 0.2),
     })
     tsmom_val = (50 + 50 * tsmom.get("signal", 0)) if tsmom.get("status") == "success" else float("nan")
     momentum = _blend({
@@ -73,15 +72,26 @@ def engine_confidences(
 def lbo_assumptions_from_fundamentals(fundamentals, config: dict[str, Any]) -> dict[str, Any] | None:
     """Map a live Fundamentals object onto the LBO quick-calc defaults.
 
-    Returns ``None`` if EBITDA cannot be estimated -- the research
-    adapter then marks the LBO engine as skipped rather than feeding it
-    junk inputs.
+    EBITDA is computed as ``revenue * margin`` where revenue comes from
+    the most recent annual income statement. Earlier versions of this
+    function multiplied margin by market cap, which is dimensionally
+    meaningless (market cap is equity value, not revenue). Returns
+    ``None`` when revenue cannot be read; the research adapter then
+    marks the LBO engine as skipped rather than feeding it junk inputs.
     """
     defaults = dict(config["lbo_quick_calc"]["defaults"])
     margin = float(fundamentals.key_ratios.get("ebitda_margin", float("nan")))
-    if margin != margin:
+    if margin != margin or margin <= 0:
         return None
-    ebitda = margin * max(fundamentals.market_cap, 1.0)
+    income = getattr(fundamentals, "income_statement", None)
+    revenue: float = float("nan")
+    if income is not None and not income.empty and "totalRevenue" in income.columns:
+        rev_series = income["totalRevenue"].dropna()
+        if not rev_series.empty:
+            revenue = float(rev_series.iloc[-1])
+    if revenue != revenue or revenue <= 0:
+        return None
+    ebitda = revenue * margin
     if ebitda != ebitda or ebitda <= 0:
         return None
     defaults["entry_ebitda"] = ebitda

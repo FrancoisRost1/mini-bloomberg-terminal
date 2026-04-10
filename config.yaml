@@ -91,7 +91,7 @@ market:
       - series_id: "T10Y2Y"
         label: "2s10s Spread"
     volatility:
-      vix_ticker: "^VIX"
+      vix_series: "VIXCLS"           # FRED VIX series (real source). Replaces ^VIX which is Yahoo-only.
       hy_spread_series: "BAMLH0A0HYM2"
     commodities:
       - ticker: "GLD"
@@ -124,10 +124,12 @@ market:
 
   # Regime detection (from P5, rule-based composite)
   regime:
-    trend_lookback: 63          # ~3 months for trend signal
-    vol_stress_threshold: 0.25  # annualized vol above this = stress
-    drawdown_threshold: -0.10   # drawdown below this = risk-off signal
-    credit_spread_threshold: 5.0  # HY OAS above this = credit stress (percentage points)
+    trend_lookback: 63             # ~3 months for trend signal
+    trend_score_threshold: 0.02    # |return| above this triggers +/-1 trend score
+    drawdown_lookback_multiplier: 2  # drawdown window = trend_lookback * this
+    vol_stress_threshold: 0.25     # annualized vol above this = stress
+    drawdown_threshold: -0.10      # drawdown below this = risk-off signal
+    credit_spread_threshold: 5.0   # HY OAS above this = credit stress (percentage points)
     regime_labels:
       - "RISK_ON"
       - "NEUTRAL"
@@ -168,7 +170,7 @@ research:
     factor_quality: 0.40
     ebitda_margin: 0.20
     fcf_conversion: 0.20
-    roic: 0.20
+    roe: 0.20
 
   momentum_weights:
     factor_momentum: 0.50
@@ -275,8 +277,8 @@ comps:
     - key: "revenue_growth"
       label: "Revenue Growth"
       format: "pct"
-    - key: "roic"
-      label: "ROIC"
+    - key: "roe"
+      label: "ROE"
       format: "pct"
     - key: "net_debt_ebitda"
       label: "Net Debt/EBITDA"
@@ -292,6 +294,23 @@ comps:
     sector_rank: 0.60
     universe_rank: 0.40
   min_sector_count: 3           # fall back to universe-only if sector < this
+
+  # Synthetic demo deals -- production must NEVER serve seed data without
+  # explicit DEMO labelling. Set true only in development mode if you want
+  # the page to render with no real CSV present.
+  allow_synthetic_demo: false
+
+  # PE scoring bands (from P2 scoring bible). Used by pe_scoring_adapter.
+  # Each band: ideal value scores 100, penalty value scores 0, linear
+  # interpolation between. higher_better controls direction.
+  pe_scoring_bands:
+    ebitda_margin:   {ideal: 0.30, penalty: 0.05, higher_better: true}
+    fcf_conversion:  {ideal: 0.90, penalty: 0.30, higher_better: true}
+    roe:             {ideal: 0.25, penalty: 0.05, higher_better: true}
+    revenue_growth:  {ideal: 0.15, penalty: -0.05, higher_better: true}
+    ev_ebitda:       {ideal: 8.0,  penalty: 18.0,  higher_better: false}
+    pe_ratio:        {ideal: 15.0, penalty: 35.0,  higher_better: false}
+    net_debt_ebitda: {ideal: 1.5,  penalty: 5.0,   higher_better: false}
 
 # -------------------------------------------------------------------
 # PORTFOLIO WORKSPACE

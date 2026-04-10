@@ -14,8 +14,8 @@ import streamlit as st
 from terminal.adapters.ma_comps_adapter import run_comps
 from terminal.adapters.pe_scoring_adapter import score_single_ticker
 from terminal.utils.chart_helpers import bar_chart, interpretation_callout
-from terminal.utils.error_handling import degraded_card, is_error
-from terminal.utils.formatting import fmt_pct, fmt_ratio, format_metric, styled_kpi
+from terminal.utils.error_handling import degraded_card, is_error, unavailable_card
+from terminal.utils.formatting import badge, fmt_pct, fmt_ratio, format_metric, styled_kpi
 
 
 def render() -> None:
@@ -35,7 +35,7 @@ def render() -> None:
     st.markdown(styled_kpi("Sector", sector), unsafe_allow_html=True)
 
     _render_valuation_card(fundamentals.key_ratios, config)
-    _render_pe_score(fundamentals.key_ratios)
+    _render_pe_score(fundamentals.key_ratios, config)
     _render_ma_comps(sector, config)
 
 
@@ -50,9 +50,9 @@ def _render_valuation_card(ratios, config) -> None:
             st.markdown(styled_kpi(m["label"], format_metric(value, fmt)), unsafe_allow_html=True)
 
 
-def _render_pe_score(ratios) -> None:
+def _render_pe_score(ratios, config) -> None:
     st.markdown("### PE Target Screener Score")
-    result = score_single_ticker(ratios)
+    result = score_single_ticker(ratios, config["comps"]["pe_scoring_bands"])
     score = result["pe_score"]
     color = "#00C853" if score == score and score >= 60 else ("#FFAB00" if score == score and score >= 40 else "#FF3D57")
     st.markdown(styled_kpi("Composite PE Score", f"{score:.1f}" if score == score else "n/a", color), unsafe_allow_html=True)
@@ -73,10 +73,27 @@ def _render_pe_score(ratios) -> None:
 def _render_ma_comps(sector, config) -> None:
     st.markdown("### Recent M&A Comps")
     project_root = Path(config["_meta"]["project_root"])
-    comps = run_comps(sector=sector, project_root=project_root, max_rows=int(config["comps"]["max_peers"]))
+    allow_synthetic = bool(config["comps"].get("allow_synthetic_demo", False))
+    comps = run_comps(
+        sector=sector,
+        project_root=project_root,
+        max_rows=int(config["comps"]["max_peers"]),
+        allow_synthetic=allow_synthetic,
+    )
+    if comps["status"] == "data_unavailable":
+        st.markdown(
+            unavailable_card("M&A comps unavailable", comps["reason"]),
+            unsafe_allow_html=True,
+        )
+        return
+    if comps.get("data_source") == "synthetic":
+        st.markdown(
+            badge("SYNTHETIC DEMO DATA -- NOT REAL DEALS", "#FFAB00"),
+            unsafe_allow_html=True,
+        )
     table = comps["comps_table"]
     if table.empty:
-        st.markdown(degraded_card("no comps available for sector", "ma_comps"), unsafe_allow_html=True)
+        st.markdown(degraded_card("no comps for sector", "ma_comps"), unsafe_allow_html=True)
         return
     st.dataframe(table, use_container_width=True, hide_index=True)
 

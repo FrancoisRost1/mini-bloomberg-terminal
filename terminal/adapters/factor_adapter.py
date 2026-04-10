@@ -76,10 +76,10 @@ def _momentum_factor(prices: pd.Series) -> float:
 
 
 def _quality_factor(ratios: dict[str, float]) -> float:
-    roic = ratios.get("roic")
-    if roic is None or roic != roic:
+    roe = ratios.get("roe")
+    if roe is None or roe != roe:
         return float("nan")
-    return float(min(1.0, max(0.0, roic / 0.30)))
+    return float(min(1.0, max(0.0, roe / 0.30)))
 
 
 def _size_factor(ratios: dict[str, float]) -> float:

@@ -68,35 +68,50 @@ def compute_ratios(
     """Derive the terminal's canonical key_ratios dict from raw AV payloads.
 
     Keys must match the rest of the pipeline: ``pe_ratio``, ``ev_ebitda``,
-    ``ebitda_margin``, ``roic``, ``dividend_yield``, ``beta``, plus the
-    optional growth / FCF / leverage metrics when data is available.
+    ``ebitda_margin``, ``roe``, ``interest_coverage``, ``dividend_yield``,
+    ``beta``, plus the optional growth / FCF / leverage metrics when data
+    is available.
+
+    Note: AV's ``ReturnOnEquityTTM`` is ROE (return on equity), not ROIC.
+    Earlier versions of this code mislabelled it. The recommendation
+    pipeline now consumes the correctly named ``roe`` field.
     """
+    revenue_ttm = safe_float(overview.get("RevenueTTM"))
+    ebitda_ttm = safe_float(overview.get("EBITDA"))
+    ebitda_margin = float("nan")
+    if revenue_ttm == revenue_ttm and revenue_ttm > 0 and ebitda_ttm == ebitda_ttm:
+        ebitda_margin = ebitda_ttm / revenue_ttm
     ratios = {
         "pe_ratio": safe_float(overview.get("PERatio")),
         "ev_ebitda": safe_float(overview.get("EVToEBITDA")),
-        "ebitda_margin": safe_float(overview.get("EBITDA")) / max(safe_float(overview.get("RevenueTTM")), 1.0),
-        "roic": safe_float(overview.get("ReturnOnEquityTTM")),
+        "ebitda_margin": ebitda_margin,
+        "roe": safe_float(overview.get("ReturnOnEquityTTM")),
         "dividend_yield": safe_float(overview.get("DividendYield")),
         "beta": safe_float(overview.get("Beta")),
     }
     if not income.empty and "totalRevenue" in income.columns:
         rev = income["totalRevenue"].dropna()
-        if len(rev) >= 2:
+        if len(rev) >= 2 and rev.iloc[-2] > 0:
             ratios["revenue_growth"] = float(rev.iloc[-1] / rev.iloc[-2] - 1.0)
+    if not income.empty:
+        ebit = income.get("ebit", pd.Series(dtype=float)).dropna()
+        if ebit.empty:
+            ebit = income.get("operatingIncome", pd.Series(dtype=float)).dropna()
+        interest = income.get("interestExpense", pd.Series(dtype=float)).dropna()
+        if not ebit.empty and not interest.empty and interest.iloc[-1] > 0:
+            ratios["interest_coverage"] = float(ebit.iloc[-1] / interest.iloc[-1])
     if not cashflow.empty:
         ocf = cashflow.get("operatingCashflow", pd.Series(dtype=float)).dropna()
         capex = cashflow.get("capitalExpenditures", pd.Series(dtype=float)).dropna()
-        if not ocf.empty and not capex.empty:
+        if not ocf.empty and not capex.empty and ebitda_ttm == ebitda_ttm and ebitda_ttm > 0:
             fcf = ocf.iloc[-1] - abs(capex.iloc[-1])
-            ebitda = safe_float(overview.get("EBITDA"))
-            ratios["fcf_conversion"] = float(fcf / ebitda) if ebitda else float("nan")
-    if not balance.empty:
+            ratios["fcf_conversion"] = float(fcf / ebitda_ttm)
+    if not balance.empty and ebitda_ttm == ebitda_ttm and ebitda_ttm > 0:
         total_debt = balance.get("shortLongTermDebtTotal", pd.Series(dtype=float)).dropna()
         cash = balance.get("cashAndCashEquivalentsAtCarryingValue", pd.Series(dtype=float)).dropna()
-        ebitda = safe_float(overview.get("EBITDA"))
-        if not total_debt.empty and ebitda:
+        if not total_debt.empty:
             net_debt = total_debt.iloc[-1] - (cash.iloc[-1] if not cash.empty else 0)
-            ratios["net_debt_ebitda"] = float(net_debt / ebitda)
+            ratios["net_debt_ebitda"] = float(net_debt / ebitda_ttm)
     return ratios
 
 

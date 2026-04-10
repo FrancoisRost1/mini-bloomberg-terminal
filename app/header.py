@@ -65,9 +65,23 @@ def render(data_manager: SharedDataManager, watchlist: WatchlistStore, config: d
 
 
 def _render_market_strip(data_manager: SharedDataManager, config: dict[str, Any]) -> None:
-    tickers = [config["market"]["macro_series"]["volatility"]["vix_ticker"], "SPY", "UUP"]
+    """Header market strip.
+
+    VIX comes from FRED (``VIXCLS``), not the equity provider. Yahoo-style
+    ``^VIX`` tickers are not recognized by Alpha Vantage and any prior
+    code path that fetched ``^VIX`` from the equity provider returned
+    "n/a" silently in production.
+    """
     cols = st.columns(3)
-    for col, ticker in zip(cols, tickers):
+    vix_series_id = config["market"]["macro_series"]["volatility"]["vix_series"]
+    with cols[0]:
+        macro = data_manager.get_macro([vix_series_id])
+        vix_value = float("nan") if is_error(macro) else macro.latest(vix_series_id)
+        if vix_value != vix_value:
+            st.markdown(styled_kpi("VIX", "n/a"), unsafe_allow_html=True)
+        else:
+            st.markdown(styled_kpi("VIX", f"{vix_value:,.2f}"), unsafe_allow_html=True)
+    for col, ticker in zip(cols[1:], ["SPY", "UUP"]):
         with col:
             data = data_manager.get_prices(ticker, period="1mo")
             if is_error(data) or data.is_empty():
