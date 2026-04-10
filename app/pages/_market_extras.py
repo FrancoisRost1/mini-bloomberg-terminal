@@ -79,6 +79,53 @@ FX_PAIRS: list[tuple[str, str]] = [
 ]
 
 
+def render_gainers_losers(data_manager, config) -> None:
+    """Top 3 gainers and losers from the sector ETF universe by 1D return.
+
+    Reuses ``config.market.breadth.universe`` so the source list stays
+    config driven and the same 11 ETFs that drive the heatmap drive
+    this row.
+    """
+    from terminal.utils.density import dense_kpi_row, signed_color
+    from terminal.utils.error_handling import is_error
+    from terminal.utils.density import section_bar as _bar  # noqa: F811  local alias
+
+    universe = config["market"]["breadth"]["universe"]
+    rows: list[tuple[str, float, float]] = []
+    for ticker in universe:
+        data = data_manager.get_index_prices(ticker, period="1mo")
+        if is_error(data) or data.is_empty() or len(data.prices) < 2:
+            continue
+        closes = data.prices["close"]
+        last = float(closes.iloc[-1])
+        prev = float(closes.iloc[-2])
+        if prev == 0:
+            continue
+        rows.append((ticker, last, (last / prev) - 1.0))
+    rows.sort(key=lambda r: r[2], reverse=True)
+    gainers = rows[:3]
+    losers = list(reversed(rows[-3:])) if len(rows) >= 3 else []
+
+    st.markdown(_bar("TOP MOVERS (SECTOR ETF, 1D)", source="yfinance"), unsafe_allow_html=True)
+    items: list[dict] = []
+    for tkr, px, chg in gainers:
+        items.append({
+            "label": f"GAIN {tkr}", "value": f"{px:,.2f}",
+            "delta": f"+{chg * 100:.2f}%", "delta_color": signed_color(chg),
+            "value_color": signed_color(chg),
+        })
+    for tkr, px, chg in losers:
+        items.append({
+            "label": f"LOSS {tkr}", "value": f"{px:,.2f}",
+            "delta": f"{chg * 100:+.2f}%", "delta_color": signed_color(chg),
+            "value_color": signed_color(chg),
+        })
+    if not items:
+        st.caption("DATA OFF | no sector ETF data available")
+        return
+    st.markdown(dense_kpi_row(items, min_cell_px=110), unsafe_allow_html=True)
+
+
 def render_fx_row(data_manager) -> None:
     """KPI row for the three majors with 1D move."""
     st.markdown(section_bar("FX MAJORS", source="yfinance"), unsafe_allow_html=True)

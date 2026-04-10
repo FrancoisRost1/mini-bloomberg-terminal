@@ -29,7 +29,9 @@ import streamlit as st  # noqa: E402
 from style_inject import inject_styles  # noqa: E402
 
 from app.density_css import inject_density  # noqa: E402
+from app.footer import render_footer  # noqa: E402
 from app.header import render as render_header  # noqa: E402
+from app.sidebar_ticker import render as render_sidebar_ticker  # noqa: E402
 from terminal.config_loader import load_config  # noqa: E402
 from terminal.managers.analytics_manager import AnalyticsManager  # noqa: E402
 from terminal.managers.data_manager import SharedDataManager  # noqa: E402
@@ -70,7 +72,8 @@ def main() -> None:
     st.session_state["_analytics_manager"] = analytics_manager
     st.session_state["_watchlist"] = watchlist
 
-    render_header(data_manager, watchlist, config)
+    ticker_state = render_sidebar_ticker(data_manager)
+    render_header(data_manager, watchlist, config, ticker_state)
 
     analytics: list = [
         st.Page("pages/lbo_quick_calc.py", title="LBO Quick Calc", url_path="lbo-quick-calc"),
@@ -90,6 +93,7 @@ def main() -> None:
     }
     navigation = st.navigation(pages)
     navigation.run()
+    render_footer(data_manager, config)
 
 
 if __name__ == "__main__":

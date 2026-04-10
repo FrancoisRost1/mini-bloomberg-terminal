@@ -27,6 +27,7 @@ from app.pages._research_page_helpers import (  # noqa: E402
 )
 from terminal.adapters.research_adapter import run_pipeline
 from terminal.utils.error_handling import dev_detail_caption, safe_render
+from terminal.utils.skeletons import chart_skeleton, kpi_skeleton
 
 
 def render() -> None:
@@ -36,12 +37,16 @@ def render() -> None:
 
     styled_header(f"Research. {ticker}", "Deterministic pipeline | Sub scores | Memo synthesis")
 
+    chart_slot = chart_skeleton(height=380)
+    kpi_slot = kpi_skeleton(rows=2, cells=6)
     with st.spinner(f"Running research pipeline for {ticker}."):
         try:
             packet = run_pipeline(ticker, data_manager, config)
         except Exception as exc:
             packet = {"status": "hard_failure", "ticker": ticker, "reason": "pipeline error"}
             dev_detail_caption(f"run_pipeline raised: {type(exc).__name__}: {exc}")
+    chart_slot.empty()
+    kpi_slot.empty()
 
     # Build a partial packet so the skeleton always has something to render.
     packet.setdefault("ticker", ticker)

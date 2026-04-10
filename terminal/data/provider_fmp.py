@@ -29,6 +29,7 @@ from typing import Any
 
 from . import _fmp_parsers as parsers
 from ._fmp_http import FMPHttp
+from ._fmp_ratios import compute_ratios
 from .provider_interface import MarketDataProvider
 from .schemas import Fundamentals, MacroData, OptionsChain, PriceData
 
@@ -70,7 +71,7 @@ class FMPProvider(MarketDataProvider):
         )
         profile = profile_payload[0] if isinstance(profile_payload, list) and profile_payload else {}
         quote = quote_payload[0] if isinstance(quote_payload, list) and quote_payload else {}
-        ratios = parsers.compute_ratios(profile, quote, income, balance, cashflow)
+        ratios = compute_ratios(profile, quote, income, balance, cashflow)
         return Fundamentals(
             ticker=ticker,
             income_statement=income,

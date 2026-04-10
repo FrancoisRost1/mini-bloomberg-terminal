@@ -1,10 +1,12 @@
 """Portfolio Builder helpers.
 
 Pulled out of portfolio_builder.py so the page module stays under the
-~150 line budget. Two renderers:
+~150 line budget. Renderers:
 
 - correlation matrix heatmap on the asset returns
 - cumulative return backtest comparing MV, HRP, and equal weight
+
+Efficient frontier and allocation donuts live in _portfolio_alloc.py.
 """
 
 from __future__ import annotations

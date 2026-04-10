@@ -33,13 +33,19 @@ def _cache(config: dict[str, Any]) -> LastGoodCache:
     return LastGoodCache(root / "data" / "header_last_good.json")
 
 
-def render(data_manager: SharedDataManager, watchlist: WatchlistStore, config: dict[str, Any]) -> None:
+def render(
+    data_manager: SharedDataManager,
+    watchlist: WatchlistStore,
+    config: dict[str, Any],
+    ticker_state: dict[str, float | None] | None = None,
+) -> None:
     if data_manager.registry.is_dev_mode():
         st.markdown(dev_mode_banner(), unsafe_allow_html=True)
 
-    # Row 1: ticker input + watchlist controls
-    col_ticker, col_watchlist, col_actions = st.columns([3, 3, 3])
+    # Row 1: ticker input + 1D change badge + watchlist controls
+    col_ticker, col_change, col_watchlist, col_actions = st.columns([3, 2, 3, 3])
     _render_ticker_input(col_ticker)
+    _render_ticker_change(col_change, ticker_state or {})
     _render_watchlist_select(col_watchlist, watchlist)
     _render_watchlist_actions(col_actions, watchlist)
 
@@ -62,6 +68,42 @@ def _render_ticker_input(col) -> None:
             st.session_state["active_ticker"] = ticker_input.upper()
 
 
+def _render_ticker_change(col, state: dict[str, float | None]) -> None:
+    """Render the active ticker's last close + signed 1D change. Lives
+    next to the ticker input so the active name + price + delta read
+    as a single Bloomberg style line.
+    """
+    last = state.get("last")
+    chg = state.get("chg")
+    if last is None or chg is None:
+        col.markdown(
+            f'<div style="font-family:{TOKENS["font_mono"]};font-size:0.78rem;'
+            f'color:{TOKENS["text_muted"]};padding:0.35rem 0.4rem;">no data</div>',
+            unsafe_allow_html=True,
+        )
+        return
+    if chg > 0:
+        color = TOKENS["accent_success"]
+        arrow = "\u25B2"
+    elif chg < 0:
+        color = TOKENS["accent_danger"]
+        arrow = "\u25BC"
+    else:
+        color = TOKENS["text_muted"]
+        arrow = "\u00B7"
+    col.markdown(
+        f'<div style="font-family:{TOKENS["font_mono"]};font-size:0.86rem;'
+        f'font-weight:700;padding:0.32rem 0.4rem;color:{TOKENS["text_primary"]};'
+        f'border:1px solid rgba(255,255,255,0.06);border-radius:3px;'
+        f'background-color:{TOKENS["bg_surface"]};'
+        f'display:flex;align-items:center;gap:0.5rem;justify-content:center;">'
+        f'<span>{last:,.2f}</span>'
+        f'<span style="color:{color};">{arrow}{abs(chg) * 100:.2f}%</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+
 def _render_watchlist_select(col, watchlist: WatchlistStore) -> None:
     with col:
         tickers = watchlist.list_tickers()
@@ -71,8 +113,18 @@ def _render_watchlist_select(col, watchlist: WatchlistStore) -> None:
             key="header_watchlist",
             label_visibility="collapsed",
         )
-        if chosen and chosen != "WATCHLIST":
+        # Picking a ticker from the watchlist jumps the user to Research
+        # on that name, matching CLAUDE.md section 7. The previous
+        # behavior only updated session_state and left the user on the
+        # current page, which made the dropdown feel inert.
+        if chosen and chosen != "WATCHLIST" and chosen != st.session_state.get("active_ticker"):
             st.session_state["active_ticker"] = chosen
+            try:
+                st.switch_page("pages/ticker_deep_dive.py")
+            except Exception:
+                # st.switch_page is only valid inside a navigation runtime;
+                # fall back to a soft rerun on the current page.
+                st.rerun()
 
 
 def _render_watchlist_actions(col, watchlist: WatchlistStore) -> None:

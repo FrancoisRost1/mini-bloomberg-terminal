@@ -13,7 +13,7 @@ import streamlit as st  # noqa: E402
 
 from style_inject import styled_header  # noqa: E402
 
-from app.pages._market_extras import render_fx_row, render_yield_curve  # noqa: E402
+from app.pages._market_extras import render_fx_row, render_gainers_losers, render_yield_curve  # noqa: E402
 from app.pages._market_overview_helpers import (  # noqa: E402
     render_breadth,
     render_indices_strip,
@@ -32,6 +32,7 @@ def render() -> None:
 
     render_indices_strip(data_manager, config)
     render_fx_row(data_manager)
+    render_gainers_losers(data_manager, config)
 
     render_sector_heatmap(data_manager, config)
 

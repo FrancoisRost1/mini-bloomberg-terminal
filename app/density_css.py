@@ -164,6 +164,36 @@ h1 {{ margin-top: 0 !important; margin-bottom: 0.05rem !important; font-size: 1.
 
 /* Numbers in any markdown body get monospace via the .num class */
 .num {{ font-family: {TOKENS["font_mono"]} !important; font-weight: 500; }}
+
+/* Loading skeleton pulse keyframes (used by terminal/utils/skeletons.py) */
+@keyframes skel-pulse {{
+    0%   {{ background-position: 200% 0; opacity: 0.6; }}
+    50%  {{ background-position: -200% 0; opacity: 1.0; }}
+    100% {{ background-position: 200% 0; opacity: 0.6; }}
+}}
+
+/* Row hover highlight on every dataframe. The glide grid puts rows in
+   role=row; the hover background uses bg_hover so the cursor lands
+   land on a slightly lighter band. Cells inherit the row hover. */
+.stDataFrame [role="row"] {{ transition: background-color 0.08s linear; }}
+.stDataFrame [role="row"]:hover {{ background-color: {TOKENS["bg_hover"]} !important; }}
+.stDataFrame [role="row"]:hover [role="cell"] {{ background-color: transparent !important; }}
+
+/* Freshness footer band sits at the bottom of every page. Tight,
+   monospace, neutral. The string is rendered by render_freshness_footer
+   in app/footer.py so the timestamp is always live. */
+.freshness-footer {{
+    border-top: 1px solid {TOKENS["border_subtle"]};
+    margin-top: 0.6rem;
+    padding: 0.25rem 0.4rem;
+    font-family: {TOKENS["font_mono"]};
+    font-size: 0.6rem;
+    color: {TOKENS["text_muted"]};
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+}}
 </style>
 """
 

@@ -29,6 +29,7 @@ from terminal.utils.chart_helpers import line_chart
 from terminal.utils.density import dense_kpi_row, period_returns_tape, section_bar, signed_color
 from terminal.utils.error_handling import inline_status_line, is_error, status_pill
 from terminal.utils.formatting import fmt_money, fmt_pct, fmt_ratio
+from terminal.utils.skeletons import chart_skeleton
 from terminal.utils.tv_chart import build_tv_chart_html
 
 
@@ -64,16 +65,15 @@ def render_phase1_chart(packet: dict[str, Any]) -> None:
         key=f"chart_view_{packet['ticker']}",
         label_visibility="collapsed",
     )
+    placeholder = chart_skeleton(height=380)
     if view == "Candlestick":
-        components.html(
-            build_tv_chart_html(prices_obj.prices, packet["ticker"], height_px=380),
-            height=390,
-        )
+        html = build_tv_chart_html(prices_obj.prices, packet["ticker"], height_px=380)
+        placeholder.empty()
+        components.html(html, height=390)
     else:
-        st.plotly_chart(
-            line_chart({packet["ticker"]: close}, title=f"{packet['ticker']} price (1Y)", y_unit="USD"),
-            use_container_width=True,
-        )
+        fig = line_chart({packet["ticker"]: close}, title=f"{packet['ticker']} price (1Y)", y_unit="USD")
+        placeholder.empty()
+        st.plotly_chart(fig, use_container_width=True)
 
 
 def render_phase1_stats(packet: dict[str, Any]) -> None:

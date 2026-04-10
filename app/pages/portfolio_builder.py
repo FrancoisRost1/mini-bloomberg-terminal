@@ -14,12 +14,14 @@ import streamlit as st  # noqa: E402
 
 from style_inject import styled_header  # noqa: E402
 
+from app.pages._portfolio_alloc import render_allocation_donuts, render_efficient_frontier  # noqa: E402
 from app.pages._portfolio_helpers import render_backtest_chart, render_correlation_heatmap  # noqa: E402
 from terminal.adapters.optimizer_adapter import run_optimizer  # noqa: E402
 from terminal.utils.chart_helpers import bar_chart  # noqa: E402
 from terminal.utils.density import dense_kpi_row, section_bar, signed_color  # noqa: E402
 from terminal.utils.error_handling import degraded_card, is_error, status_pill  # noqa: E402
 from terminal.utils.formatting import fmt_pct, fmt_ratio  # noqa: E402
+from terminal.utils.skeletons import chart_skeleton, kpi_skeleton  # noqa: E402
 
 
 def render() -> None:
@@ -34,7 +36,11 @@ def render() -> None:
         st.info(f"Enter at least {config['portfolio']['optimizer']['min_assets']} tickers to build a portfolio.")
         return
 
+    fetch_slot = kpi_skeleton(rows=1, cells=6)
+    chart_slot = chart_skeleton(height=300)
     returns, excluded, tier = _fetch_returns(data_manager, tickers)
+    fetch_slot.empty()
+    chart_slot.empty()
     if returns is None or returns.shape[1] < 2:
         st.caption("DATA OFF | no historical data for any ticker | tried 5y / 1y / 6mo")
         return
@@ -54,13 +60,16 @@ def render() -> None:
         with row1_r:
             _render_method_pane(methods[1], weights[methods[1]], returns)
 
+    render_allocation_donuts(weights)
+
     row2_l, row2_r = st.columns([1, 1])
     with row2_l:
         _render_concentration(weights)
-        render_correlation_heatmap(returns)
+        render_efficient_frontier(returns, weights)
     with row2_r:
         render_backtest_chart(returns, weights)
-        _render_validate_pane()
+        render_correlation_heatmap(returns)
+    _render_validate_pane()
 
 
 def _ticker_input(config) -> list[str]:
@@ -133,11 +142,7 @@ def _render_concentration(weights: dict[str, dict[str, float]]) -> None:
 def _render_validate_pane() -> None:
     st.markdown(section_bar("PHASE 3. VALIDATE"), unsafe_allow_html=True)
     st.markdown(status_pill("DEFERRED TO v2", "missing"), unsafe_allow_html=True)
-    st.caption(
-        "Robustness validation needs a real parameter grid. The robustness adapter "
-        "(terminal/adapters/robustness_adapter.py) is available standalone and will "
-        "be wired into a real CSCV sweep in v2. See docs/analysis.md."
-    )
+    st.caption("Robustness needs a real CSCV parameter grid. Adapter stays standalone for v2.")
 
 
 render()
