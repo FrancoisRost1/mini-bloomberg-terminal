@@ -1,0 +1,46 @@
+# Secrets and environment
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Project data and caches
+data/cache/*.pkl
+data/cache/*.json
+data/terminal.db
+data/terminal.db-journal
+data/processed/*
+data/raw/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/cache/.gitkeep
+
+# Outputs and logs
+outputs/*
+!outputs/.gitkeep
+*.log
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
