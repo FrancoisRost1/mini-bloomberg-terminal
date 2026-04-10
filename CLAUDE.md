@@ -69,13 +69,18 @@ This application is intended to run as an always-on hosted website, not a classr
 Every infrastructure, provider, caching, and persistence decision must optimize for reliability and real usage, not for free-tier convenience.
 
 Hard rules:
-- The production path uses Financial Modeling Prep (FMP) as the primary market data provider. yfinance is allowed only for local development. No silent fallback to yfinance in production.
-- If the primary provider is unavailable, the app must show an explicit DEGRADED or DATA UNAVAILABLE state. It must never silently serve stale or unofficial data without labeling it.
+- The data layer routes per purpose, NOT per environment. Each route is an explicit architectural decision and there is no silent failover between providers.
+  - Single ticker stock prices and fundamentals -> Financial Modeling Prep, stable/ endpoints only. The v3/ endpoints all return 403 on the Starter tier and are not called anywhere in the codebase.
+  - Indices, ETFs, the breadth universe, options chains, and FX symbols -> yfinance, in production AND development. yfinance is NOT a dev fallback for these routes; it is the production provider for them because FMP Starter does not serve them.
+  - Macro time series -> FRED. Always, in every mode.
+- Routing lives in `terminal/data/provider_registry.py` which exposes single_stock_provider, index_etf_provider, options_provider, and macro. The SharedDataManager exposes per purpose methods (get_stock_prices, get_index_prices, get_any_prices, get_fundamentals, get_options_chain, get_macro). UI code must pick the right method explicitly.
+- If a route's provider is unavailable, the app must show an explicit DEGRADED or DATA UNAVAILABLE state for that route only. It must never silently serve stale or unofficial data without labeling it, and it must never reroute a stock call to yfinance or an index call to FMP.
 - LLM synthesis is enabled by default when ANTHROPIC_API_KEY is present. The app still works fully without it, but the intended live deployment includes continuous LLM availability.
 - Persistence uses SQLite for the hosted app. JSON fallback is allowed only for local development.
 - The real deployment target is a paid hosted container environment (cloud VM, Railway, Render, etc.). Streamlit Community Cloud is not a target for the real application and must not influence architecture decisions.
 - Cache aggressively. The terminal must stay cheap and responsive on low tier API plans (FMP Starter is 750 req/min, more than enough for single user usage).
-Production stack: Railway (hosting) + Cloudflare (domain/DNS) + Financial Modeling Prep (market data) + FRED (macro) + Anthropic (LLM) + SQLite (persistence). Streamlit Community Cloud is irrelevant.
+
+Production stack: Railway (hosting) + Cloudflare (domain/DNS) + FMP for single ticker stock data (stable/) + yfinance for indices, ETFs, breadth, options, and FX + FRED (macro) + Anthropic (LLM) + SQLite (persistence). Streamlit Community Cloud is irrelevant.
 
 ---
 
