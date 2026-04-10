@@ -114,7 +114,7 @@ def render_iv_smile(chain_df: pd.DataFrame, spot: float, tau: float, rate: float
 
 
 def resolve_spot(data_manager, ticker: str, fallback: float | None) -> float | None:
-    prices = data_manager.get_prices(ticker, period="1mo")
+    prices = data_manager.get_any_prices(ticker, period="1mo")
     if not is_error(prices) and not prices.is_empty():
         return prices.last_close()
     if fallback and fallback == fallback and fallback > 0:

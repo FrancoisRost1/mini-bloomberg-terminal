@@ -1,8 +1,10 @@
-"""Unit tests for the FMP provider.
+"""Unit tests for the FMP provider (stable/ endpoints only).
 
 No network calls. Monkeypatches requests.get to return canned payloads
-matching the documented FMP response shapes. Verifies parser correctness,
-schema normalization, and the rate limit retry path.
+matching the FMP stable/ response shapes. Verifies parser correctness,
+schema normalization, and the rate limit retry path. Confirms that
+get_options_chain raises NotImplementedError because options are now
+served by yfinance, not FMP.
 """
 
 from __future__ import annotations
@@ -35,20 +37,28 @@ def _resp(payload, status=200):
     return Resp()
 
 
-def test_get_prices_parses_historical(provider, monkeypatch):
-    payload = {
-        "symbol": "AAPL",
-        "historical": [
-            {"date": "2024-01-02", "open": 185, "high": 186, "low": 184, "close": 185.5, "adjClose": 185.5, "volume": 1_000_000},
-            {"date": "2024-01-03", "open": 186, "high": 187, "low": 185, "close": 186.5, "adjClose": 186.5, "volume": 1_100_000},
-        ],
-    }
+def test_supports_options_chain_is_false(provider):
+    """FMP Starter never serves options. Capability flag is False."""
+    assert provider.supports_options_chain() is False
+
+
+def test_get_options_chain_raises(provider):
+    with pytest.raises(NotImplementedError):
+        provider.get_options_chain("AAPL")
+
+
+def test_get_prices_parses_stable_flat_list(provider, monkeypatch):
+    """stable/historical-price-eod/full returns a flat list of bars."""
+    payload = [
+        {"symbol": "AAPL", "date": "2024-01-02", "open": 185, "high": 186, "low": 184, "close": 185.5, "volume": 1_000_000},
+        {"symbol": "AAPL", "date": "2024-01-03", "open": 186, "high": 187, "low": 185, "close": 186.5, "volume": 1_100_000},
+    ]
     monkeypatch.setattr("terminal.data._fmp_http.requests.get", lambda *a, **k: _resp(payload))
     result = provider.get_prices("AAPL", period="1mo")
     assert not result.is_empty()
     assert result.last_close() == 186.5
     assert "open" in result.prices.columns
-    assert "adj_close" in result.prices.columns
+    assert "adj_close" in result.prices.columns  # parser fills from close when missing
 
 
 def test_get_fundamentals_builds_ratios(provider, monkeypatch):
@@ -73,7 +83,6 @@ def test_get_fundamentals_builds_ratios(provider, monkeypatch):
     assert result.sector == "Technology"
     assert result.market_cap == 3.0e12
     ratios = result.key_ratios
-    # Sanity-check core ratios are populated and inside reasonable bands.
     assert ratios["pe_ratio"] == 28.5
     assert 0 < ratios["ebitda_margin"] < 1
     assert ratios["roe"] > 0
@@ -84,6 +93,35 @@ def test_get_fundamentals_builds_ratios(provider, monkeypatch):
     assert "revenue_growth" in ratios
 
 
+def test_fundamentals_handles_marketCap_alias(provider, monkeypatch):
+    """stable/profile may return ``marketCap`` instead of ``mktCap``."""
+    profile = [{"sector": "Tech", "industry": "Software", "marketCap": 1.5e12, "beta": 1.0}]
+    quote = [{"price": 100.0, "peRatio": 20.0}]
+    payloads = iter([profile, quote, [], [], []])
+    monkeypatch.setattr("terminal.data._fmp_http.requests.get", lambda *a, **k: _resp(next(payloads)))
+    result = provider.get_fundamentals("AAPL")
+    assert result.market_cap == 1.5e12
+    assert result.key_ratios["pe_ratio"] == 20.0
+
+
+def test_calls_only_stable_endpoints(provider, monkeypatch):
+    """Bug regression: ZERO v3/ calls. Every URL must contain stable/."""
+    seen_urls: list[str] = []
+
+    def fake_get(url, params=None, timeout=None):
+        seen_urls.append(url)
+        return _resp([{"symbol": "AAPL", "date": "2024-01-02", "close": 100, "open": 99, "high": 101, "low": 98, "volume": 1000}])
+
+    monkeypatch.setattr("terminal.data._fmp_http.requests.get", fake_get)
+    provider.get_prices("AAPL")
+    monkeypatch.setattr("terminal.data._fmp_http.requests.get", lambda *a, **k: _resp([{"symbol": "AAPL", "sector": "T", "industry": "S", "mktCap": 1e12, "beta": 1.0}]))
+    provider.get_fundamentals("AAPL")
+    assert seen_urls, "no requests were captured"
+    for url in seen_urls:
+        assert "/stable/" in url, f"non stable endpoint hit: {url}"
+        assert "/v3/" not in url, f"v3 endpoint must not be called: {url}"
+
+
 def test_rate_limit_retries_on_429(provider, monkeypatch):
     state = {"calls": 0}
 
@@ -91,11 +129,11 @@ def test_rate_limit_retries_on_429(provider, monkeypatch):
         state["calls"] += 1
         if state["calls"] < 3:
             return _resp({"error": "rate limit"}, status=429)
-        return _resp({"historical": []})
+        return _resp([])
 
     monkeypatch.setattr("terminal.data._fmp_http.requests.get", fake_get)
     monkeypatch.setattr("terminal.data._fmp_http.time.sleep", lambda *_: None)
-    provider.http.request("v3/historical-price-full/AAPL")
+    provider.http.request("stable/historical-price-eod/full", {"symbol": "AAPL"})
     assert state["calls"] == 3
 
 
@@ -104,25 +142,4 @@ def test_missing_key_raises(config):
     p = FMPProvider(cfg)
     p.http.api_key = ""
     with pytest.raises(RuntimeError, match="FMP_API_KEY"):
-        p.http.request("v3/quote/AAPL")
-
-
-def test_options_endpoint_403_disables_capability(provider, monkeypatch):
-    """Bug 9 regression: a 403 on options must flip supports_options_chain to False."""
-    def fake_get(*a, **k):
-        return _resp({}, status=403)
-    monkeypatch.setattr("terminal.data._fmp_http.requests.get", fake_get)
-    assert provider.supports_options_chain() is True
-    chain = provider.get_options_chain("AAPL")
-    assert chain.is_empty()
-    assert provider.supports_options_chain() is False
-
-
-def test_options_chain_empty_when_endpoint_fails(provider, monkeypatch):
-    def fake_get(*a, **k):
-        raise RuntimeError("FMP options not available")
-
-    monkeypatch.setattr("terminal.data._fmp_http.requests.get", fake_get)
-    chain = provider.get_options_chain("AAPL")
-    assert chain.is_empty()
-    assert chain.provider == "fmp"
+        p.http.request("stable/quote", {"symbol": "AAPL"})

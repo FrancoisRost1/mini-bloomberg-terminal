@@ -1,8 +1,5 @@
-"""Bloomberg density primitives.
-
-Project specific helpers beyond the canonical style_inject. Exposes
-ticker_tape, dense_kpi_row, section_bar, period_returns_tape,
-signed_color, mono_inline. Pandas Styler helpers for directional
+"""Bloomberg density primitives. Project specific helpers beyond
+the canonical style_inject. Pandas Styler helpers for directional
 coloring live in dataframe_styling.py and are re exported here.
 """
 
@@ -99,23 +96,33 @@ def dense_kpi_row(items: list[dict[str, Any]], min_cell_px: int = 100) -> str:
     )
 
 
-def section_bar(label: str, tape: str = "") -> str:
+def section_bar(label: str, tape: str = "", source: str = "") -> str:
     """Loud section header. Orange uppercase mono with a thin underline.
 
-    Optional ``tape`` is rendered inline on the right (use
-    ``period_returns_tape`` to build it).
+    ``tape``   inline mono string on the right (e.g. period_returns_tape)
+    ``source`` data source label rendered as a small inline pill before
+               the tape ("FMP", "YFINANCE", "FRED")
     """
     accent = TOKENS["accent_primary"]
-    tape_html = (
-        f'<span style="float:right;font-family:{TOKENS["font_mono"]};'
-        f'font-size:0.65rem;font-weight:500;color:{TOKENS["text_muted"]};">{tape}</span>'
-        if tape else ""
-    )
+    pieces: list[str] = []
+    if source:
+        pieces.append(
+            f'<span style="font-family:{TOKENS["font_mono"]};font-size:0.55rem;'
+            f'font-weight:600;color:{TOKENS["text_muted"]};letter-spacing:0.08em;'
+            f'border:1px solid {TOKENS["border_default"]};border-radius:2px;'
+            f'padding:0 0.3rem;margin-right:0.4rem;">SRC {source.upper()}</span>'
+        )
+    if tape:
+        pieces.append(
+            f'<span style="font-family:{TOKENS["font_mono"]};font-size:0.65rem;'
+            f'font-weight:500;color:{TOKENS["text_muted"]};">{tape}</span>'
+        )
+    right = (f'<span style="float:right;">{"".join(pieces)}</span>' if pieces else "")
     return (
         f'<div style="color:{accent};font-family:{TOKENS["font_mono"]};'
         f'font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;'
         f'border-bottom:1px solid {accent};padding:0.25rem 0 0.15rem 0;'
-        f'margin:0.4rem 0 0.3rem 0;">{label}{tape_html}</div>'
+        f'margin:0.4rem 0 0.3rem 0;">{label}{right}</div>'
     )
 
 

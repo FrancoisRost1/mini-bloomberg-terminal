@@ -27,7 +27,7 @@ def render_phase1_chart(packet: dict[str, Any]) -> None:
     prices = packet["prices"]
     close = prices.prices["close"] if not prices.is_empty() else None
     tape = period_returns_tape(close) if close is not None else ""
-    st.markdown(section_bar("PRICE", tape=tape), unsafe_allow_html=True)
+    st.markdown(section_bar("PRICE", tape=tape, source="FMP"), unsafe_allow_html=True)
     if close is None:
         st.markdown(degraded_card("no price series", prices.provider), unsafe_allow_html=True)
         return
@@ -41,7 +41,7 @@ def render_phase1_stats(packet: dict[str, Any]) -> None:
     fundamentals = packet["fundamentals"]
     ratios = fundamentals.key_ratios
     close = packet["prices"].prices["close"] if not packet["prices"].is_empty() else None
-    st.markdown(section_bar("KEY STATS"), unsafe_allow_html=True)
+    st.markdown(section_bar("KEY STATS", source="FMP"), unsafe_allow_html=True)
     rev_growth = ratios.get("revenue_growth")
     items = [
         {"label": "MARKET CAP", "value": fmt_money(fundamentals.market_cap)},
@@ -66,7 +66,7 @@ def render_phase1_stats(packet: dict[str, Any]) -> None:
 
 
 def render_phase2_engines(packet: dict[str, Any]) -> None:
-    st.markdown(section_bar("ENGINE RESULTS"), unsafe_allow_html=True)
+    st.markdown(section_bar("ENGINE RESULTS", source="FMP"), unsafe_allow_html=True)
     engines = packet["engines"]
     tabs = st.tabs(["PE SCORING", "FACTOR EXPOSURE", "TSMOM SIGNAL", "LBO SNAPSHOT"])
     renderers = [
@@ -94,7 +94,7 @@ def render_phase3_recommendation(packet: dict[str, Any]) -> None:
         "SELL": TOKENS["accent_danger"], "INSUFFICIENT_DATA": TOKENS["text_muted"],
     }
     accent = color_map.get(rating, TOKENS["accent_primary"])
-    st.markdown(section_bar("DETERMINISTIC RATING"), unsafe_allow_html=True)
+    st.markdown(section_bar("DETERMINISTIC RATING", source="local"), unsafe_allow_html=True)
     items = [
         {"label": "RATING", "value": rating, "delta": f"grade {rec['confidence_grade']}",
          "delta_color": accent, "value_color": accent},
@@ -119,7 +119,7 @@ def render_phase3_recommendation(packet: dict[str, Any]) -> None:
 
 
 def render_phase4_llm(packet: dict[str, Any], config: dict[str, Any]) -> None:
-    st.markdown(section_bar("LLM MEMO"), unsafe_allow_html=True)
+    st.markdown(section_bar("LLM MEMO", source="anthropic"), unsafe_allow_html=True)
     llm_cfg = config["llm"]
     enabled_setting = llm_cfg.get("enabled", False)
     has_key = bool(os.environ.get("ANTHROPIC_API_KEY"))

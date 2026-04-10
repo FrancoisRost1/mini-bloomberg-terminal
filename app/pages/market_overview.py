@@ -44,7 +44,7 @@ def render() -> None:
 
 
 def _render_macro_snapshot(data_manager, config) -> None:
-    st.markdown(section_bar("MACRO SNAPSHOT"), unsafe_allow_html=True)
+    st.markdown(section_bar("MACRO SNAPSHOT", source="FRED + yfinance"), unsafe_allow_html=True)
     vix_id = config["market"]["macro_series"]["volatility"]["vix_series"]
     hy_id = config["market"]["macro_series"]["volatility"]["hy_spread_series"]
     macro = data_manager.get_macro([vix_id, hy_id, "FEDFUNDS"])
@@ -54,7 +54,7 @@ def _render_macro_snapshot(data_manager, config) -> None:
             v = macro.latest(key)
             items.append({"label": label, "value": f"{v:.2f}" if v == v else "n/a"})
     for ticker, label in [("GLD", "GOLD"), ("USO", "OIL"), ("UUP", "DXY")]:
-        data = data_manager.get_prices(ticker, period="1mo")
+        data = data_manager.get_index_prices(ticker, period="1mo")
         if is_error(data) or data.is_empty():
             items.append({"label": label, "value": "n/a"})
             continue

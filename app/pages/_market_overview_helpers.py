@@ -23,10 +23,10 @@ from terminal.utils.formatting import fmt_pct
 
 def render_indices_strip(data_manager, config) -> None:
     """Indices dataframe with inline 60d sparklines (Bloomberg style)."""
-    st.markdown(section_bar("GLOBAL INDICES"), unsafe_allow_html=True)
+    st.markdown(section_bar("GLOBAL INDICES", source="yfinance"), unsafe_allow_html=True)
     rows = []
     for idx in config["market"]["indices"]:
-        data = data_manager.get_prices(idx["ticker"], period="3mo")
+        data = data_manager.get_index_prices(idx["ticker"], period="3mo")
         if is_error(data) or data.is_empty():
             rows.append({"Index": idx["label"], "Last": "n/a", "Chg %": "", "60D Trend": []})
             continue
@@ -46,13 +46,13 @@ def render_rates_and_vol(data_manager, config) -> None:
     series_ids = [r["series_id"] for r in macro_cfg["rates"]]
     macro = data_manager.get_macro(series_ids)
     if is_error(macro):
-        st.markdown(section_bar("RATES AND VOLATILITY"), unsafe_allow_html=True)
+        st.markdown(section_bar("RATES AND VOLATILITY", source="FRED"), unsafe_allow_html=True)
         st.markdown(degraded_card(macro.reason, macro.provider), unsafe_allow_html=True)
         return
     rates_series = {r["label"]: macro.series.get(r["series_id"], pd.Series(dtype=float)) for r in macro_cfg["rates"]}
     ten_y = rates_series.get("US 10Y", pd.Series(dtype=float)).dropna()
     tape = period_returns_tape(ten_y) if not ten_y.empty else ""
-    st.markdown(section_bar("RATES AND VOLATILITY", tape=tape), unsafe_allow_html=True)
+    st.markdown(section_bar("RATES AND VOLATILITY", tape=tape, source="FRED"), unsafe_allow_html=True)
     rows = []
     for label, series in rates_series.items():
         clean = series.dropna()
@@ -70,11 +70,11 @@ def render_rates_and_vol(data_manager, config) -> None:
 
 
 def render_regime(data_manager, config) -> None:
-    spy = data_manager.get_prices("SPY", period="2y")
+    spy = data_manager.get_index_prices("SPY", period="2y")
     hy_id = config["market"]["macro_series"]["volatility"]["hy_spread_series"]
     hy = data_manager.get_macro([hy_id])
     if is_error(spy):
-        st.markdown(section_bar("REGIME CLASSIFIER"), unsafe_allow_html=True)
+        st.markdown(section_bar("REGIME CLASSIFIER", source="yfinance + FRED"), unsafe_allow_html=True)
         st.markdown(degraded_card(spy.reason, spy.provider), unsafe_allow_html=True)
         return
     spy_close = spy.prices["close"] if not spy.is_empty() else pd.Series(dtype=float)
@@ -83,7 +83,7 @@ def render_regime(data_manager, config) -> None:
     label = regime["regime"]
     color_map = {"RISK_ON": TOKENS["accent_success"], "NEUTRAL": TOKENS["accent_warning"], "RISK_OFF": TOKENS["accent_danger"]}
     accent = color_map.get(label, TOKENS["accent_primary"])
-    st.markdown(section_bar("REGIME CLASSIFIER", tape=period_returns_tape(spy_close)), unsafe_allow_html=True)
+    st.markdown(section_bar("REGIME CLASSIFIER", tape=period_returns_tape(spy_close), source="yfinance + FRED"), unsafe_allow_html=True)
     sigs = regime["signals"]
     nan_check = lambda v: v == v
     items = [
@@ -114,11 +114,11 @@ def render_breadth(data_manager, config) -> None:
     universe = config["market"]["breadth"]["universe"]
     closes: dict[str, pd.Series] = {}
     for ticker in universe:
-        data = data_manager.get_prices(ticker, period="1y")
+        data = data_manager.get_index_prices(ticker, period="1y")
         if is_error(data) or data.is_empty():
             continue
         closes[ticker] = data.prices["close"]
-    st.markdown(section_bar("MARKET BREADTH"), unsafe_allow_html=True)
+    st.markdown(section_bar("MARKET BREADTH", source="yfinance"), unsafe_allow_html=True)
     if not closes:
         st.markdown(degraded_card("no breadth universe data", "registry"), unsafe_allow_html=True)
         return

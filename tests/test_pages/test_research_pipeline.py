@@ -22,7 +22,9 @@ def wired_manager(config, tmp_path):
     cfg["_meta"]["project_root"] = str(tmp_path)
     (tmp_path / "data" / "cache").mkdir(parents=True, exist_ok=True)
     mgr = SharedDataManager(cfg)
-    mgr.registry._equity = FakeProvider(cfg)
+    fake = FakeProvider(cfg)
+    mgr.registry._stocks = fake
+    mgr.registry._index = fake
     return cfg, mgr
 
 
@@ -60,7 +62,9 @@ def test_pipeline_hard_fails_on_no_prices(config, tmp_path):
     cfg["_meta"]["project_root"] = str(tmp_path)
     (tmp_path / "data" / "cache").mkdir(parents=True, exist_ok=True)
     mgr = SharedDataManager(cfg)
-    mgr.registry._equity = FakeProvider(cfg, fail_on={"BADTKR"})
+    failing = FakeProvider(cfg, fail_on={"BADTKR"})
+    mgr.registry._stocks = failing
+    mgr.registry._index = failing
     packet = run_pipeline("BADTKR", mgr, cfg)
     assert packet["status"] == "hard_failure"
     assert packet["reason"] == "no price data"

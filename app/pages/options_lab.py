@@ -56,7 +56,7 @@ def render() -> None:
         return
 
     expiries = chain.expiries()
-    st.markdown(section_bar("CONTRACT INPUTS"), unsafe_allow_html=True)
+    st.markdown(section_bar("CONTRACT INPUTS", source="yfinance"), unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
     expiry = col1.selectbox("Expiry", options=expiries)
     opt_type = col2.selectbox("Type", options=["call", "put"])

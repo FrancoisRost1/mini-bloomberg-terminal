@@ -1,9 +1,8 @@
-"""Financial Modeling Prep payload parsers.
+"""Financial Modeling Prep payload parsers (stable/ endpoints).
 
-Pure functions, no I/O. Split out of provider_fmp.py to keep the
-provider class under the per module line budget. FMP returns JSON
-arrays for everything; the parsers normalize them into the terminal
-schemas (PriceData, Fundamentals, OptionsChain).
+Pure functions, no I/O. Defensive about field names because the
+``stable/`` API uses slightly different keys than the legacy v3/ API
+in places (mktCap vs marketCap, dividend yield naming, etc).
 """
 
 from __future__ import annotations
@@ -26,13 +25,15 @@ def safe_float(value: Any) -> float:
 
 
 def parse_historical(payload: list[dict[str, Any]] | dict[str, Any], period: str) -> pd.DataFrame:
-    """Convert FMP historical-price-full payload to OHLCV.
+    """Convert FMP historical payload to OHLCV DataFrame.
 
-    FMP returns either a top-level list (paid tier) or a dict with a
-    ``historical`` key (the most common shape). Both are handled.
+    Handles three observed shapes:
+    - flat list of bars (stable/historical-price-eod/full)
+    - dict with ``historical`` key (older v3 shape, kept for safety)
+    - dict with ``data`` key (some stable variants)
     """
     if isinstance(payload, dict):
-        rows = payload.get("historical", [])
+        rows = payload.get("historical") or payload.get("data") or []
     else:
         rows = payload or []
     if not rows:
@@ -55,7 +56,7 @@ def parse_historical(payload: list[dict[str, Any]] | dict[str, Any], period: str
 
 
 def parse_statement(payload: list[dict[str, Any]]) -> pd.DataFrame:
-    """Convert an annual statement array (income, balance, cash flow) into a DataFrame."""
+    """Convert an annual statement array (income / balance / cash flow)."""
     if not payload:
         return pd.DataFrame()
     df = pd.DataFrame(payload)
@@ -72,6 +73,14 @@ def parse_statement(payload: list[dict[str, Any]]) -> pd.DataFrame:
     return df
 
 
+def _first(d: dict, *keys: str) -> Any:
+    """Return d[key] for the first key that exists."""
+    for k in keys:
+        if k in d:
+            return d[k]
+    return None
+
+
 def compute_ratios(
     profile: dict[str, Any],
     quote: dict[str, Any],
@@ -79,37 +88,44 @@ def compute_ratios(
     balance: pd.DataFrame,
     cashflow: pd.DataFrame,
 ) -> dict[str, float]:
-    """Build the canonical key_ratios dict from FMP payloads.
+    """Build the canonical key_ratios dict from FMP stable/ payloads.
 
-    Keys must match what the rest of the pipeline expects: pe_ratio,
-    ev_ebitda, ebitda_margin, roe, dividend_yield, beta, plus
-    revenue_growth, fcf_conversion, net_debt_ebitda, interest_coverage
-    when the data is available.
+    Defensive about field names: stable/profile uses ``mktCap`` or
+    ``marketCap`` depending on version, ``lastDiv`` or ``lastDividend``,
+    etc. Same for stable/quote ``pe`` or ``peRatio``.
     """
+    price = safe_float(_first(quote, "price", "lastPrice"))
+    last_div = safe_float(_first(profile, "lastDiv", "lastDividend"))
     ratios: dict[str, float] = {
-        "pe_ratio": safe_float(quote.get("pe")),
+        "pe_ratio": safe_float(_first(quote, "pe", "peRatio", "priceEarningsRatio")),
         "beta": safe_float(profile.get("beta")),
-        "dividend_yield": safe_float(profile.get("lastDiv")) / safe_float(quote.get("price"))
-        if safe_float(quote.get("price")) > 0 else float("nan"),
+        "dividend_yield": (last_div / price) if price > 0 and last_div == last_div else float("nan"),
     }
     revenue = ebitda = float("nan")
     if not income.empty:
-        revenue = safe_float(income.get("revenue", pd.Series(dtype=float)).dropna().iloc[-1]) if "revenue" in income.columns else float("nan")
-        ebitda = safe_float(income.get("ebitda", pd.Series(dtype=float)).dropna().iloc[-1]) if "ebitda" in income.columns else float("nan")
-        if "revenue" in income.columns:
-            rev = income["revenue"].dropna()
+        rev_col = "revenue" if "revenue" in income.columns else None
+        if rev_col:
+            rev = income[rev_col].dropna()
+            if not rev.empty:
+                revenue = safe_float(rev.iloc[-1])
             if len(rev) >= 2 and rev.iloc[-2] > 0:
                 ratios["revenue_growth"] = float(rev.iloc[-1] / rev.iloc[-2] - 1.0)
-        ebit = income.get("operatingIncome", pd.Series(dtype=float)).dropna()
+        if "ebitda" in income.columns:
+            eb = income["ebitda"].dropna()
+            if not eb.empty:
+                ebitda = safe_float(eb.iloc[-1])
+        ebit_col = "operatingIncome" if "operatingIncome" in income.columns else "ebit"
+        ebit = income.get(ebit_col, pd.Series(dtype=float)).dropna()
         interest = income.get("interestExpense", pd.Series(dtype=float)).dropna()
         if not ebit.empty and not interest.empty and interest.iloc[-1] > 0:
             ratios["interest_coverage"] = float(ebit.iloc[-1] / interest.iloc[-1])
     if revenue == revenue and revenue > 0 and ebitda == ebitda:
         ratios["ebitda_margin"] = float(ebitda / revenue)
-    market_cap = safe_float(profile.get("mktCap"))
+    market_cap = safe_float(_first(profile, "mktCap", "marketCap"))
     if market_cap == market_cap and ebitda == ebitda and ebitda > 0 and not balance.empty:
         debt = balance.get("totalDebt", pd.Series(dtype=float)).dropna()
-        cash = balance.get("cashAndCashEquivalents", pd.Series(dtype=float)).dropna()
+        cash_col = "cashAndCashEquivalents" if "cashAndCashEquivalents" in balance.columns else "cashAndShortTermInvestments"
+        cash = balance.get(cash_col, pd.Series(dtype=float)).dropna()
         if not debt.empty:
             net_debt = float(debt.iloc[-1]) - (float(cash.iloc[-1]) if not cash.empty else 0.0)
             ratios["ev_ebitda"] = float((market_cap + net_debt) / ebitda)

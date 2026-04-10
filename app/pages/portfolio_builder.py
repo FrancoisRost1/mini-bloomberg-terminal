@@ -73,7 +73,7 @@ def _fetch_returns(data_manager, tickers, lookback) -> pd.DataFrame | None:
     for period, min_rows in [("2y", 252), ("1y", 126), ("6mo", 60), ("3mo", 30)]:
         closes: dict[str, pd.Series] = {}
         for ticker in tickers:
-            data = data_manager.get_prices(ticker, period=period)
+            data = data_manager.get_any_prices(ticker, period=period)
             if is_error(data) or data.is_empty():
                 continue
             closes[ticker] = data.prices["close"]
@@ -86,7 +86,7 @@ def _fetch_returns(data_manager, tickers, lookback) -> pd.DataFrame | None:
 
 
 def _render_method_pane(method: str, w: dict[str, float], returns: pd.DataFrame) -> None:
-    st.markdown(section_bar(method.replace("_", " ").upper()), unsafe_allow_html=True)
+    st.markdown(section_bar(method.replace("_", " ").upper(), source="FMP + yfinance"), unsafe_allow_html=True)
     series = pd.Series(w).reindex(returns.columns).fillna(0)
     port = returns.dot(series)
     ann_ret = float(port.mean() * 252)

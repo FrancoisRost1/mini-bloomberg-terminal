@@ -33,6 +33,7 @@ def render() -> None:
     assumptions = _render_sidebar_inputs(defaults)
     result = run_base_case(assumptions)
 
+    st.markdown(section_bar("LBO MODEL", source="local"), unsafe_allow_html=True)
     tab_outputs, tab_bridge, tab_sens = st.tabs(["OUTPUTS", "EQUITY BRIDGE", "IRR SENSITIVITY"])
     with tab_outputs:
         _render_summary(result)

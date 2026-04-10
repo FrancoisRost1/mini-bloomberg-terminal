@@ -39,6 +39,7 @@ def render() -> None:
         return
 
     sector = fundamentals.sector
+    st.markdown(section_bar("COMPS", source="FMP + local"), unsafe_allow_html=True)
     tab_val, tab_pe, tab_ma = st.tabs(["VALUATION METRICS", "PE SCORE", "M&A COMPS"])
     with tab_val:
         _render_valuation_card(fundamentals, config)

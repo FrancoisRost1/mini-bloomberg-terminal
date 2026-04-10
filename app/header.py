@@ -107,7 +107,7 @@ def _macro_item(data_manager, cache: LastGoodCache, series_id: str, label: str) 
 
 
 def _market_item(data_manager, cache: LastGoodCache, ticker: str, label: str) -> dict[str, Any]:
-    data = data_manager.get_prices(ticker, period="1mo")
+    data = data_manager.get_index_prices(ticker, period="1mo")
     if not is_error(data) and not data.is_empty():
         last = data.last_close()
         prev = float(data.prices["close"].iloc[-2]) if len(data.prices) >= 2 else last
