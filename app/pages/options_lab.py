@@ -22,14 +22,20 @@ import streamlit as st  # noqa: E402
 
 from style_inject import styled_header  # noqa: E402
 
+from app.pages._options_chain import (  # noqa: E402
+    render_chain_table,
+    render_iv_smile_moneyness,
+    render_payoff_with_lines,
+)
 from app.pages._options_lab_helpers import (  # noqa: E402
     render_greeks_kpis,
-    render_iv_smile,
-    render_payoff,
+    render_inputs_row,
     render_scenario,
+    render_strike_selector,
     resolve_rate,
     resolve_spot,
 )
+from app.pages._options_strategies import render_strategy_lab  # noqa: E402
 from terminal.adapters.options_adapter import all_greeks, black_scholes  # noqa: E402
 from terminal.utils.density import section_bar  # noqa: E402
 from terminal.utils.error_handling import (  # noqa: E402
@@ -57,7 +63,7 @@ def render() -> None:
         st.markdown(inline_status_line("OFF", source="yfinance"), unsafe_allow_html=True)
         return
 
-    expiry, opt_type, sigma = _render_inputs(chain, config)
+    expiry, opt_type, sigma = render_inputs_row(chain, config)
     expiry_chain = chain.chains.get(expiry)
     if expiry_chain is None or expiry_chain.empty:
         st.markdown(inline_status_line("PARTIAL", source="yfinance"), unsafe_allow_html=True)
@@ -69,7 +75,7 @@ def render() -> None:
         return
 
     atm_strike = float(expiry_chain.iloc[(expiry_chain["strike"] - spot).abs().argsort().iloc[0]]["strike"])
-    strike = _render_strike_selector(expiry_chain, atm_strike)
+    strike = render_strike_selector(expiry_chain, atm_strike)
 
     days = (pd.Timestamp(expiry) - pd.Timestamp(datetime.utcnow())).days
     tau = max(1 / 365.0, days / 365.0)
@@ -81,56 +87,29 @@ def render() -> None:
     st.markdown(section_bar("GREEKS", source="yfinance + FRED"), unsafe_allow_html=True)
     safe_render(lambda: render_greeks_kpis(price, greeks), label="greeks", source="local")
 
-    tab_p, tab_s, tab_iv = st.tabs(["PAYOFF", "SCENARIO", "IV SMILE"])
+    tab_p, tab_s, tab_iv, tab_strat, tab_chain = st.tabs(
+        ["PAYOFF", "SCENARIO", "IV SMILE", "STRATEGY", "FULL CHAIN"]
+    )
     with tab_p:
-        safe_render(lambda: render_payoff(spot, strike, price, opt_type, config), label="payoff", source="local")
+        safe_render(
+            lambda: render_payoff_with_lines(spot, strike, price, opt_type, config),
+            label="payoff", source="local",
+        )
     with tab_s:
         safe_render(lambda: render_scenario(greeks, spot), label="scenario", source="local")
     with tab_iv:
-        safe_render(lambda: render_iv_smile(expiry_chain, spot, tau, rate, config), label="iv_smile", source="yfinance")
-
-
-def _render_strike_selector(expiry_chain, atm_strike: float) -> float:
-    """Two ways to pick a strike: a selectbox of actual chain strikes,
-    and a numeric input as an alternative for off chain values.
-    """
-    strikes = sorted({float(s) for s in expiry_chain["strike"].dropna().tolist()})
-    if not strikes:
-        return atm_strike
-    atm_idx = min(range(len(strikes)), key=lambda i: abs(strikes[i] - atm_strike))
-    col_a, col_b = st.columns([3, 2])
-    with col_a:
-        chosen = st.selectbox(
-            "Strike (chain)",
-            options=strikes,
-            index=atm_idx,
-            format_func=lambda v: f"{v:,.2f}",
-            key="opt_strike_select",
+        safe_render(
+            lambda: render_iv_smile_moneyness(expiry_chain, spot, tau, rate, config),
+            label="iv_smile", source="yfinance",
         )
-    with col_b:
-        manual = st.number_input(
-            "Strike (manual)",
-            min_value=float(strikes[0]),
-            max_value=float(strikes[-1]),
-            value=float(chosen),
-            step=max(0.5, (strikes[-1] - strikes[0]) / 100.0),
-            key="opt_strike_manual",
+    with tab_strat:
+        strikes_sorted = sorted({float(s) for s in expiry_chain["strike"].dropna().tolist()})
+        safe_render(
+            lambda: render_strategy_lab(spot, tau, rate, sigma, strikes_sorted),
+            label="strategy", source="local",
         )
-    return float(manual)
-
-
-def _render_inputs(chain, config) -> tuple[str, str, float]:
-    expiries = chain.expiries()
-    col_e, col_t, col_v = st.columns([3, 2, 2])
-    expiry = col_e.selectbox("Expiry", options=expiries, label_visibility="collapsed")
-    opt_type = col_t.selectbox("Type", options=["call", "put"], label_visibility="collapsed")
-    sigma_default = float(config["options_lab"]["default_vol"])
-    sigma = col_v.number_input(
-        "Vol",
-        min_value=0.01, max_value=5.0, value=sigma_default, step=0.01,
-        label_visibility="collapsed",
-    )
-    return expiry, opt_type, float(sigma)
+    with tab_chain:
+        safe_render(lambda: render_chain_table(expiry_chain, spot), label="chain", source="yfinance")
 
 
 render()

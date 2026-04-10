@@ -18,10 +18,11 @@ from style_inject import (  # noqa: E402
     styled_header,
 )
 
+from app.pages._comps_charts import render_ev_growth_scatter, render_pe_metric_bars  # noqa: E402
 from app.pages._comps_peers import render_peer_fundamentals  # noqa: E402
 from terminal.adapters.ma_comps_adapter import run_comps  # noqa: E402
 from terminal.adapters.pe_scoring_adapter import score_single_ticker  # noqa: E402
-from terminal.utils.chart_helpers import bar_chart, interpretation_callout_html  # noqa: E402
+from terminal.utils.chart_helpers import interpretation_callout_html  # noqa: E402
 from terminal.utils.density import colored_dataframe, dense_kpi_row, section_bar, signed_color  # noqa: E402
 from terminal.utils.error_handling import degraded_card, is_error, status_pill, unavailable_card  # noqa: E402
 from terminal.utils.formatting import format_metric  # noqa: E402
@@ -48,6 +49,11 @@ def render() -> None:
     with tab_val:
         if fund_ok:
             _render_valuation_card(fundamentals, config)
+            render_ev_growth_scatter(
+                ticker,
+                ratios.get("ev_ebitda"),
+                ratios.get("revenue_growth"),
+            )
         else:
             from terminal.utils.error_handling import inline_status_line
             st.markdown(inline_status_line("OFF", source="FMP"), unsafe_allow_html=True)
@@ -98,19 +104,15 @@ def _render_pe_score(ratios, config) -> None:
             "delta_color": signed_color(v - 50) if v == v else None,
         })
     st.markdown(dense_kpi_row(items, min_cell_px=105), unsafe_allow_html=True)
+    render_pe_metric_bars(ratios, config["comps"]["pe_scoring_bands"])
     per_metric = {k: v for k, v in result["per_metric_scores"].items() if v == v}
     if per_metric:
-        chart_col, table_col = st.columns([2, 3])
-        with chart_col:
-            fig = bar_chart(per_metric, title="Per Metric Score (0 to 100)", y_unit="score")
-            st.plotly_chart(fig, use_container_width=True)
-        with table_col:
-            df = pd.DataFrame(
-                [(k.replace("_", " ").title(), v - 50) for k, v in per_metric.items()],
-                columns=["Metric", "Score (vs 50)"],
-            )
-            st.dataframe(colored_dataframe(df, ["Score (vs 50)"]),
-                         use_container_width=True, hide_index=True)
+        df = pd.DataFrame(
+            [(k.replace("_", " ").title(), v - 50) for k, v in per_metric.items()],
+            columns=["Metric", "Score (vs 50)"],
+        )
+        st.dataframe(colored_dataframe(df, ["Score (vs 50)"]),
+                     use_container_width=True, hide_index=True)
     styled_card(
         interpretation_callout_html(
             observation=f"{len(result.get('red_flags', []))} red flag(s) detected.",

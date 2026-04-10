@@ -14,6 +14,7 @@ import streamlit as st
 
 import os
 
+from app.pages._research_visuals import render_memo_card
 from terminal.synthesis.llm_client import generate_memo, is_available as llm_is_available
 from terminal.utils.density import dense_kpi_row, section_bar, signed_color
 from terminal.utils.error_handling import inline_status_line, is_error, status_pill
@@ -79,7 +80,14 @@ def render_lbo_engine(e: dict[str, Any]) -> None:
 
 
 def render_llm_memo(packet: dict[str, Any], config: dict[str, Any]) -> None:
-    """Phase 4. Optional LLM memo synthesis. Never blocks the page."""
+    """Phase 4. Optional LLM memo synthesis. Never blocks the page.
+
+    Renders a one line TLDR backed by the deterministic rating, a
+    generation timestamp, and the full memo body inside a collapsible
+    expander. The deterministic rating is locked at the prompt layer,
+    so the TLDR is always derived from the recommendation dict, not
+    from the LLM output.
+    """
     st.markdown(section_bar("LLM MEMO", source="anthropic"), unsafe_allow_html=True)
     llm_cfg = config["llm"]
     enabled = llm_cfg.get("enabled", False)
@@ -101,4 +109,5 @@ def render_llm_memo(packet: dict[str, Any], config: dict[str, Any]) -> None:
         return
     if result.get("inconsistency"):
         st.markdown(status_pill("LLM RATING INCONSISTENCY", "failed"), unsafe_allow_html=True)
-    st.markdown(result["memo"])
+    rec = packet.get("recommendation") or {}
+    render_memo_card(result, rec.get("rating", "INSUFFICIENT_DATA"), rec.get("composite_score", float("nan")))

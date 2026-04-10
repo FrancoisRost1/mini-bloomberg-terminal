@@ -13,6 +13,7 @@ Invariants enforced here:
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -92,6 +93,7 @@ def generate_memo(
         "memo": text,
         "rating_locked": rating,
         "inconsistency": inconsistency,
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
 
 
@@ -137,4 +139,7 @@ def _detect_rating_override(memo_text: str, rating: str) -> str | None:
 
 
 def _skipped(reason: str) -> dict[str, Any]:
-    return {"status": "skipped", "memo": None, "rating_locked": None, "inconsistency": None, "reason": reason}
+    return {
+        "status": "skipped", "memo": None, "rating_locked": None,
+        "inconsistency": None, "reason": reason, "generated_at": None,
+    }

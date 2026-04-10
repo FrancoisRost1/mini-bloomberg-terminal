@@ -113,8 +113,15 @@ class YFinanceProvider(MarketDataProvider):
             calls = chain.calls.assign(type="call")
             puts = chain.puts.assign(type="put")
             both = pd.concat([calls, puts], ignore_index=True)
-            both = both.rename(columns={"openInterest": "open_interest", "lastPrice": "last"})
-            keep = [c for c in ["strike", "bid", "ask", "last", "volume", "open_interest", "type"] if c in both.columns]
+            both = both.rename(columns={
+                "openInterest": "open_interest",
+                "lastPrice": "last",
+                "impliedVolatility": "implied_volatility",
+            })
+            keep = [c for c in [
+                "strike", "bid", "ask", "last", "volume", "open_interest",
+                "implied_volatility", "type",
+            ] if c in both.columns]
             chains[str(expiry)] = both[keep].reset_index(drop=True)
         return OptionsChain(ticker, spot, chains, self.name, datetime.utcnow())
 

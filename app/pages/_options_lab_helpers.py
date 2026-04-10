@@ -1,4 +1,10 @@
-"""Options Lab page helpers."""
+"""Options Lab page helpers.
+
+The chain table, IV smile, and payoff with breakeven / spot lines
+live in ``_options_chain.py``. Strategy presets live in
+``_options_strategies.py``. This module keeps the Greeks KPIs, the
+Greeks scenario panel, and the spot / rate resolvers.
+"""
 
 from __future__ import annotations
 
@@ -8,11 +14,8 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from style_inject import TOKENS, styled_card
-
-from terminal.adapters.options_adapter import implied_vol
-from terminal.engines.pnl_engine import compute_option_payoff, compute_option_scenario
-from terminal.utils.chart_helpers import interpretation_callout_html, line_chart
+from terminal.engines.pnl_engine import compute_option_scenario
+from terminal.utils.chart_helpers import line_chart
 from terminal.utils.density import dense_kpi_row, signed_color
 from terminal.utils.error_handling import is_error
 from terminal.utils.formatting import fmt_ratio
@@ -33,34 +36,6 @@ def render_greeks_kpis(price: float, greeks: dict[str, float]) -> None:
          "delta_color": signed_color(greeks["rho"])},
     ]
     st.markdown(dense_kpi_row(items, min_cell_px=110), unsafe_allow_html=True)
-
-
-def render_payoff(spot: float, strike: float, premium: float, opt_type: str, config: dict[str, Any]) -> None:
-    payoff_cfg = config["options_lab"]["payoff"]
-    df = compute_option_payoff(
-        spot=spot, strike=strike, premium=premium, option_type=opt_type,
-        spot_range_pct=float(payoff_cfg["spot_range_pct"]), points=int(payoff_cfg["spot_points"]),
-    )
-    chart_col, table_col = st.columns([2, 3])
-    with chart_col:
-        fig = line_chart({"P&L": df["pnl"]}, title="Expiration Payoff", y_unit="P&L ($)", x_unit="Spot at expiry ($)")
-        st.plotly_chart(fig, use_container_width=True)
-    with table_col:
-        sample = df.iloc[::max(1, len(df) // 8)].head(8)
-        sample_table = pd.DataFrame({
-            "Spot": [f"${idx:,.0f}" for idx in sample.index],
-            "P&L": [f"${v:+,.0f}" for v in sample["pnl"].values],
-        })
-        st.dataframe(sample_table, use_container_width=True, hide_index=True)
-    breakeven = strike + premium if opt_type == "call" else strike - premium
-    styled_card(
-        interpretation_callout_html(
-            observation=f"Breakeven at ${breakeven:.2f}, spot ${spot:.2f}.",
-            interpretation="Expiration payoff isolates intrinsic value minus premium, ignoring time and vol risk.",
-            implication="Use the scenario row below for pre expiry Greeks based P&L.",
-        ),
-        accent_color=TOKENS["accent_primary"],
-    )
 
 
 def render_scenario(greeks: dict[str, float], spot: float) -> None:
@@ -87,32 +62,42 @@ def render_scenario(greeks: dict[str, float], spot: float) -> None:
         st.dataframe(pd.DataFrame(rows, columns=["Move", "P&L"]), use_container_width=True, hide_index=True)
 
 
-def render_iv_smile(chain_df: pd.DataFrame, spot: float, tau: float, rate: float, config: dict[str, Any]) -> None:
-    solver = config["options_lab"]["iv_solver"]
-    sample = chain_df[chain_df["type"] == "call"].head(15)
-    if sample.empty:
-        return
-    ivs = []
-    for _, row in sample.iterrows():
-        mid = 0.5 * (row.get("bid", np.nan) + row.get("ask", np.nan))
-        iv = implied_vol(mid, spot, float(row["strike"]), tau, rate, 0.0, "call", solver)
-        ivs.append({"strike": float(row["strike"]), "iv": iv})
-    df = pd.DataFrame(ivs).dropna()
-    if df.empty:
-        return
-    chart_col, table_col = st.columns([2, 3])
-    with chart_col:
-        fig = line_chart(
-            {"Implied Vol": df.set_index("strike")["iv"]},
-            title="IV Smile (selected expiry)", y_unit="vol", x_unit="Strike ($)",
+def render_strike_selector(expiry_chain: pd.DataFrame, atm_strike: float) -> float:
+    """Two ways to pick a strike: a selectbox of actual chain strikes,
+    and a number input as an alternative for off chain values.
+    """
+    strikes = sorted({float(s) for s in expiry_chain["strike"].dropna().tolist()})
+    if not strikes:
+        return atm_strike
+    atm_idx = min(range(len(strikes)), key=lambda i: abs(strikes[i] - atm_strike))
+    col_a, col_b = st.columns([3, 2])
+    with col_a:
+        chosen = st.selectbox(
+            "Strike (chain)", options=strikes, index=atm_idx,
+            format_func=lambda v: f"{v:,.2f}", key="opt_strike_select",
         )
-        st.plotly_chart(fig, use_container_width=True)
-    with table_col:
-        smile_table = pd.DataFrame({
-            "Strike": [f"${s:,.0f}" for s in df["strike"]],
-            "IV": [f"{v * 100:.1f}%" for v in df["iv"]],
-        })
-        st.dataframe(smile_table, use_container_width=True, hide_index=True)
+    with col_b:
+        manual = st.number_input(
+            "Strike (manual)",
+            min_value=float(strikes[0]), max_value=float(strikes[-1]),
+            value=float(chosen),
+            step=max(0.5, (strikes[-1] - strikes[0]) / 100.0),
+            key="opt_strike_manual",
+        )
+    return float(manual)
+
+
+def render_inputs_row(chain, config: dict[str, Any]) -> tuple[str, str, float]:
+    expiries = chain.expiries()
+    col_e, col_t, col_v = st.columns([3, 2, 2])
+    expiry = col_e.selectbox("Expiry", options=expiries, label_visibility="collapsed")
+    opt_type = col_t.selectbox("Type", options=["call", "put"], label_visibility="collapsed")
+    sigma_default = float(config["options_lab"]["default_vol"])
+    sigma = col_v.number_input(
+        "Vol", min_value=0.01, max_value=5.0, value=sigma_default, step=0.01,
+        label_visibility="collapsed",
+    )
+    return expiry, opt_type, float(sigma)
 
 
 def resolve_spot(data_manager, ticker: str, fallback: float | None) -> float | None:

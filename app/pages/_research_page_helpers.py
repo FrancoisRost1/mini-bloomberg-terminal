@@ -8,7 +8,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-from style_inject import TOKENS, styled_card
+from style_inject import TOKENS
 
 from app.pages._research_engine_renderers import (
     render_factor_engine,
@@ -21,7 +21,11 @@ from app.pages._research_financials import (
     render_52w_range_bar,
     render_financials_table,
 )
-from terminal.utils.chart_helpers import interpretation_callout_html, line_chart
+from app.pages._research_visuals import (
+    render_phase3_recommendation as render_phase3_recommendation,  # noqa: F401  re export
+    render_score_stacked_bar as _render_score_stacked_bar,  # noqa: F401
+)
+from terminal.utils.chart_helpers import line_chart
 from terminal.utils.density import dense_kpi_row, period_returns_tape, section_bar, signed_color
 from terminal.utils.error_handling import inline_status_line, is_error, status_pill
 from terminal.utils.formatting import fmt_money, fmt_pct, fmt_ratio
@@ -119,34 +123,5 @@ def render_phase2_engines(packet: dict[str, Any]) -> None:
                 st.markdown(inline_status_line("OFF", source="FMP"), unsafe_allow_html=True)
                 continue
             renderer(engine)
-
-
-def render_phase3_recommendation(packet: dict[str, Any]) -> None:
-    rec = packet.get("recommendation") or {}
-    rating = rec.get("rating", "INSUFFICIENT_DATA")
-    color_map = {"BUY": TOKENS["accent_success"], "HOLD": TOKENS["accent_warning"],
-                 "SELL": TOKENS["accent_danger"], "INSUFFICIENT_DATA": TOKENS["text_muted"]}
-    accent = color_map.get(rating, TOKENS["accent_primary"])
-    st.markdown(section_bar("DETERMINISTIC RATING", source="local"), unsafe_allow_html=True)
-    composite = rec.get("composite_score", float("nan"))
-    items = [
-        {"label": "RATING", "value": rating, "delta": f"grade {rec.get('confidence_grade', 'F')}",
-         "delta_color": accent, "value_color": accent},
-        {"label": "COMPOSITE", "value": f"{composite:.1f}" if composite == composite else "n/a",
-         "value_color": signed_color((composite - 50) if composite == composite else 0)},
-        {"label": "CONFIDENCE", "value": f"{rec.get('confidence', 0):.2f}"},
-    ]
-    for key, val in (rec.get("sub_scores") or {}).items():
-        items.append({"label": key.upper(), "value": f"{val:.1f}" if val == val else "n/a",
-                      "value_color": signed_color(val - 50) if val == val else None})
-    st.markdown(dense_kpi_row(items, min_cell_px=95), unsafe_allow_html=True)
-    styled_card(
-        interpretation_callout_html(
-            observation=f"Composite score {composite:.1f}." if composite == composite else "Composite unavailable.",
-            interpretation="Derived deterministically from valuation, quality, momentum, and risk sub scores.",
-            implication=f"Override reason. {rec.get('override_reason') or 'none'}.",
-        ),
-        accent_color=accent,
-    )
 
 

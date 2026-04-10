@@ -82,7 +82,8 @@ class OptionsChain:
     """Options chain grouped by expiry date (ISO string).
 
     Each expiry DataFrame has columns: strike, bid, ask, last, volume,
-    open_interest, type ('call' or 'put').
+    open_interest, implied_volatility (when the provider returns it),
+    type ('call' or 'put').
     """
 
     ticker: str
