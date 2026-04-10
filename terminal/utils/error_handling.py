@@ -1,86 +1,110 @@
 """Error boundary helpers for the UI.
 
-Bloomberg style: data status is a small monospace tag in the top right
-of each section, not a full width alarm box. ``data_status`` is the
-canonical helper. ``degraded_card`` and ``unavailable_card`` exist for
-backward compatibility but render as a single inline mono line, not a
-boxed alert.
-
-Status values are deliberately minimal:
-- LIVE     fresh data from the production provider
-- PARTIAL  some series missing or fell back to a shorter lookback
-- STALE    served from cache because the live fetch failed
-- DELAYED  endpoint is delayed by tier or by upstream policy
-- OFF      the active provider does not serve this endpoint at all
+Bloomberg style: data status is a sharp inline mono pill, never a
+boxed alarm. User facing strings are short and clean. Long technical
+detail (stack messages, provider error reasons) only render when
+APP_MODE=development via ``dev_detail_caption``.
 """
 
 from __future__ import annotations
 
+import os
 from typing import Any
+
+import streamlit as st
 
 from style_inject import TOKENS
 
 
-_STATUS_COLORS = {
-    "LIVE": TOKENS["text_muted"],
-    "PARTIAL": TOKENS["text_muted"],
-    "STALE": TOKENS["text_muted"],
-    "DELAYED": TOKENS["text_muted"],
-    "OFF": TOKENS["text_muted"],
-}
+def _is_dev() -> bool:
+    return os.environ.get("APP_MODE", "production").lower() != "production"
 
 
-def data_status(status: str, detail: str = "") -> str:
-    """Inline mono status tag. Use as the ``tape`` argument to section_bar."""
-    color = _STATUS_COLORS.get(status, TOKENS["text_muted"])
-    detail_html = f' <span style="color:{TOKENS["text_muted"]};opacity:0.6;">{detail}</span>' if detail else ""
+def data_status(status: str, source: str = "") -> str:
+    """Inline mono status pill rendered in section_bar tape position.
+
+    Use as ``section_bar(label, source=...)``; this function exists for
+    pages that build their own status line outside section_bar.
+    """
+    color = TOKENS["text_secondary"]
+    src = f' | SRC {source.upper()}' if source else ""
     return (
-        f'<span style="font-family:{TOKENS["font_mono"]};font-size:0.6rem;'
-        f'font-weight:600;letter-spacing:0.06em;color:{color};">'
-        f'DATA: {status}</span>{detail_html}'
+        f'<span style="font-family:{TOKENS["font_mono"]};font-size:0.62rem;'
+        f'font-weight:700;letter-spacing:0.08em;color:{color};">'
+        f'DATA {status.upper()}{src}</span>'
     )
 
 
-def inline_status_line(status: str, reason: str) -> str:
-    """Single line mono status used in place of degraded_card / unavailable_card."""
-    color = _STATUS_COLORS.get(status, TOKENS["text_muted"])
+def inline_status_line(status: str, source: str = "") -> str:
+    """Single line mono status used in body when a section degrades."""
+    color = TOKENS["text_secondary"]
+    src = f' | SRC {source.upper()}' if source else ""
     return (
         f'<div style="font-family:{TOKENS["font_mono"]};font-size:0.66rem;'
-        f'color:{color};padding:0.2rem 0;">DATA: {status} | {reason}</div>'
+        f'font-weight:600;color:{color};padding:0.2rem 0;letter-spacing:0.06em;">'
+        f'DATA {status.upper()}{src}</div>'
     )
 
 
-def degraded_card(reason: str, provider: str = "n/a") -> str:
-    return inline_status_line("PARTIAL", f"{provider} | {reason}")
+def degraded_card(reason: str, provider: str = "") -> str:
+    """Compatibility wrapper. Renders a sharp PARTIAL status line."""
+    return inline_status_line("PARTIAL", source=provider)
 
 
-def unavailable_card(what: str, reason: str) -> str:
-    return inline_status_line("OFF", f"{what} | {reason}")
+def unavailable_card(what: str, reason: str = "") -> str:
+    """Compatibility wrapper. Renders a sharp OFF status line."""
+    return inline_status_line("OFF")
 
 
 def dev_mode_banner() -> str:
-    """Single line dev mode strip across the top."""
     return (
         f'<div style="font-family:{TOKENS["font_mono"]};font-size:0.62rem;'
         f'color:{TOKENS["accent_info"]};border-bottom:1px solid {TOKENS["accent_info"]};'
         f'padding:0.15rem 0.4rem;letter-spacing:0.06em;">'
-        f'DEV MODE | yfinance fallback | not for production</div>'
+        f'DEV MODE | yfinance fallback active | not for production</div>'
     )
 
 
 def status_pill(label: str, status: str) -> str:
-    """Small inline status pill for engine cards. Muted Bloomberg style."""
+    """Sharp inline mono pill for engine cards."""
     color = {
         "success": TOKENS["accent_success"],
         "failed": TOKENS["accent_danger"],
         "missing": TOKENS["text_muted"],
     }.get(status, TOKENS["accent_warning"])
     return (
-        f'<span style="font-family:{TOKENS["font_mono"]};font-size:0.6rem;'
-        f'font-weight:600;color:{color};letter-spacing:0.06em;">'
+        f'<span style="font-family:{TOKENS["font_mono"]};font-size:0.62rem;'
+        f'font-weight:700;color:{color};letter-spacing:0.08em;">'
         f'{label} {status.upper()}</span>'
     )
 
 
+def dev_detail_caption(detail: str) -> None:
+    """Render a long technical detail line ONLY when APP_MODE=development.
+
+    Use this for stack traces, provider error reasons, raw URLs, etc.
+    The user facing surface stays clean; developers can flip the env
+    var to see the underlying mechanics.
+    """
+    if not _is_dev():
+        return
+    if not detail:
+        return
+    st.caption(f"dev: {detail}")
+
+
 def is_error(obj: Any) -> bool:
     return hasattr(obj, "reason") and hasattr(obj, "provider") and hasattr(obj, "data_type")
+
+
+def safe_render(callable_, *, label: str, source: str = "") -> Any:
+    """Run a render callable, swallow any exception, return None on failure
+    while showing an inline status line. Used to prevent raw tracebacks
+    from leaking into the production UI.
+    """
+    try:
+        return callable_()
+    except Exception as exc:
+        st.markdown(inline_status_line(f"PARTIAL", source=source), unsafe_allow_html=True)
+        dev_detail_caption(f"{label} failed: {type(exc).__name__}: {exc}")
+        return None

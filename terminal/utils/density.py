@@ -1,14 +1,14 @@
 """Bloomberg density primitives. Project specific helpers beyond
-the canonical style_inject. Pandas Styler helpers for directional
-coloring live in dataframe_styling.py and are re exported here.
+the canonical style_inject. Tape helpers (ticker_tape, bloomberg_tape,
+period_returns_tape) live in tapes.py and are re exported here.
+Pandas Styler helpers for directional coloring live in
+dataframe_styling.py and are re exported here.
 """
 
 from __future__ import annotations
 
 import math
 from typing import Any
-
-import pandas as pd
 
 from style_inject import TOKENS
 
@@ -32,33 +32,6 @@ def mono_inline(text: str, color: str | None = None, weight: int = 500) -> str:
     return (
         f'<span style="font-family:{TOKENS["font_mono"]};color:{color_css};'
         f'font-weight:{weight};font-size:0.72rem;letter-spacing:0;">{text}</span>'
-    )
-
-
-def ticker_tape(items: list[dict[str, Any]]) -> str:
-    cells: list[str] = []
-    for item in items:
-        label = item.get("label", "")
-        value = item.get("value", "n/a")
-        delta = item.get("delta", "")
-        delta_color = item.get("delta_color") or TOKENS["text_muted"]
-        delta_html = (
-            f'<span style="color:{delta_color};font-family:{TOKENS["font_mono"]};'
-            f'font-size:0.65rem;font-weight:500;margin-left:0.3rem;">{delta}</span>'
-            if delta else ""
-        )
-        cells.append(
-            f'<span style="display:inline-flex;align-items:baseline;gap:0.25rem;'
-            f'padding:0 0.55rem;border-right:1px solid {TOKENS["border_subtle"]};">'
-            f'<span style="color:{TOKENS["text_muted"]};font-family:{TOKENS["font_body"]};'
-            f'font-size:0.55rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">{label}</span>'
-            f'<span style="color:{TOKENS["text_primary"]};font-family:{TOKENS["font_mono"]};'
-            f'font-size:0.72rem;font-weight:600;">{value}</span>{delta_html}</span>'
-        )
-    return (
-        f'<div style="background:{TOKENS["bg_surface"]};'
-        f'border:1px solid {TOKENS["border_default"]};border-radius:{TOKENS["radius_sm"]};'
-        f'padding:0.3rem 0.15rem;overflow-x:auto;white-space:nowrap;">{"".join(cells)}</div>'
     )
 
 
@@ -97,52 +70,29 @@ def dense_kpi_row(items: list[dict[str, Any]], min_cell_px: int = 100) -> str:
 
 
 def section_bar(label: str, tape: str = "", source: str = "") -> str:
-    """Loud section header. Orange uppercase mono with a thin underline.
-
-    ``tape``   inline mono string on the right (e.g. period_returns_tape)
-    ``source`` data source label rendered as a small inline pill before
-               the tape ("FMP", "YFINANCE", "FRED")
-    """
+    """Loud section header. Orange uppercase mono with a thin underline."""
     accent = TOKENS["accent_primary"]
     pieces: list[str] = []
     if source:
         pieces.append(
             f'<span style="font-family:{TOKENS["font_mono"]};font-size:0.55rem;'
-            f'font-weight:600;color:{TOKENS["text_muted"]};letter-spacing:0.08em;'
+            f'font-weight:700;color:{TOKENS["text_secondary"]};letter-spacing:0.08em;'
             f'border:1px solid {TOKENS["border_default"]};border-radius:2px;'
             f'padding:0 0.3rem;margin-right:0.4rem;">SRC {source.upper()}</span>'
         )
     if tape:
         pieces.append(
             f'<span style="font-family:{TOKENS["font_mono"]};font-size:0.65rem;'
-            f'font-weight:500;color:{TOKENS["text_muted"]};">{tape}</span>'
+            f'font-weight:600;color:{TOKENS["text_secondary"]};">{tape}</span>'
         )
     right = (f'<span style="float:right;">{"".join(pieces)}</span>' if pieces else "")
     return (
         f'<div style="color:{accent};font-family:{TOKENS["font_mono"]};'
         f'font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;'
-        f'border-bottom:1px solid {accent};padding:0.25rem 0 0.15rem 0;'
-        f'margin:0.4rem 0 0.3rem 0;">{label}{right}</div>'
+        f'border-bottom:1px solid {accent};padding:0.2rem 0 0.1rem 0;'
+        f'margin:0.25rem 0 0.2rem 0;">{label}{right}</div>'
     )
 
 
-def period_returns_tape(prices: pd.Series) -> str:
-    """Inline mono tape: 5d / 21d / 63d / 252d returns, sign colored."""
-    if prices is None or prices.empty:
-        return ""
-    last = float(prices.iloc[-1])
-    periods = [("5D", 5), ("21D", 21), ("63D", 63), ("252D", 252)]
-    cells: list[str] = []
-    for label, n in periods:
-        if len(prices) <= n:
-            continue
-        prior = float(prices.iloc[-n - 1])
-        if prior == 0:
-            continue
-        ret = last / prior - 1.0
-        color = signed_color(ret)
-        cells.append(
-            f'<span style="color:{TOKENS["text_muted"]};">{label}</span> '
-            f'<span style="color:{color};font-weight:600;">{ret * 100:+.2f}%</span>'
-        )
-    return " | ".join(cells)
+# Re export tape helpers so existing call sites continue to import from density.
+from .tapes import bloomberg_tape, period_returns_tape, ticker_tape  # noqa: E402,F401

@@ -31,22 +31,34 @@ def render() -> None:
     data_manager = st.session_state["_data_manager"]
     ticker = st.session_state.get("active_ticker", "AAPL")
 
-    styled_header(f"Comps Relative Value. {ticker}", "Valuation bands | PE score | M&A comps")
+    styled_header(f"Comps Relative Value. {ticker}", "Single ticker valuation | PE score | M&A snapshot")
+    st.markdown(section_bar("COMPS", source="FMP + local"), unsafe_allow_html=True)
 
     fundamentals = data_manager.get_fundamentals(ticker)
-    if is_error(fundamentals):
-        st.markdown(degraded_card(fundamentals.reason, fundamentals.provider), unsafe_allow_html=True)
-        return
+    fund_ok = not is_error(fundamentals)
+    ratios = fundamentals.key_ratios if fund_ok else {}
+    sector = fundamentals.sector if fund_ok else ""
 
-    sector = fundamentals.sector
-    st.markdown(section_bar("COMPS", source="FMP + local"), unsafe_allow_html=True)
+    # Single line peer status note. The page renders single ticker
+    # absolute valuation regardless; peer relative comparison is the
+    # documented v2 deferral.
+    st.caption("PEER RELATIVE VIEW DEFERRED ON CURRENT PLAN. Single ticker valuation rendered against absolute bands.")
+
     tab_val, tab_pe, tab_ma = st.tabs(["VALUATION METRICS", "PE SCORE", "M&A COMPS"])
     with tab_val:
-        _render_valuation_card(fundamentals, config)
+        if fund_ok:
+            _render_valuation_card(fundamentals, config)
+        else:
+            from terminal.utils.error_handling import inline_status_line
+            st.markdown(inline_status_line("OFF", source="FMP"), unsafe_allow_html=True)
     with tab_pe:
-        _render_pe_score(fundamentals.key_ratios, config)
+        if fund_ok:
+            _render_pe_score(ratios, config)
+        else:
+            from terminal.utils.error_handling import inline_status_line
+            st.markdown(inline_status_line("OFF", source="FMP"), unsafe_allow_html=True)
     with tab_ma:
-        _render_ma_comps(sector, config)
+        _render_ma_comps(sector or "Technology", config)
 
 
 def _render_valuation_card(fundamentals, config) -> None:

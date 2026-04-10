@@ -1,8 +1,10 @@
 """ANALYTICS. Options Lab workspace.
 
-Renders the Greeks dashboard, IV from the live chain, payoff diagram,
-and a Greeks based P&L scenario. Helpers live in
-``_options_lab_helpers.py``.
+Layout:
+- compact input row (expiry, type, vol, strike) all on one line
+- Greeks KPI strip immediately below the inputs
+- compact subpanels for payoff, scenario, IV smile via tabs
+- no raw tracebacks: failures become inline status text via safe_render
 """
 
 from __future__ import annotations
@@ -30,7 +32,11 @@ from app.pages._options_lab_helpers import (  # noqa: E402
 )
 from terminal.adapters.options_adapter import all_greeks, black_scholes  # noqa: E402
 from terminal.utils.density import section_bar  # noqa: E402
-from terminal.utils.error_handling import degraded_card, is_error, unavailable_card  # noqa: E402
+from terminal.utils.error_handling import (  # noqa: E402
+    inline_status_line,
+    is_error,
+    safe_render,
+)
 
 
 def render() -> None:
@@ -39,38 +45,27 @@ def render() -> None:
     ticker = st.session_state.get("active_ticker", "AAPL")
 
     styled_header(f"Options Lab. {ticker}", "European vanilla | BS Greeks | Brent IV")
-    st.sidebar.markdown("### Options Lab limitations")
+    st.sidebar.markdown("### Options Lab")
     st.sidebar.caption(
-        "European vanilla only. No delta hedging simulation. No early "
-        "exercise. Greeks scenario is a local Taylor expansion, not a "
-        "full repricing. IV surface is strike wise only (single expiry). "
-        "Risk free rate is fetched from FRED (DGS2)."
+        "European vanilla only. Greeks scenario is a local Taylor expansion. "
+        "IV surface is strike wise per expiry. Risk free rate from FRED."
     )
 
+    st.markdown(section_bar("CHAIN", source="yfinance"), unsafe_allow_html=True)
     chain = data_manager.get_options_chain(ticker)
-    if is_error(chain):
-        st.markdown(degraded_card(chain.reason, chain.provider), unsafe_allow_html=True)
-        return
-    if chain.is_empty():
-        st.markdown(unavailable_card(f"No options chain available for {ticker}", "provider returned empty"), unsafe_allow_html=True)
+    if is_error(chain) or chain.is_empty():
+        st.markdown(inline_status_line("OFF", source="yfinance"), unsafe_allow_html=True)
         return
 
-    expiries = chain.expiries()
-    st.markdown(section_bar("CONTRACT INPUTS", source="yfinance"), unsafe_allow_html=True)
-    col1, col2, col3 = st.columns(3)
-    expiry = col1.selectbox("Expiry", options=expiries)
-    opt_type = col2.selectbox("Type", options=["call", "put"])
-    sigma_default = float(config["options_lab"]["default_vol"])
-    sigma = col3.number_input("Vol (annual)", min_value=0.01, max_value=5.0, value=sigma_default, step=0.01)
-
-    expiry_chain = chain.chains[expiry]
-    if expiry_chain.empty:
-        st.markdown(degraded_card("empty chain for expiry", chain.provider), unsafe_allow_html=True)
+    expiry, opt_type, sigma = _render_inputs(chain, config)
+    expiry_chain = chain.chains.get(expiry)
+    if expiry_chain is None or expiry_chain.empty:
+        st.markdown(inline_status_line("PARTIAL", source="yfinance"), unsafe_allow_html=True)
         return
 
     spot = resolve_spot(data_manager, ticker, fallback=chain.spot)
     if spot is None or spot != spot or spot <= 0:
-        st.markdown(degraded_card("could not resolve spot price for greeks", "registry"), unsafe_allow_html=True)
+        st.markdown(inline_status_line("PARTIAL", source="registry"), unsafe_allow_html=True)
         return
 
     atm_strike = float(expiry_chain.iloc[(expiry_chain["strike"] - spot).abs().argsort().iloc[0]]["strike"])
@@ -81,24 +76,37 @@ def render() -> None:
         value=atm_strike,
     )
 
-    days_to_expiry = (pd.Timestamp(expiry) - pd.Timestamp(datetime.utcnow())).days
-    tau = max(1 / 365.0, days_to_expiry / 365.0)
+    days = (pd.Timestamp(expiry) - pd.Timestamp(datetime.utcnow())).days
+    tau = max(1 / 365.0, days / 365.0)
     rate = resolve_rate(data_manager, config)
 
     greeks = all_greeks(spot, strike, tau, rate, sigma, option_type=opt_type)
     price = black_scholes(spot, strike, tau, rate, sigma, option_type=opt_type)
 
-    tab_greeks, tab_payoff, tab_scenario, tab_iv = st.tabs(
-        ["GREEKS", "PAYOFF", "SCENARIO", "IV SMILE"]
-    )
-    with tab_greeks:
-        render_greeks_kpis(price, greeks)
-    with tab_payoff:
-        render_payoff(spot, strike, price, opt_type, config)
-    with tab_scenario:
-        render_scenario(greeks, spot)
+    st.markdown(section_bar("GREEKS", source="yfinance + FRED"), unsafe_allow_html=True)
+    safe_render(lambda: render_greeks_kpis(price, greeks), label="greeks", source="local")
+
+    tab_p, tab_s, tab_iv = st.tabs(["PAYOFF", "SCENARIO", "IV SMILE"])
+    with tab_p:
+        safe_render(lambda: render_payoff(spot, strike, price, opt_type, config), label="payoff", source="local")
+    with tab_s:
+        safe_render(lambda: render_scenario(greeks, spot), label="scenario", source="local")
     with tab_iv:
-        render_iv_smile(expiry_chain, spot, tau, rate, config)
+        safe_render(lambda: render_iv_smile(expiry_chain, spot, tau, rate, config), label="iv_smile", source="yfinance")
+
+
+def _render_inputs(chain, config) -> tuple[str, str, float]:
+    expiries = chain.expiries()
+    col_e, col_t, col_v = st.columns([3, 2, 2])
+    expiry = col_e.selectbox("Expiry", options=expiries, label_visibility="collapsed")
+    opt_type = col_t.selectbox("Type", options=["call", "put"], label_visibility="collapsed")
+    sigma_default = float(config["options_lab"]["default_vol"])
+    sigma = col_v.number_input(
+        "Vol",
+        min_value=0.01, max_value=5.0, value=sigma_default, step=0.01,
+        label_visibility="collapsed",
+    )
+    return expiry, opt_type, float(sigma)
 
 
 render()

@@ -1,8 +1,7 @@
-"""Research page rendering helpers."""
+"""Research page rendering helpers. Tolerant of missing data."""
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 import pandas as pd
@@ -13,23 +12,38 @@ from style_inject import TOKENS, styled_card
 from app.pages._research_engine_renderers import (
     render_factor_engine,
     render_lbo_engine,
+    render_llm_memo as render_phase4_llm,  # noqa: F401  re export
     render_pe_engine,
     render_tsmom_engine,
 )
-from terminal.synthesis.llm_client import generate_memo, is_available as llm_is_available
 from terminal.utils.chart_helpers import interpretation_callout_html, line_chart
 from terminal.utils.density import dense_kpi_row, period_returns_tape, section_bar, signed_color
-from terminal.utils.error_handling import degraded_card, status_pill
+from terminal.utils.error_handling import inline_status_line, is_error, status_pill
 from terminal.utils.formatting import fmt_money, fmt_pct, fmt_ratio
 
 
+def _close_series(packet: dict[str, Any]) -> pd.Series | None:
+    prices = packet.get("prices")
+    if prices is None or is_error(prices):
+        return None
+    if not hasattr(prices, "prices") or prices.is_empty():
+        return None
+    return prices.prices["close"]
+
+
+def _ratios(packet: dict[str, Any]) -> dict[str, Any]:
+    f = packet.get("fundamentals")
+    if f is None or is_error(f):
+        return {}
+    return getattr(f, "key_ratios", {}) or {}
+
+
 def render_phase1_chart(packet: dict[str, Any]) -> None:
-    prices = packet["prices"]
-    close = prices.prices["close"] if not prices.is_empty() else None
+    close = _close_series(packet)
     tape = period_returns_tape(close) if close is not None else ""
     st.markdown(section_bar("PRICE", tape=tape, source="FMP"), unsafe_allow_html=True)
     if close is None:
-        st.markdown(degraded_card("no price series", prices.provider), unsafe_allow_html=True)
+        st.markdown(inline_status_line("OFF", source="FMP"), unsafe_allow_html=True)
         return
     st.plotly_chart(
         line_chart({packet["ticker"]: close}, title=f"{packet['ticker']} price (1Y)", y_unit="USD"),
@@ -38,13 +52,13 @@ def render_phase1_chart(packet: dict[str, Any]) -> None:
 
 
 def render_phase1_stats(packet: dict[str, Any]) -> None:
-    fundamentals = packet["fundamentals"]
-    ratios = fundamentals.key_ratios
-    close = packet["prices"].prices["close"] if not packet["prices"].is_empty() else None
     st.markdown(section_bar("KEY STATS", source="FMP"), unsafe_allow_html=True)
+    fundamentals = packet.get("fundamentals")
+    ratios = _ratios(packet)
+    market_cap = getattr(fundamentals, "market_cap", float("nan")) if fundamentals and not is_error(fundamentals) else float("nan")
     rev_growth = ratios.get("revenue_growth")
     items = [
-        {"label": "MARKET CAP", "value": fmt_money(fundamentals.market_cap)},
+        {"label": "MARKET CAP", "value": fmt_money(market_cap)},
         {"label": "P/E", "value": fmt_ratio(ratios.get("pe_ratio"), suffix="")},
         {"label": "EV/EBITDA", "value": fmt_ratio(ratios.get("ev_ebitda"))},
         {"label": "EBITDA MARGIN", "value": fmt_pct(ratios.get("ebitda_margin"))},
@@ -57,6 +71,10 @@ def render_phase1_stats(packet: dict[str, Any]) -> None:
         {"label": "DIV YIELD", "value": fmt_pct(ratios.get("dividend_yield"))},
     ]
     st.markdown(dense_kpi_row(items, min_cell_px=95), unsafe_allow_html=True)
+    if fundamentals is None or is_error(fundamentals):
+        st.markdown(inline_status_line("OFF", source="FMP"), unsafe_allow_html=True)
+        return
+    close = _close_series(packet)
     rows = [("Sector", fundamentals.sector or "n/a"), ("Industry", fundamentals.industry or "n/a"),
             ("Provider", fundamentals.provider)]
     if close is not None:
@@ -67,7 +85,7 @@ def render_phase1_stats(packet: dict[str, Any]) -> None:
 
 def render_phase2_engines(packet: dict[str, Any]) -> None:
     st.markdown(section_bar("ENGINE RESULTS", source="FMP"), unsafe_allow_html=True)
-    engines = packet["engines"]
+    engines = packet.get("engines") or {}
     tabs = st.tabs(["PE SCORING", "FACTOR EXPOSURE", "TSMOM SIGNAL", "LBO SNAPSHOT"])
     renderers = [
         ("pe_scoring", render_pe_engine),
@@ -81,63 +99,37 @@ def render_phase2_engines(packet: dict[str, Any]) -> None:
             status = engine.get("status", "missing")
             st.markdown(status_pill(key.upper(), status), unsafe_allow_html=True)
             if engine.get("status") != "success":
-                st.caption(engine.get("reason", "no detail"))
+                st.markdown(inline_status_line("OFF", source="FMP"), unsafe_allow_html=True)
                 continue
             renderer(engine)
 
 
 def render_phase3_recommendation(packet: dict[str, Any]) -> None:
-    rec = packet["recommendation"]
-    rating = rec["rating"]
-    color_map = {
-        "BUY": TOKENS["accent_success"], "HOLD": TOKENS["accent_warning"],
-        "SELL": TOKENS["accent_danger"], "INSUFFICIENT_DATA": TOKENS["text_muted"],
-    }
+    rec = packet.get("recommendation") or {}
+    rating = rec.get("rating", "INSUFFICIENT_DATA")
+    color_map = {"BUY": TOKENS["accent_success"], "HOLD": TOKENS["accent_warning"],
+                 "SELL": TOKENS["accent_danger"], "INSUFFICIENT_DATA": TOKENS["text_muted"]}
     accent = color_map.get(rating, TOKENS["accent_primary"])
     st.markdown(section_bar("DETERMINISTIC RATING", source="local"), unsafe_allow_html=True)
+    composite = rec.get("composite_score", float("nan"))
     items = [
-        {"label": "RATING", "value": rating, "delta": f"grade {rec['confidence_grade']}",
+        {"label": "RATING", "value": rating, "delta": f"grade {rec.get('confidence_grade', 'F')}",
          "delta_color": accent, "value_color": accent},
-        {"label": "COMPOSITE", "value": f"{rec['composite_score']:.1f}",
-         "value_color": signed_color(rec["composite_score"] - 50)},
-        {"label": "CONFIDENCE", "value": f"{rec['confidence']:.2f}"},
+        {"label": "COMPOSITE", "value": f"{composite:.1f}" if composite == composite else "n/a",
+         "value_color": signed_color((composite - 50) if composite == composite else 0)},
+        {"label": "CONFIDENCE", "value": f"{rec.get('confidence', 0):.2f}"},
     ]
-    for key, val in (rec["sub_scores"] or {}).items():
-        items.append({
-            "label": key.upper(), "value": f"{val:.1f}" if val == val else "n/a",
-            "value_color": signed_color(val - 50) if val == val else None,
-        })
+    for key, val in (rec.get("sub_scores") or {}).items():
+        items.append({"label": key.upper(), "value": f"{val:.1f}" if val == val else "n/a",
+                      "value_color": signed_color(val - 50) if val == val else None})
     st.markdown(dense_kpi_row(items, min_cell_px=95), unsafe_allow_html=True)
     styled_card(
         interpretation_callout_html(
-            observation=f"Composite score {rec['composite_score']:.1f}.",
+            observation=f"Composite score {composite:.1f}." if composite == composite else "Composite unavailable.",
             interpretation="Derived deterministically from valuation, quality, momentum, and risk sub scores.",
-            implication=f"Override reason. {rec['override_reason'] or 'none'}.",
+            implication=f"Override reason. {rec.get('override_reason') or 'none'}.",
         ),
         accent_color=accent,
     )
 
 
-def render_phase4_llm(packet: dict[str, Any], config: dict[str, Any]) -> None:
-    st.markdown(section_bar("LLM MEMO", source="anthropic"), unsafe_allow_html=True)
-    llm_cfg = config["llm"]
-    enabled_setting = llm_cfg.get("enabled", False)
-    has_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
-    if not ((enabled_setting == "auto" and has_key) or enabled_setting is True):
-        st.caption("LLM synthesis unavailable. No ANTHROPIC_API_KEY or disabled in config.")
-        return
-    if not llm_is_available():
-        st.caption("LLM synthesis unavailable. anthropic SDK not importable.")
-        return
-    with st.spinner("Synthesizing memo via Claude."):
-        result = generate_memo(
-            ticker=packet["ticker"], recommendation=packet["recommendation"],
-            ratios=packet["fundamentals"].key_ratios, scenarios=packet["scenarios"], llm_cfg=llm_cfg,
-        )
-    if result["status"] != "success":
-        st.caption(f"LLM synthesis skipped. {result.get('reason', 'unknown reason')}.")
-        return
-    if result.get("inconsistency"):
-        st.markdown(status_pill("LLM RATING INCONSISTENCY DETECTED", "failed"), unsafe_allow_html=True)
-        st.caption(result["inconsistency"])
-    st.markdown(result["memo"])

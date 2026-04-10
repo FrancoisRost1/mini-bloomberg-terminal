@@ -1,7 +1,13 @@
-"""Global header. Bloomberg style ticker tape strip.
+"""Global header. 2 row Bloomberg layout.
 
-Single line. Never shows n/a. If FMP fails on a refresh, the header
-serves the last good value from disk and marks it STALE inline.
+Row 1: ticker input + watchlist controls (input, dropdown, +/- buttons).
+Row 2: full width Bloomberg style ticker tape with provider status,
+       watchlist count, VIX (FRED), and 8 market tickers from yfinance
+       with arrows and colored % change.
+
+The tape never shows raw n/a once any prior fetch has succeeded.
+Failed fetches fall through to the LastGoodCache and render with a
+STALE marker so the header always reads as a live tape.
 """
 
 from __future__ import annotations
@@ -13,9 +19,10 @@ import streamlit as st
 
 from style_inject import TOKENS
 
+from app.header_tape import build_tape_items
 from terminal.managers.data_manager import SharedDataManager
-from terminal.utils.density import signed_color, ticker_tape
-from terminal.utils.error_handling import dev_mode_banner, is_error
+from terminal.utils.error_handling import dev_mode_banner
+from terminal.utils.tapes import bloomberg_tape
 from terminal.utils.last_good_cache import LastGoodCache
 from terminal.utils.watchlist_io import WatchlistStore
 
@@ -29,18 +36,27 @@ def render(data_manager: SharedDataManager, watchlist: WatchlistStore, config: d
     if data_manager.registry.is_dev_mode():
         st.markdown(dev_mode_banner(), unsafe_allow_html=True)
 
-    col_ticker, col_watchlist, col_actions, col_tape = st.columns([2, 2, 2, 8])
+    # Row 1: ticker input + watchlist controls
+    col_ticker, col_watchlist, col_actions = st.columns([3, 3, 3])
     _render_ticker_input(col_ticker)
     _render_watchlist_select(col_watchlist, watchlist)
     _render_watchlist_actions(col_actions, watchlist)
-    with col_tape:
-        st.markdown(_build_tape(data_manager, watchlist, config), unsafe_allow_html=True)
+
+    # Row 2: bloomberg style ticker tape
+    items = build_tape_items(data_manager, watchlist, config, _cache(config))
+    st.markdown(bloomberg_tape(items), unsafe_allow_html=True)
 
 
 def _render_ticker_input(col) -> None:
     with col:
         active = st.session_state.get("active_ticker", "AAPL")
-        ticker_input = st.text_input("Active ticker", value=active, key="header_ticker", label_visibility="collapsed")
+        ticker_input = st.text_input(
+            "Active ticker",
+            value=active,
+            key="header_ticker",
+            label_visibility="collapsed",
+            placeholder="ACTIVE TICKER",
+        )
         if ticker_input and ticker_input.upper() != active:
             st.session_state["active_ticker"] = ticker_input.upper()
 
@@ -48,8 +64,13 @@ def _render_ticker_input(col) -> None:
 def _render_watchlist_select(col, watchlist: WatchlistStore) -> None:
     with col:
         tickers = watchlist.list_tickers()
-        chosen = st.selectbox("Watchlist", options=["select"] + tickers, key="header_watchlist", label_visibility="collapsed")
-        if chosen and chosen != "select":
+        chosen = st.selectbox(
+            "Watchlist",
+            options=["WATCHLIST"] + tickers,
+            key="header_watchlist",
+            label_visibility="collapsed",
+        )
+        if chosen and chosen != "WATCHLIST":
             st.session_state["active_ticker"] = chosen
 
 
@@ -65,65 +86,3 @@ def _render_watchlist_actions(col, watchlist: WatchlistStore) -> None:
             if st.button(f"- {active}", key="header_watchlist_remove", use_container_width=True):
                 watchlist.remove(active)
                 st.rerun()
-
-
-def _build_tape(data_manager: SharedDataManager, watchlist: WatchlistStore, config: dict[str, Any]) -> str:
-    cache = _cache(config)
-    items: list[dict[str, Any]] = []
-
-    provider = data_manager.registry.equity()
-    provider_label = provider.name.upper() if provider else "OFFLINE"
-    items.append({
-        "label": "PROVIDER", "value": provider_label,
-        "delta_color": TOKENS["accent_success"] if provider else TOKENS["accent_danger"],
-    })
-    cap = config["watchlist"]["max_tickers"]
-    items.append({
-        "label": "WATCH", "value": f"{len(watchlist.list_tickers())}/{cap}",
-        "delta": watchlist.backend().upper(), "delta_color": TOKENS["accent_info"],
-    })
-
-    vix_id = config["market"]["macro_series"]["volatility"]["vix_series"]
-    items.append(_macro_item(data_manager, cache, vix_id, "VIX"))
-
-    for ticker, label in [("SPY", "SPY"), ("QQQ", "QQQ"), ("UUP", "DXY"), ("GLD", "GOLD"), ("USO", "OIL")]:
-        items.append(_market_item(data_manager, cache, ticker, label))
-
-    return ticker_tape(items)
-
-
-def _macro_item(data_manager, cache: LastGoodCache, series_id: str, label: str) -> dict[str, Any]:
-    macro = data_manager.get_macro([series_id])
-    if not is_error(macro):
-        v = macro.latest(series_id)
-        if v == v:
-            cache.put(label, {"value": float(v)})
-            return {"label": label, "value": f"{v:.2f}"}
-    cached = cache.get(label)
-    if cached:
-        v = cached[0]["value"]
-        return {"label": label, "value": f"{v:.2f}", "delta": "STALE", "delta_color": TOKENS["text_muted"]}
-    return {"label": label, "value": "n/a"}
-
-
-def _market_item(data_manager, cache: LastGoodCache, ticker: str, label: str) -> dict[str, Any]:
-    data = data_manager.get_index_prices(ticker, period="1mo")
-    if not is_error(data) and not data.is_empty():
-        last = data.last_close()
-        prev = float(data.prices["close"].iloc[-2]) if len(data.prices) >= 2 else last
-        change = ((last - prev) / prev) if prev else 0.0
-        cache.put(label, {"value": float(last), "change": float(change)})
-        return {
-            "label": label, "value": f"{last:,.2f}",
-            "delta": f"{change * 100:+.2f}%", "delta_color": signed_color(change),
-        }
-    cached = cache.get(label)
-    if cached:
-        v = cached[0]
-        change = v.get("change", 0.0)
-        return {
-            "label": label, "value": f"{v['value']:,.2f}",
-            "delta": f"STALE {change * 100:+.2f}%",
-            "delta_color": signed_color(change),
-        }
-    return {"label": label, "value": "n/a"}

@@ -22,13 +22,12 @@ from terminal.utils.formatting import fmt_pct
 
 
 def render_indices_strip(data_manager, config) -> None:
-    """Indices dataframe with inline 60d sparklines (Bloomberg style)."""
+    """Indices dataframe with inline 60d sparklines. n/a rows are dropped."""
     st.markdown(section_bar("GLOBAL INDICES", source="yfinance"), unsafe_allow_html=True)
     rows = []
     for idx in config["market"]["indices"]:
         data = data_manager.get_index_prices(idx["ticker"], period="3mo")
         if is_error(data) or data.is_empty():
-            rows.append({"Index": idx["label"], "Last": "n/a", "Chg %": "", "60D Trend": []})
             continue
         closes = data.prices["close"]
         last = float(closes.iloc[-1])
@@ -36,6 +35,10 @@ def render_indices_strip(data_manager, config) -> None:
         chg = (last / prev - 1) * 100 if prev else 0.0
         rows.append({"Index": idx["label"], "Last": f"{last:,.2f}",
                      "Chg %": f"{chg:+.2f}%", "60D Trend": closes.tail(60).tolist()})
+    if not rows:
+        from terminal.utils.error_handling import inline_status_line
+        st.markdown(inline_status_line("OFF", source="yfinance"), unsafe_allow_html=True)
+        return
     st.dataframe(colored_dataframe(pd.DataFrame(rows), ["Chg %"]),
                  use_container_width=True, hide_index=True,
                  column_config={"60D Trend": st.column_config.LineChartColumn("60D", width="medium")})
@@ -57,13 +60,16 @@ def render_rates_and_vol(data_manager, config) -> None:
     for label, series in rates_series.items():
         clean = series.dropna()
         if clean.empty:
-            rows.append({"Tenor": label, "Latest": "n/a", "1D bp": "", "60D Trend": []})
             continue
         latest = float(clean.iloc[-1])
         prior = float(clean.iloc[-2]) if len(clean) >= 2 else latest
         rows.append({"Tenor": label, "Latest": f"{latest:.2f}%",
                      "1D bp": f"{(latest - prior) * 100:+.0f}",
                      "60D Trend": clean.tail(60).tolist()})
+    if not rows:
+        from terminal.utils.error_handling import inline_status_line
+        st.markdown(inline_status_line("OFF", source="FRED"), unsafe_allow_html=True)
+        return
     st.dataframe(colored_dataframe(pd.DataFrame(rows), ["1D bp"]),
                  use_container_width=True, hide_index=True,
                  column_config={"60D Trend": st.column_config.LineChartColumn("60D", width="medium")})
@@ -129,19 +135,15 @@ def render_breadth(data_manager, config) -> None:
     nhl = breadth["new_highs_lows"]
     items = [
         {"label": "% ABOVE 200D", "value": fmt_pct(pct), "value_color": signed_color((pct or 0) - 0.5) if pct == pct else None},
-        {"label": "ADV / DECL", "value": f"{ad:.2f}" if ad == ad else "n/a", "value_color": signed_color((ad or 0) - 1.0) if ad == ad else None},
+        {"label": "ADV / DECL", "value": f"{ad:.2f}" if ad == ad else "n/a"},
         {"label": "NEW HIGHS", "value": str(nhl["new_highs"]), "value_color": TOKENS["accent_success"]},
         {"label": "NEW LOWS", "value": str(nhl["new_lows"]), "value_color": TOKENS["accent_danger"]},
-        {"label": "NET HIGH LOW", "value": f"{nhl['net']:+d}", "value_color": signed_color(nhl["net"])},
+        {"label": "NET HL", "value": f"{nhl['net']:+d}", "value_color": signed_color(nhl["net"])},
     ]
     st.markdown(dense_kpi_row(items, min_cell_px=110), unsafe_allow_html=True)
-    rows = []
-    for ticker, series in closes.items():
-        last = float(series.iloc[-1])
-        start = float(series.iloc[0])
-        chg = (last / start - 1) * 100 if start else 0.0
-        rows.append({"Sector": ticker, "Last": f"{last:,.2f}",
-                     "1Y %": f"{chg:+.1f}%", "60D Trend": series.tail(60).tolist()})
+    rows = [{"Sector": t, "Last": f"{float(s.iloc[-1]):,.2f}",
+             "1Y %": f"{(float(s.iloc[-1]) / float(s.iloc[0]) - 1) * 100:+.1f}%" if float(s.iloc[0]) else "0.0%",
+             "60D Trend": s.tail(60).tolist()} for t, s in closes.items()]
     st.dataframe(colored_dataframe(pd.DataFrame(rows), ["1Y %"]),
                  use_container_width=True, hide_index=True,
                  column_config={"60D Trend": st.column_config.LineChartColumn("60D", width="small")})

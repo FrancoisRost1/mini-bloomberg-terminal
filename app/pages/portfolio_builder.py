@@ -24,23 +24,23 @@ from terminal.utils.formatting import fmt_pct, fmt_ratio  # noqa: E402
 def render() -> None:
     config = st.session_state["_config"]
     data_manager = st.session_state["_data_manager"]
-
     styled_header("Portfolio Builder", "MV and HRP | Concentration | Robustness deferred to v2")
     st.sidebar.markdown("### Portfolio limitations")
-    st.sidebar.caption(
-        "v1 implements MV and HRP only. Risk Parity and Black Litterman are documented future upgrades. "
-        "Ledoit Wolf covariance by default. Phase 3 robustness deferred to v2."
-    )
+    st.sidebar.caption("v1 implements MV and HRP only. Ledoit Wolf covariance by default. Phase 3 deferred.")
 
     tickers = _ticker_input(config)
     if len(tickers) < int(config["portfolio"]["optimizer"]["min_assets"]):
         st.info(f"Enter at least {config['portfolio']['optimizer']['min_assets']} tickers to build a portfolio.")
         return
 
-    returns = _fetch_returns(data_manager, tickers, int(config["portfolio"]["covariance"]["lookback_days"]))
+    returns, excluded, tier = _fetch_returns(data_manager, tickers)
     if returns is None or returns.shape[1] < 2:
-        st.markdown(degraded_card("insufficient historical data", "data_manager"), unsafe_allow_html=True)
+        st.caption("DATA OFF | no historical data for any ticker | tried 5y / 1y / 6mo")
         return
+    if excluded:
+        st.caption(f"DATA PARTIAL | TIER {tier} | excluded {len(excluded)}: {', '.join(excluded)}")
+    else:
+        st.caption(f"DATA LIVE | TIER {tier} | {returns.shape[1]} assets / {len(returns)} obs")
 
     weights = run_optimizer(returns, config["portfolio"])["weights"]
     methods = list(weights.keys())
@@ -68,21 +68,24 @@ def _ticker_input(config) -> list[str]:
     return [t.strip().upper() for t in raw.split(",") if t.strip()]
 
 
-def _fetch_returns(data_manager, tickers, lookback) -> pd.DataFrame | None:
-    """Cascade through 2y -> 1y -> 6mo -> 3mo until at least 60 days of data exists."""
-    for period, min_rows in [("2y", 252), ("1y", 126), ("6mo", 60), ("3mo", 30)]:
+def _fetch_returns(data_manager, tickers) -> tuple[pd.DataFrame | None, list[str], str]:
+    """Cascade 5y/3Y -> 1y -> 6mo with min row guards."""
+    tiers = [("5y", "3Y", 756, 504), ("1y", "1Y", 252, 126), ("6mo", "6M", 126, 60)]
+    for period, tier, target, min_rows in tiers:
         closes: dict[str, pd.Series] = {}
-        for ticker in tickers:
-            data = data_manager.get_any_prices(ticker, period=period)
-            if is_error(data) or data.is_empty():
-                continue
-            closes[ticker] = data.prices["close"]
+        excluded: list[str] = []
+        for t in tickers:
+            d = data_manager.get_any_prices(t, period=period)
+            if is_error(d) or d.is_empty():
+                excluded.append(t)
+            else:
+                closes[t] = d.prices["close"]
         if not closes:
             continue
         df = pd.DataFrame(closes).dropna(how="all").pct_change().dropna()
         if len(df) >= min_rows:
-            return df.tail(lookback)
-    return None
+            return df.tail(target), excluded, tier
+    return None, list(tickers), "NONE"
 
 
 def _render_method_pane(method: str, w: dict[str, float], returns: pd.DataFrame) -> None:
@@ -101,19 +104,11 @@ def _render_method_pane(method: str, w: dict[str, float], returns: pd.DataFrame)
         {"label": "ASSETS", "value": str(sum(1 for v in w.values() if v > 1e-4))},
     ]
     st.markdown(dense_kpi_row(items, min_cell_px=85), unsafe_allow_html=True)
-    rows = []
-    for asset, weight in sorted(w.items(), key=lambda kv: -kv[1]):
-        if asset in returns.columns:
-            cum = (1 + returns[asset]).cumprod()
-            spark = cum.tail(60).tolist()
-        else:
-            spark = []
-        rows.append({"Asset": asset, "Weight": f"{weight * 100:.1f}%", "60D Trend": spark})
-    holdings = pd.DataFrame(rows)
-    st.dataframe(
-        holdings, use_container_width=True, hide_index=True,
-        column_config={"60D Trend": st.column_config.LineChartColumn("60D", width="small")},
-    )
+    rows = [{"Asset": a, "Weight": f"{wt * 100:.1f}%",
+             "60D Trend": (1 + returns[a]).cumprod().tail(60).tolist() if a in returns.columns else []}
+            for a, wt in sorted(w.items(), key=lambda kv: -kv[1])]
+    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True,
+                 column_config={"60D Trend": st.column_config.LineChartColumn("60D", width="small")})
     st.plotly_chart(
         bar_chart({k: float(v) for k, v in w.items()}, title=f"{method} weights", y_unit="weight"),
         use_container_width=True,

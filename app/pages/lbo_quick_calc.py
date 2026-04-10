@@ -78,6 +78,12 @@ def _render_summary(result) -> None:
 
 def _render_bridge(result) -> None:
     bridge = compute_lbo_equity_bridge(result)
+    implied_equity_delta = float(result["equity_at_exit"]) - float(result["sponsor_equity"])
+    bridge_total = float(bridge["total_value_creation"])
+    reconciled = abs(bridge_total - implied_equity_delta) < 1.0
+    status = "RECONCILED" if reconciled else "BRIDGE MISMATCH"
+    st.caption(f"DATA LIVE | {status} | bridge {fmt_money(bridge_total)} vs equity delta {fmt_money(implied_equity_delta)}")
+
     chart_col, table_col = st.columns([2, 3])
     with chart_col:
         fig = waterfall(
@@ -96,16 +102,18 @@ def _render_bridge(result) -> None:
     with table_col:
         bridge_table = pd.DataFrame(
             [
-                ("EBITDA growth", bridge["ebitda_growth"]),
-                ("Multiple change", bridge["multiple_expansion"]),
-                ("Debt paydown", bridge["debt_paydown"]),
-                ("Fees drag", bridge["fees_drag"]),
-                ("Total value", bridge["total_value_creation"]),
+                ("EBITDA growth", float(bridge["ebitda_growth"])),
+                ("Multiple change", float(bridge["multiple_expansion"])),
+                ("Debt paydown", float(bridge["debt_paydown"])),
+                ("Fees drag", float(bridge["fees_drag"])),
+                ("Total value", float(bridge["total_value_creation"])),
             ],
-            columns=["Leg", "Value ($)"],
+            columns=["Leg", "Value"],
         )
-        st.dataframe(colored_dataframe(bridge_table, ["Value ($)"]),
-                     use_container_width=True, hide_index=True)
+        st.dataframe(
+            colored_dataframe(bridge_table, ["Value"], format_map={"Value": fmt_money}),
+            use_container_width=True, hide_index=True,
+        )
     styled_card(
         interpretation_callout_html(
             observation=f"Total value created. {fmt_money(bridge['total_value_creation'])}.",

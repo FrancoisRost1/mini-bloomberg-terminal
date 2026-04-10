@@ -29,13 +29,21 @@ def _parse_signed(val: Any) -> float:
         return float("nan")
 
 
-def colored_dataframe(df: pd.DataFrame, directional_cols: list[str] | None = None):
-    """Return a pandas Styler that colors directional cells by sign.
+def colored_dataframe(
+    df: pd.DataFrame,
+    directional_cols: list[str] | None = None,
+    format_map: dict[str, Any] | None = None,
+):
+    """Return a pandas Styler that colors directional cells by sign and
+    optionally formats display values via ``format_map``.
 
-    Parses string cells like '+1.23%', '-12.50bp', or numeric cells.
-    Use as ``st.dataframe(colored_dataframe(df, ["Chg %", "1D bp"]))``.
+    Coloring runs on the underlying float so a numeric DataFrame can be
+    fed in directly. Display formatting (e.g. fmt_money) runs on top so
+    the rendered cell shows ``$221.5M`` while the color logic still
+    sees the raw signed number.
     """
     cols = directional_cols or []
+    fmt = format_map or {}
 
     def _color(val: Any) -> str:
         num = _parse_signed(val)
@@ -49,4 +57,6 @@ def colored_dataframe(df: pd.DataFrame, directional_cols: list[str] | None = Non
     for col in cols:
         if col in df.columns:
             styler = styler.map(_color, subset=[col])
+    if fmt:
+        styler = styler.format({k: v for k, v in fmt.items() if k in df.columns})
     return styler

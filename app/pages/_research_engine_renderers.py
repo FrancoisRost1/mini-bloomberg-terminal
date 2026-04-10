@@ -12,7 +12,11 @@ from typing import Any
 
 import streamlit as st
 
-from terminal.utils.density import dense_kpi_row, signed_color
+import os
+
+from terminal.synthesis.llm_client import generate_memo, is_available as llm_is_available
+from terminal.utils.density import dense_kpi_row, section_bar, signed_color
+from terminal.utils.error_handling import inline_status_line, is_error, status_pill
 
 
 def render_pe_engine(e: dict[str, Any]) -> None:
@@ -72,3 +76,29 @@ def render_lbo_engine(e: dict[str, Any]) -> None:
         {"label": "EQUITY EXIT", "value": f"${e['equity_at_exit'] / 1e9:.1f}B"},
     ]
     st.markdown(dense_kpi_row(items, min_cell_px=90), unsafe_allow_html=True)
+
+
+def render_llm_memo(packet: dict[str, Any], config: dict[str, Any]) -> None:
+    """Phase 4. Optional LLM memo synthesis. Never blocks the page."""
+    st.markdown(section_bar("LLM MEMO", source="anthropic"), unsafe_allow_html=True)
+    llm_cfg = config["llm"]
+    enabled = llm_cfg.get("enabled", False)
+    has_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
+    if not ((enabled == "auto" and has_key) or enabled is True) or not llm_is_available():
+        st.markdown(inline_status_line("OFF", source="anthropic"), unsafe_allow_html=True)
+        return
+    fundamentals = packet.get("fundamentals")
+    if packet.get("status") != "success" or not fundamentals or is_error(fundamentals):
+        st.markdown(inline_status_line("PARTIAL", source="anthropic"), unsafe_allow_html=True)
+        return
+    with st.spinner("Synthesizing memo via Claude."):
+        result = generate_memo(
+            ticker=packet["ticker"], recommendation=packet["recommendation"],
+            ratios=fundamentals.key_ratios, scenarios=packet.get("scenarios", []), llm_cfg=llm_cfg,
+        )
+    if result["status"] != "success":
+        st.markdown(inline_status_line("PARTIAL", source="anthropic"), unsafe_allow_html=True)
+        return
+    if result.get("inconsistency"):
+        st.markdown(status_pill("LLM RATING INCONSISTENCY", "failed"), unsafe_allow_html=True)
+    st.markdown(result["memo"])

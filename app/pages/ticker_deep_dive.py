@@ -1,4 +1,9 @@
-"""RESEARCH. Ticker Deep Dive workspace. 2x2 multi pane layout."""
+"""RESEARCH. Ticker Deep Dive workspace.
+
+Always renders the full 2x2 skeleton. Each phase fills with whatever
+data is available and shows an inline status pill where data is
+missing. The page never collapses to a void.
+"""
 
 from __future__ import annotations
 
@@ -20,8 +25,8 @@ from app.pages._research_page_helpers import (  # noqa: E402
     render_phase3_recommendation,
     render_phase4_llm,
 )
-from terminal.adapters.research_adapter import run_pipeline  # noqa: E402
-from terminal.utils.error_handling import unavailable_card  # noqa: E402
+from terminal.adapters.research_adapter import run_pipeline
+from terminal.utils.error_handling import dev_detail_caption, safe_render
 
 
 def render() -> None:
@@ -32,24 +37,34 @@ def render() -> None:
     styled_header(f"Research. {ticker}", "Deterministic pipeline | Sub scores | Memo synthesis")
 
     with st.spinner(f"Running research pipeline for {ticker}."):
-        packet = run_pipeline(ticker, data_manager, config)
+        try:
+            packet = run_pipeline(ticker, data_manager, config)
+        except Exception as exc:
+            packet = {"status": "hard_failure", "ticker": ticker, "reason": "pipeline error"}
+            dev_detail_caption(f"run_pipeline raised: {type(exc).__name__}: {exc}")
 
-    if packet.get("status") == "hard_failure":
-        st.markdown(unavailable_card(f"Cannot analyze {ticker}", packet["reason"]), unsafe_allow_html=True)
-        return
+    # Build a partial packet so the skeleton always has something to render.
+    packet.setdefault("ticker", ticker)
+    packet.setdefault("engines", {})
+    packet.setdefault("recommendation", {
+        "rating": "INSUFFICIENT_DATA", "composite_score": float("nan"),
+        "confidence": 0.0, "confidence_grade": "F",
+        "sub_scores": {}, "override_reason": None, "rule_trace": [],
+    })
+    packet.setdefault("scenarios", [])
 
     row1_l, row1_r = st.columns([1, 1])
     with row1_l:
-        render_phase1_chart(packet)
+        safe_render(lambda: render_phase1_chart(packet), label="phase1_chart", source="FMP")
     with row1_r:
-        render_phase1_stats(packet)
+        safe_render(lambda: render_phase1_stats(packet), label="phase1_stats", source="FMP")
 
     row2_l, row2_r = st.columns([1, 1])
     with row2_l:
-        render_phase2_engines(packet)
-        render_phase3_recommendation(packet)
+        safe_render(lambda: render_phase2_engines(packet), label="phase2_engines", source="FMP")
+        safe_render(lambda: render_phase3_recommendation(packet), label="phase3_recommendation", source="local")
     with row2_r:
-        render_phase4_llm(packet, config)
+        safe_render(lambda: render_phase4_llm(packet, config), label="phase4_llm", source="anthropic")
 
 
 render()

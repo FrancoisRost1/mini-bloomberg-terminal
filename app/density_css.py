@@ -91,15 +91,37 @@ h3 {{ margin-top: 0.2rem !important; margin-bottom: 0.1rem !important; }}
     font-size: 0.6rem !important; margin-bottom: 0 !important;
 }}
 
-/* Sidebar tightening */
-section[data-testid="stSidebar"] .block-container {{ padding-top: 0.5rem !important; }}
-section[data-testid="stSidebar"] .stMarkdown p {{ font-size: 0.66rem !important; line-height: 1.25 !important; }}
+/* Sidebar: narrow, flat, terminal style. No rounded pills, no padding. */
+section[data-testid="stSidebar"] {{ width: 200px !important; min-width: 200px !important; }}
+section[data-testid="stSidebar"] > div {{ padding-top: 0.4rem !important; }}
+section[data-testid="stSidebar"] .block-container {{ padding: 0.4rem 0.5rem !important; }}
+section[data-testid="stSidebar"] .stMarkdown p {{ font-size: 0.66rem !important; line-height: 1.2 !important; margin: 0.05rem 0 !important; }}
+section[data-testid="stSidebar"] .stMarkdown h3 {{ font-size: 0.6rem !important; letter-spacing: 0.1em; margin: 0.5rem 0 0.2rem 0 !important; color: {TOKENS["accent_primary"]} !important; }}
+/* Flatten the navigation entry. No rounded pill, no big padding. Sharp left border on active. */
+section[data-testid="stSidebarNav"] ul {{ padding: 0 !important; }}
+section[data-testid="stSidebarNav"] li {{ list-style: none !important; }}
+section[data-testid="stSidebarNav"] a {{
+    border-radius: 0 !important;
+    padding: 0.25rem 0.5rem !important;
+    font-family: {TOKENS["font_mono"]} !important;
+    font-size: 0.66rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-left: 2px solid transparent !important;
+}}
+section[data-testid="stSidebarNav"] a[aria-current="page"] {{
+    background-color: transparent !important;
+    border-left: 2px solid {TOKENS["accent_primary"]} !important;
+    color: {TOKENS["accent_primary"]} !important;
+}}
 
 /* Buttons: smaller */
 .stButton > button {{ padding: 0.18rem 0.55rem !important; font-size: 0.66rem !important; }}
 
-/* Page title h1 from styled_header: tighter top margin (header sits at viewport top) */
-h1 {{ margin-top: 0 !important; margin-bottom: 0.15rem !important; }}
+/* Page title h1: tighter top margin and zero bottom gap so the first
+   data element sits immediately below it. */
+h1 {{ margin-top: 0 !important; margin-bottom: 0.05rem !important; font-size: 1.1rem !important; }}
 
 /* Markdown body line height tighter */
 .stMarkdown p {{ margin: 0.1rem 0 !important; line-height: 1.3 !important; }}
