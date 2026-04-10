@@ -61,6 +61,19 @@ code, pre, kbd, samp {{
 /* Plotly chart container: minimal padding */
 .stPlotlyChart {{ padding: 0.25rem !important; margin-bottom: 0.3rem !important; }}
 
+/* Tabs: dense Bloomberg style. Mono caps, tight padding, orange underline. */
+.stTabs [data-baseweb="tab-list"] {{ gap: 0 !important; padding: 0 !important; }}
+.stTabs [data-baseweb="tab"] {{
+    padding: 0.3rem 0.7rem !important;
+    font-size: 0.62rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-family: {TOKENS["font_mono"]} !important;
+    min-height: 1.6rem !important;
+}}
+.stTabs [data-baseweb="tab-panel"] {{ padding-top: 0.4rem !important; }}
+
 /* Section labels (h3 from canonical) tighter top margin */
 h3 {{ margin-top: 0.4rem !important; margin-bottom: 0.2rem !important; }}
 

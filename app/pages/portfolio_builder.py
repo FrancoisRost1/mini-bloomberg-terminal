@@ -97,12 +97,19 @@ def _render_method_pane(method: str, w: dict[str, float], returns: pd.DataFrame)
         {"label": "ASSETS", "value": str(sum(1 for v in w.values() if v > 1e-4))},
     ]
     st.markdown(dense_kpi_row(items, min_cell_px=85), unsafe_allow_html=True)
-    df = pd.DataFrame(
-        sorted(((k, v) for k, v in w.items()), key=lambda kv: -kv[1]),
-        columns=["Asset", "Weight"],
+    rows = []
+    for asset, weight in sorted(w.items(), key=lambda kv: -kv[1]):
+        if asset in returns.columns:
+            cum = (1 + returns[asset]).cumprod()
+            spark = cum.tail(60).tolist()
+        else:
+            spark = []
+        rows.append({"Asset": asset, "Weight": f"{weight * 100:.1f}%", "60D Trend": spark})
+    holdings = pd.DataFrame(rows)
+    st.dataframe(
+        holdings, use_container_width=True, hide_index=True,
+        column_config={"60D Trend": st.column_config.LineChartColumn("60D", width="small")},
     )
-    df["Weight"] = df["Weight"].apply(lambda x: f"{x * 100:.1f}%")
-    st.dataframe(df, use_container_width=True, hide_index=True)
     st.plotly_chart(
         bar_chart({k: float(v) for k, v in w.items()}, title=f"{method} weights", y_unit="weight"),
         use_container_width=True,

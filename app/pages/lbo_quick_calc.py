@@ -33,12 +33,13 @@ def render() -> None:
     assumptions = _render_sidebar_inputs(defaults)
     result = run_base_case(assumptions)
 
-    st.markdown(section_bar("OUTPUTS"), unsafe_allow_html=True)
-    _render_summary(result)
-    st.markdown(section_bar("EQUITY BRIDGE"), unsafe_allow_html=True)
-    _render_bridge(result)
-    st.markdown(section_bar("IRR SENSITIVITY"), unsafe_allow_html=True)
-    _render_sensitivity(assumptions, config)
+    tab_outputs, tab_bridge, tab_sens = st.tabs(["OUTPUTS", "EQUITY BRIDGE", "IRR SENSITIVITY"])
+    with tab_outputs:
+        _render_summary(result)
+    with tab_bridge:
+        _render_bridge(result)
+    with tab_sens:
+        _render_sensitivity(assumptions, config)
 
 
 def _render_sidebar_inputs(defaults) -> dict:

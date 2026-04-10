@@ -10,6 +10,12 @@ import streamlit as st
 
 from style_inject import TOKENS, styled_card
 
+from app.pages._research_engine_renderers import (
+    render_factor_engine,
+    render_lbo_engine,
+    render_pe_engine,
+    render_tsmom_engine,
+)
 from terminal.synthesis.llm_client import generate_memo, is_available as llm_is_available
 from terminal.utils.chart_helpers import interpretation_callout_html, line_chart
 from terminal.utils.density import dense_kpi_row, period_returns_tape, section_bar, signed_color
@@ -62,33 +68,22 @@ def render_phase1_stats(packet: dict[str, Any]) -> None:
 def render_phase2_engines(packet: dict[str, Any]) -> None:
     st.markdown(section_bar("ENGINE RESULTS"), unsafe_allow_html=True)
     engines = packet["engines"]
-    cols = st.columns(2)
-    labels = [
-        ("pe_scoring", "PE SCORING"),
-        ("factor_exposure", "FACTOR EXPOSURE"),
-        ("tsmom", "TSMOM SIGNAL"),
-        ("lbo", "LBO SNAPSHOT"),
+    tabs = st.tabs(["PE SCORING", "FACTOR EXPOSURE", "TSMOM SIGNAL", "LBO SNAPSHOT"])
+    renderers = [
+        ("pe_scoring", render_pe_engine),
+        ("factor_exposure", render_factor_engine),
+        ("tsmom", render_tsmom_engine),
+        ("lbo", render_lbo_engine),
     ]
-    for i, (key, label) in enumerate(labels):
-        with cols[i % 2]:
+    for tab, (key, renderer) in zip(tabs, renderers):
+        with tab:
             engine = engines.get(key, {})
             status = engine.get("status", "missing")
-            st.markdown(status_pill(label, status), unsafe_allow_html=True)
-            _engine_detail(key, engine)
-
-
-def _engine_detail(key: str, engine: dict[str, Any]) -> None:
-    if engine.get("status") != "success":
-        st.caption(engine.get("reason", "no detail"))
-        return
-    detail_map = {
-        "pe_scoring": lambda e: f"PE score {e['pe_score']:.1f} | flags {len(e.get('red_flags', []))}",
-        "factor_exposure": lambda e: f"composite {e['composite']:.2f} | conf {e['confidence']:.2f}",
-        "tsmom": lambda e: f"signal {e['signal']:+d} | 12 1 {e['twelve_one_return'] * 100:+.1f}%",
-        "lbo": lambda e: f"IRR {e['irr'] * 100:+.1f}% | MOIC {e['moic']:.2f}x",
-    }
-    if key in detail_map:
-        st.caption(detail_map[key](engine))
+            st.markdown(status_pill(key.upper(), status), unsafe_allow_html=True)
+            if engine.get("status") != "success":
+                st.caption(engine.get("reason", "no detail"))
+                continue
+            renderer(engine)
 
 
 def render_phase3_recommendation(packet: dict[str, Any]) -> None:

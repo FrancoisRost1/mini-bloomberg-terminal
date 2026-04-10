@@ -88,14 +88,17 @@ def render() -> None:
     greeks = all_greeks(spot, strike, tau, rate, sigma, option_type=opt_type)
     price = black_scholes(spot, strike, tau, rate, sigma, option_type=opt_type)
 
-    st.markdown(section_bar("GREEKS"), unsafe_allow_html=True)
-    render_greeks_kpis(price, greeks)
-    st.markdown(section_bar("PAYOFF"), unsafe_allow_html=True)
-    render_payoff(spot, strike, price, opt_type, config)
-    st.markdown(section_bar("SCENARIO"), unsafe_allow_html=True)
-    render_scenario(greeks, spot)
-    st.markdown(section_bar("IV SMILE"), unsafe_allow_html=True)
-    render_iv_smile(expiry_chain, spot, tau, rate, config)
+    tab_greeks, tab_payoff, tab_scenario, tab_iv = st.tabs(
+        ["GREEKS", "PAYOFF", "SCENARIO", "IV SMILE"]
+    )
+    with tab_greeks:
+        render_greeks_kpis(price, greeks)
+    with tab_payoff:
+        render_payoff(spot, strike, price, opt_type, config)
+    with tab_scenario:
+        render_scenario(greeks, spot)
+    with tab_iv:
+        render_iv_smile(expiry_chain, spot, tau, rate, config)
 
 
 render()

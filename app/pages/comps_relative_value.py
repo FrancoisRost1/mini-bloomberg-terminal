@@ -39,9 +39,13 @@ def render() -> None:
         return
 
     sector = fundamentals.sector
-    _render_valuation_card(fundamentals, config)
-    _render_pe_score(fundamentals.key_ratios, config)
-    _render_ma_comps(sector, config)
+    tab_val, tab_pe, tab_ma = st.tabs(["VALUATION METRICS", "PE SCORE", "M&A COMPS"])
+    with tab_val:
+        _render_valuation_card(fundamentals, config)
+    with tab_pe:
+        _render_pe_score(fundamentals.key_ratios, config)
+    with tab_ma:
+        _render_ma_comps(sector, config)
 
 
 def _render_valuation_card(fundamentals, config) -> None:
