@@ -6,13 +6,22 @@ All defaults come from config.yaml; users can tweak them in the sidebar.
 
 from __future__ import annotations
 
-import pandas as pd
-import streamlit as st
+import sys
+from pathlib import Path
 
-from terminal.adapters.lbo_adapter import run_base_case, sensitivity_grid
-from terminal.engines.pnl_engine import compute_lbo_equity_bridge
-from terminal.utils.chart_helpers import heatmap, interpretation_callout, waterfall
-from terminal.utils.formatting import fmt_money, fmt_pct, fmt_ratio, styled_kpi
+# Bootstrap project root for the streamlit-as-script load path.
+# See app/app.py docstring for the rationale.
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
+import pandas as pd  # noqa: E402
+import streamlit as st  # noqa: E402
+
+from terminal.adapters.lbo_adapter import run_base_case, sensitivity_grid  # noqa: E402
+from terminal.engines.pnl_engine import compute_lbo_equity_bridge  # noqa: E402
+from terminal.utils.chart_helpers import heatmap, interpretation_callout, waterfall  # noqa: E402
+from terminal.utils.formatting import fmt_money, fmt_pct, fmt_ratio, styled_kpi  # noqa: E402
 
 
 def render() -> None:

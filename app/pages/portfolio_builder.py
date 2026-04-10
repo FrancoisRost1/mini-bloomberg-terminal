@@ -13,13 +13,22 @@ engine; v2 will reintroduce Phase 3 backed by a real parameter sweep.
 
 from __future__ import annotations
 
-import pandas as pd
-import streamlit as st
+import sys
+from pathlib import Path
 
-from terminal.adapters.optimizer_adapter import run_optimizer
-from terminal.utils.chart_helpers import bar_chart, interpretation_callout
-from terminal.utils.error_handling import degraded_card, is_error
-from terminal.utils.formatting import badge, fmt_ratio, styled_kpi
+# Bootstrap project root for the streamlit-as-script load path.
+# See app/app.py docstring for the rationale.
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
+import pandas as pd  # noqa: E402
+import streamlit as st  # noqa: E402
+
+from terminal.adapters.optimizer_adapter import run_optimizer  # noqa: E402
+from terminal.utils.chart_helpers import bar_chart, interpretation_callout  # noqa: E402
+from terminal.utils.error_handling import degraded_card, is_error  # noqa: E402
+from terminal.utils.formatting import badge, fmt_ratio, styled_kpi  # noqa: E402
 
 
 def render() -> None:

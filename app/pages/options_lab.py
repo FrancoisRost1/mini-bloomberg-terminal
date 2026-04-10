@@ -8,15 +8,20 @@ per-module line budget.
 
 from __future__ import annotations
 
+import sys
 from datetime import datetime
+from pathlib import Path
 
-import pandas as pd
-import streamlit as st
+# Bootstrap project root for the streamlit-as-script load path.
+# See app/app.py docstring for the rationale.
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
 
-from terminal.adapters.options_adapter import all_greeks, black_scholes
-from terminal.utils.error_handling import degraded_card, is_error, unavailable_card
+import pandas as pd  # noqa: E402
+import streamlit as st  # noqa: E402
 
-from ._options_lab_helpers import (
+from app.pages._options_lab_helpers import (  # noqa: E402
     render_greeks_kpis,
     render_iv_smile,
     render_payoff,
@@ -24,6 +29,8 @@ from ._options_lab_helpers import (
     resolve_rate,
     resolve_spot,
 )
+from terminal.adapters.options_adapter import all_greeks, black_scholes  # noqa: E402
+from terminal.utils.error_handling import degraded_card, is_error, unavailable_card  # noqa: E402
 
 
 def render() -> None:

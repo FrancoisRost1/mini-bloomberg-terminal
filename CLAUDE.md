@@ -218,8 +218,8 @@ mini-bloomberg-terminal/
 Rules:
 - One file = one responsibility. main.py (app.py) orchestrates only.
 - No file exceeds ~150 lines. Split proactively.
-- All imports inside `app/` use relative imports. `app/` contains `__init__.py`.
-- Never use absolute package imports like `from app.module import ...`.
+- Inside `app/` use **absolute** imports (`from app.header import ...`, `from app.pages._helpers import ...`) NOT relative imports. Streamlit loads the entry script and every page via `st.Page("pages/X.py")` as a top-level script (no parent package), so relative imports raise `ImportError: attempted relative import with no known parent package` and crash the app on Railway. This was a real production crash on the first deploy. Do NOT revert to relative imports.
+- Every entry-point file in `app/` (the entry script `app.py` and every page in `app/pages/`) MUST bootstrap the project root onto `sys.path` BEFORE any project import. The pattern: `_PROJECT_ROOT = Path(__file__).resolve().parents[2]` (or `.parent.parent` for `app/app.py`), then `sys.path.insert(0, str(_PROJECT_ROOT))`. This makes `app.*` and `terminal.*` resolvable when Streamlit runs the file directly.
 
 ---
 
@@ -685,7 +685,7 @@ APP_MODE                # "production" or "development" (default: production)
 ## 13. Known bugs to prevent (lessons from Projects 8-10)
 
 1. Plotly chart titles showing "undefined": every chart needs an explicit string title
-2. Streamlit import errors: use relative imports + `__init__.py` in `app/`
+2. Streamlit import errors: use **absolute** imports (`from app.X import ...`) AND a `sys.path` bootstrap in every entry-point file. `streamlit run app/app.py` loads the file as a top-level script, NOT as `app.app`, so relative imports crash with `attempted relative import with no known parent package`. This bit us on the first Railway deploy. Same applies to every page in `app/pages/` because `st.Page("pages/X.py")` also loads each page as a script.
 3. Dividend yield bug: use `trailingAnnualDividendRate / spot`, not `dividendYield`. Warn if q > 0.15
 4. yfinance rate scaling: Treasury yields come as percentages, divide by 100
 5. Circular validation: do not extract IV then reprice with same IV and call it validation

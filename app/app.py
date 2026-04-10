@@ -3,6 +3,15 @@
 Sets up page config, injects the theme, builds the shared data manager,
 wires the four workspaces via st.navigation, and renders the global
 header on every page. All orchestration only; no business logic here.
+
+Import strategy: ``streamlit run app/app.py`` loads this file as a
+top-level script (``__name__ == "__main__"``), NOT as the
+``app.app`` package member. Relative imports like ``from .header import``
+therefore raise ``ImportError: attempted relative import with no known
+parent package``. We fix this by adding the project root to ``sys.path``
+at module load and using absolute ``app.*`` and ``terminal.*`` imports
+everywhere. This is a hard requirement for Streamlit deployment and
+must NOT be reverted to relative imports.
 """
 
 from __future__ import annotations
@@ -10,20 +19,21 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# Make ``terminal`` importable when Streamlit launches ``app/app.py`` directly.
+# Bootstrap project root onto sys.path BEFORE any project imports.
+# Required so that ``app.*`` and ``terminal.*`` resolve as packages
+# when streamlit loads this file as a top-level script.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import streamlit as st  # noqa: E402
 
+from app.header import render as render_header  # noqa: E402
+from app.style_inject import inject as inject_style  # noqa: E402
 from terminal.config_loader import load_config  # noqa: E402
 from terminal.managers.analytics_manager import AnalyticsManager  # noqa: E402
 from terminal.managers.data_manager import SharedDataManager  # noqa: E402
 from terminal.utils.watchlist_io import WatchlistStore  # noqa: E402
-
-from .header import render as render_header  # noqa: E402
-from .style_inject import inject as inject_style  # noqa: E402
 
 
 @st.cache_resource

@@ -6,14 +6,23 @@ cross-asset strip, the rule-based regime classifier, and breadth.
 
 from __future__ import annotations
 
-import pandas as pd
-import streamlit as st
+import sys
+from pathlib import Path
 
-from terminal.adapters.regime_adapter import run_regime
-from terminal.engines.breadth_engine import compute_breadth
-from terminal.utils.chart_helpers import bar_chart, interpretation_callout, line_chart
-from terminal.utils.error_handling import degraded_card, is_error
-from terminal.utils.formatting import fmt_pct, styled_kpi
+# Bootstrap project root for the streamlit-as-script load path.
+# See app/app.py docstring for the rationale.
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
+import pandas as pd  # noqa: E402
+import streamlit as st  # noqa: E402
+
+from terminal.adapters.regime_adapter import run_regime  # noqa: E402
+from terminal.engines.breadth_engine import compute_breadth  # noqa: E402
+from terminal.utils.chart_helpers import bar_chart, interpretation_callout, line_chart  # noqa: E402
+from terminal.utils.error_handling import degraded_card, is_error  # noqa: E402
+from terminal.utils.formatting import fmt_pct, styled_kpi  # noqa: E402
 
 
 def render() -> None:
