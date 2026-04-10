@@ -28,6 +28,7 @@ import streamlit as st  # noqa: E402
 
 from style_inject import inject_styles  # noqa: E402
 
+from app.density_css import inject_density  # noqa: E402
 from app.header import render as render_header  # noqa: E402
 from terminal.config_loader import load_config  # noqa: E402
 from terminal.managers.analytics_manager import AnalyticsManager  # noqa: E402
@@ -61,6 +62,7 @@ def main() -> None:
         initial_sidebar_state="expanded",
     )
     inject_styles()
+    inject_density()
     _init_session_state()
     config, data_manager, analytics_manager, watchlist = _bootstrap()
     st.session_state["_config"] = config

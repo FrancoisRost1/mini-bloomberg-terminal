@@ -1,14 +1,8 @@
 """PORTFOLIO. Portfolio Builder workspace.
 
 Two phase workflow in v1. BUILD (optimizer weights) and DECOMPOSE
-(concentration diagnostics).
-
-Phase 3 VALIDATE was removed from v1. The earlier implementation
-generated a fake trial matrix by perturbing fitted weights with
-Gaussian noise; the resulting PBO had no statistical meaning. Theatre
-is worse than absence. The robustness adapter remains available as a
-standalone engine; v2 will reintroduce Phase 3 backed by a real
-parameter sweep.
+(concentration diagnostics). Phase 3 is deferred to v2 because the
+prior implementation generated a fake trial matrix.
 """
 
 from __future__ import annotations
@@ -25,17 +19,16 @@ import streamlit as st  # noqa: E402
 
 from style_inject import (  # noqa: E402
     TOKENS,
-    styled_card,
     styled_divider,
     styled_header,
-    styled_kpi,
     styled_section_label,
 )
 
 from terminal.adapters.optimizer_adapter import run_optimizer  # noqa: E402
-from terminal.utils.chart_helpers import bar_chart, interpretation_callout_html  # noqa: E402
+from terminal.utils.chart_helpers import bar_chart  # noqa: E402
+from terminal.utils.density import dense_kpi_row, signed_color  # noqa: E402
 from terminal.utils.error_handling import degraded_card, is_error, status_pill  # noqa: E402
-from terminal.utils.formatting import fmt_ratio  # noqa: E402
+from terminal.utils.formatting import fmt_pct, fmt_ratio  # noqa: E402
 
 
 def render() -> None:
@@ -45,10 +38,8 @@ def render() -> None:
     styled_header("Portfolio Builder", "MV and HRP | Concentration | Robustness deferred to v2")
     st.sidebar.markdown("### Portfolio limitations")
     st.sidebar.caption(
-        "v1 implements MV and HRP only. Risk Parity and Black Litterman "
-        "are documented future upgrades. Ledoit Wolf covariance by default. "
-        "Phase 3 robustness validation is intentionally deferred to v2 "
-        "until a real parameter sweep trial matrix is wired in."
+        "v1 implements MV and HRP only. Risk Parity and Black Litterman are documented future upgrades. "
+        "Ledoit Wolf covariance by default. Phase 3 robustness deferred to v2."
     )
 
     tickers = _ticker_input(config)
@@ -58,26 +49,24 @@ def render() -> None:
 
     returns = _fetch_returns(data_manager, tickers, int(config["portfolio"]["covariance"]["lookback_days"]))
     if returns is None or returns.shape[1] < 2:
-        st.markdown(degraded_card("insufficient historical data for selected tickers", "data_manager"), unsafe_allow_html=True)
+        st.markdown(degraded_card("insufficient historical data", "data_manager"), unsafe_allow_html=True)
         return
 
-    styled_section_label("PHASE 1. BUILD")
     optimizer_result = run_optimizer(returns, config["portfolio"])
-    _render_weights(optimizer_result["weights"])
+    weights = optimizer_result["weights"]
 
+    styled_section_label("PHASE 1. BUILD")
+    _render_weights(weights, returns)
     styled_divider()
     styled_section_label("PHASE 2. DECOMPOSE")
-    _render_concentration(optimizer_result["weights"])
-
+    _render_concentration(weights)
     styled_divider()
     styled_section_label("PHASE 3. VALIDATE")
     st.markdown(status_pill("DEFERRED TO v2", "missing"), unsafe_allow_html=True)
     st.caption(
-        "Robustness validation (PBO, deflated Sharpe, plateau fraction) "
-        "needs a real parameter grid, not weight perturbations. The "
-        "underlying engine (terminal/adapters/robustness_adapter.py) is "
-        "available standalone and will be wired into a real CSCV sweep "
-        "in v2. See docs/analysis.md for the v2 roadmap."
+        "Robustness validation needs a real parameter grid. The robustness adapter "
+        "(terminal/adapters/robustness_adapter.py) is available standalone and will "
+        "be wired into a real CSCV sweep in v2. See docs/analysis.md."
     )
 
 
@@ -100,36 +89,51 @@ def _fetch_returns(data_manager, tickers, lookback) -> pd.DataFrame | None:
     if not closes:
         return None
     df = pd.DataFrame(closes).dropna(how="all")
-    returns = df.pct_change().dropna().tail(lookback)
-    return returns
+    return df.pct_change().dropna().tail(lookback)
 
 
-def _render_weights(weights: dict[str, dict[str, float]]) -> None:
+def _render_weights(weights: dict[str, dict[str, float]], returns: pd.DataFrame) -> None:
     cols = st.columns(len(weights))
     for col, (method, w) in zip(cols, weights.items()):
         with col:
             styled_section_label(method.replace("_", " ").upper())
-            fig = bar_chart({k: float(v) for k, v in w.items()}, title=f"{method} weights", y_unit="weight (0 to 1)")
-            st.plotly_chart(fig, use_container_width=True)
-            top_asset = max(w.items(), key=lambda kv: kv[1]) if w else ("none", 0.0)
-            styled_card(
-                interpretation_callout_html(
-                    observation=f"Largest position. {top_asset[0]} at {top_asset[1] * 100:.1f}%.",
-                    interpretation="MV maximizes risk adjusted return; HRP ignores return estimates and clusters by risk.",
-                    implication="Compare both to see how much the optimum depends on mean return estimation error.",
-                ),
-                accent_color=TOKENS["accent_primary"],
-            )
+            ann_ret = float((returns.dot(pd.Series(w).reindex(returns.columns).fillna(0))).mean() * 252)
+            ann_vol = float((returns.dot(pd.Series(w).reindex(returns.columns).fillna(0))).std() * (252 ** 0.5))
+            sharpe = ann_ret / ann_vol if ann_vol > 0 else float("nan")
+            items = [
+                {"label": "ANN RETURN", "value": fmt_pct(ann_ret), "delta_color": signed_color(ann_ret)},
+                {"label": "ANN VOL", "value": fmt_pct(ann_vol)},
+                {"label": "SHARPE", "value": fmt_ratio(sharpe, suffix=""), "delta_color": signed_color(sharpe)},
+                {"label": "MAX W", "value": fmt_pct(max(w.values()) if w else 0)},
+                {"label": "MIN W", "value": fmt_pct(min(w.values()) if w else 0)},
+                {"label": "ASSETS", "value": str(sum(1 for v in w.values() if v > 1e-4))},
+            ]
+            st.markdown(dense_kpi_row(items, min_cell_px=95), unsafe_allow_html=True)
+            chart_col, table_col = st.columns([3, 2])
+            with chart_col:
+                fig = bar_chart(
+                    {k: float(v) for k, v in w.items()},
+                    title=f"{method} weights", y_unit="weight",
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            with table_col:
+                df = pd.DataFrame(
+                    sorted(((k, v) for k, v in w.items()), key=lambda kv: -kv[1]),
+                    columns=["Asset", "Weight"],
+                )
+                df["Weight"] = df["Weight"].apply(lambda x: f"{x * 100:.1f}%")
+                st.dataframe(df, use_container_width=True, hide_index=True)
 
 
 def _render_concentration(weights: dict[str, dict[str, float]]) -> None:
-    cols = st.columns(len(weights))
-    for col, (method, w) in zip(cols, weights.items()):
+    items: list[dict] = []
+    for method, w in weights.items():
         herf = sum(v ** 2 for v in w.values())
         effective_n = 1.0 / herf if herf > 0 else float("nan")
-        with col:
-            styled_kpi(f"{method.upper()} HERFINDAHL", fmt_ratio(herf, decimals=3, suffix=""))
-            styled_kpi(f"{method.upper()} EFFECTIVE N", f"{effective_n:.1f}")
+        items.append({"label": f"{method.upper()} HHI", "value": fmt_ratio(herf, decimals=3, suffix="")})
+        items.append({"label": f"{method.upper()} EFF N", "value": f"{effective_n:.1f}"})
+        items.append({"label": f"{method.upper()} TOP", "value": fmt_pct(max(w.values()) if w else 0)})
+    st.markdown(dense_kpi_row(items, min_cell_px=110), unsafe_allow_html=True)
 
 
 render()

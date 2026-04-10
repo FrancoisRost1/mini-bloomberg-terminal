@@ -1,9 +1,4 @@
-"""ANALYTICS. LBO Quick Calc workspace.
-
-Renders base case LBO mechanics, the equity bridge waterfall, and the
-IRR sensitivity heatmap. Defaults come from config.yaml; users can
-tweak them in the sidebar.
-"""
+"""ANALYTICS. LBO Quick Calc workspace."""
 
 from __future__ import annotations
 
@@ -22,13 +17,13 @@ from style_inject import (  # noqa: E402
     styled_card,
     styled_divider,
     styled_header,
-    styled_kpi,
     styled_section_label,
 )
 
 from terminal.adapters.lbo_adapter import run_base_case, sensitivity_grid  # noqa: E402
 from terminal.engines.pnl_engine import compute_lbo_equity_bridge  # noqa: E402
 from terminal.utils.chart_helpers import heatmap, interpretation_callout_html, waterfall  # noqa: E402
+from terminal.utils.density import dense_kpi_row, signed_color  # noqa: E402
 from terminal.utils.formatting import fmt_money, fmt_pct, fmt_ratio  # noqa: E402
 
 
@@ -38,8 +33,8 @@ def render() -> None:
 
     defaults = config["lbo_quick_calc"]["defaults"]
     assumptions = _render_sidebar_inputs(defaults)
-
     result = run_base_case(assumptions)
+
     styled_section_label("OUTPUTS")
     _render_summary(result)
     styled_divider()
@@ -52,10 +47,7 @@ def render() -> None:
 
 def _render_sidebar_inputs(defaults) -> dict:
     st.sidebar.markdown("### LBO Assumptions")
-    st.sidebar.caption(
-        "Model limitations. Base case only, no Monte Carlo, no covenant "
-        "breach detection, constant rates, flat margin trajectory."
-    )
+    st.sidebar.caption("Base case only. No Monte Carlo. Constant rates and margin trajectory.")
     assumptions = dict(defaults)
     assumptions["entry_ebitda"] = st.sidebar.number_input("Entry EBITDA ($M)", min_value=1.0, value=100.0, step=10.0) * 1e6
     assumptions["entry_multiple"] = st.sidebar.number_input("Entry Multiple (x)", min_value=1.0, value=float(defaults["entry_multiple"]), step=0.5)
@@ -67,41 +59,59 @@ def _render_sidebar_inputs(defaults) -> dict:
 
 
 def _render_summary(result) -> None:
-    cols = st.columns(5)
-    with cols[0]:
-        styled_kpi("ENTRY EV", fmt_money(result["entry_ev"]))
-    with cols[1]:
-        styled_kpi("SPONSOR EQUITY", fmt_money(result["sponsor_equity"]))
-    with cols[2]:
-        styled_kpi("EXIT EV", fmt_money(result["exit_ev"]))
-    with cols[3]:
-        irr = result["irr"]
-        irr_color = TOKENS["accent_success"] if (irr == irr and irr >= 0) else TOKENS["accent_danger"]
-        styled_kpi("IRR", fmt_pct(irr), delta_color=irr_color)
-    with cols[4]:
-        styled_kpi("MOIC", fmt_ratio(result["moic"]))
+    irr = result["irr"]
+    moic = result["moic"]
+    items = [
+        {"label": "ENTRY EV", "value": fmt_money(result["entry_ev"])},
+        {"label": "ENTRY EBITDA", "value": fmt_money(result["entry_ebitda"])},
+        {"label": "ENTRY DEBT", "value": fmt_money(result["entry_debt"])},
+        {"label": "SPONSOR EQ", "value": fmt_money(result["sponsor_equity"])},
+        {"label": "FEES", "value": fmt_money(result["fees"]), "delta_color": TOKENS["accent_danger"]},
+        {"label": "EXIT EBITDA", "value": fmt_money(result["exit_ebitda"])},
+        {"label": "EXIT DEBT", "value": fmt_money(result["exit_debt"])},
+        {"label": "EXIT EV", "value": fmt_money(result["exit_ev"])},
+        {"label": "EQUITY EXIT", "value": fmt_money(result["equity_at_exit"])},
+        {"label": "IRR", "value": fmt_pct(irr), "delta_color": signed_color(irr)},
+        {"label": "MOIC", "value": fmt_ratio(moic),
+         "delta_color": signed_color(moic - 1.0) if moic == moic else None},
+    ]
+    st.markdown(dense_kpi_row(items, min_cell_px=110), unsafe_allow_html=True)
 
 
 def _render_bridge(result) -> None:
     bridge = compute_lbo_equity_bridge(result)
-    fig = waterfall(
-        categories=["EBITDA Growth", "Multiple Change", "Debt Paydown", "Fees", "Total Value"],
-        values=[
-            bridge["ebitda_growth"],
-            bridge["multiple_expansion"],
-            bridge["debt_paydown"],
-            bridge["fees_drag"],
-            bridge["total_value_creation"],
-        ],
-        title="Equity Value Bridge. Entry to Exit",
-        y_unit="USD",
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    chart_col, table_col = st.columns([3, 1])
+    with chart_col:
+        fig = waterfall(
+            categories=["EBITDA Growth", "Multiple Change", "Debt Paydown", "Fees", "Total Value"],
+            values=[
+                bridge["ebitda_growth"],
+                bridge["multiple_expansion"],
+                bridge["debt_paydown"],
+                bridge["fees_drag"],
+                bridge["total_value_creation"],
+            ],
+            title="Equity Value Bridge. Entry to Exit",
+            y_unit="USD",
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    with table_col:
+        bridge_table = pd.DataFrame(
+            [
+                ("EBITDA growth", fmt_money(bridge["ebitda_growth"])),
+                ("Multiple change", fmt_money(bridge["multiple_expansion"])),
+                ("Debt paydown", fmt_money(bridge["debt_paydown"])),
+                ("Fees drag", fmt_money(bridge["fees_drag"])),
+                ("Total value", fmt_money(bridge["total_value_creation"])),
+            ],
+            columns=["Leg", "Value"],
+        )
+        st.dataframe(bridge_table, use_container_width=True, hide_index=True)
     styled_card(
         interpretation_callout_html(
             observation=f"Total value created. {fmt_money(bridge['total_value_creation'])}.",
             interpretation="Decomposes sponsor equity growth into operating, multiple, and leverage legs.",
-            implication="A plan relying mostly on multiple expansion is more fragile than one driven by EBITDA growth or deleveraging.",
+            implication="A plan relying mostly on multiple expansion is more fragile than EBITDA growth or deleveraging.",
         ),
         accent_color=TOKENS["accent_primary"],
     )
@@ -113,18 +123,14 @@ def _render_sensitivity(assumptions, config) -> None:
     growth = list(sens["growth_rates"])
     grid = sensitivity_grid(assumptions, exit_mult, growth)
     df = pd.DataFrame(grid, index=[f"{g * 100:.0f}%" for g in growth], columns=[f"{m:.1f}x" for m in exit_mult])
-    fig = heatmap(df, title="IRR. Exit Multiple by Revenue Growth", colorbar_unit="IRR")
-    st.plotly_chart(fig, use_container_width=True)
-    best = max(max(row) for row in grid)
-    worst = min(min(row) for row in grid)
-    styled_card(
-        interpretation_callout_html(
-            observation=f"IRR ranges from {worst * 100:+.1f}% to {best * 100:+.1f}% across the grid.",
-            interpretation="Wide dispersion signals high sensitivity to exit multiple or operating performance.",
-            implication="Tight dispersion is safer; wide dispersion demands a tighter thesis on exit assumptions.",
-        ),
-        accent_color=TOKENS["accent_primary"],
-    )
+    chart_col, table_col = st.columns([3, 2])
+    with chart_col:
+        fig = heatmap(df, title="IRR. Exit Multiple by Revenue Growth", colorbar_unit="IRR")
+        st.plotly_chart(fig, use_container_width=True)
+    with table_col:
+        display = df.applymap(lambda v: f"{v * 100:+.1f}%" if v == v else "n/a")
+        display.insert(0, "Growth", display.index)
+        st.dataframe(display, use_container_width=True, hide_index=True)
 
 
 render()
