@@ -18,7 +18,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
-from style_inject import styled_divider, styled_header, styled_section_label  # noqa: E402
+from style_inject import styled_header  # noqa: E402
 
 from app.pages._options_lab_helpers import (  # noqa: E402
     render_greeks_kpis,
@@ -29,6 +29,7 @@ from app.pages._options_lab_helpers import (  # noqa: E402
     resolve_spot,
 )
 from terminal.adapters.options_adapter import all_greeks, black_scholes  # noqa: E402
+from terminal.utils.density import section_bar  # noqa: E402
 from terminal.utils.error_handling import degraded_card, is_error, unavailable_card  # noqa: E402
 
 
@@ -55,7 +56,7 @@ def render() -> None:
         return
 
     expiries = chain.expiries()
-    styled_section_label("CONTRACT INPUTS")
+    st.markdown(section_bar("CONTRACT INPUTS"), unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
     expiry = col1.selectbox("Expiry", options=expiries)
     opt_type = col2.selectbox("Type", options=["call", "put"])
@@ -87,16 +88,13 @@ def render() -> None:
     greeks = all_greeks(spot, strike, tau, rate, sigma, option_type=opt_type)
     price = black_scholes(spot, strike, tau, rate, sigma, option_type=opt_type)
 
-    styled_section_label("GREEKS")
+    st.markdown(section_bar("GREEKS"), unsafe_allow_html=True)
     render_greeks_kpis(price, greeks)
-    styled_divider()
-    styled_section_label("PAYOFF")
+    st.markdown(section_bar("PAYOFF"), unsafe_allow_html=True)
     render_payoff(spot, strike, price, opt_type, config)
-    styled_divider()
-    styled_section_label("SCENARIO")
+    st.markdown(section_bar("SCENARIO"), unsafe_allow_html=True)
     render_scenario(greeks, spot)
-    styled_divider()
-    styled_section_label("IV SMILE")
+    st.markdown(section_bar("IV SMILE"), unsafe_allow_html=True)
     render_iv_smile(expiry_chain, spot, tau, rate, config)
 
 

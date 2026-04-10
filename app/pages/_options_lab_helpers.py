@@ -41,7 +41,7 @@ def render_payoff(spot: float, strike: float, premium: float, opt_type: str, con
         spot=spot, strike=strike, premium=premium, option_type=opt_type,
         spot_range_pct=float(payoff_cfg["spot_range_pct"]), points=int(payoff_cfg["spot_points"]),
     )
-    chart_col, table_col = st.columns([3, 1])
+    chart_col, table_col = st.columns([2, 3])
     with chart_col:
         fig = line_chart({"P&L": df["pnl"]}, title="Expiration Payoff", y_unit="P&L ($)", x_unit="Spot at expiry ($)")
         st.plotly_chart(fig, use_container_width=True)
@@ -66,7 +66,7 @@ def render_payoff(spot: float, strike: float, premium: float, opt_type: str, con
 def render_scenario(greeks: dict[str, float], spot: float) -> None:
     spot_range = np.linspace(spot * 0.8, spot * 1.2, 100)
     df = compute_option_scenario(greeks, spot_range, vol_shift=0.0, time_decay_days=7)
-    chart_col, table_col = st.columns([3, 1])
+    chart_col, table_col = st.columns([2, 3])
     with chart_col:
         fig = line_chart(
             {"7d Greeks P&L": df["pnl"]},
@@ -98,7 +98,7 @@ def render_iv_smile(chain_df: pd.DataFrame, spot: float, tau: float, rate: float
     df = pd.DataFrame(ivs).dropna()
     if df.empty:
         return
-    chart_col, table_col = st.columns([3, 1])
+    chart_col, table_col = st.columns([2, 3])
     with chart_col:
         fig = line_chart(
             {"Implied Vol": df.set_index("strike")["iv"]},

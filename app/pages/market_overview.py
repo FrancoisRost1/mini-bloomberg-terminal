@@ -1,4 +1,4 @@
-"""MARKET. Market Overview workspace. Indices, rates, regime, breadth."""
+"""MARKET. Market Overview workspace. 2x2 multi pane layout."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 import streamlit as st  # noqa: E402
 
-from style_inject import styled_divider, styled_header, styled_section_label  # noqa: E402
+from style_inject import styled_header  # noqa: E402
 
 from app.pages._market_overview_helpers import (  # noqa: E402
     render_breadth,
@@ -19,6 +19,8 @@ from app.pages._market_overview_helpers import (  # noqa: E402
     render_rates_and_vol,
     render_regime,
 )
+from terminal.utils.density import dense_kpi_row, section_bar, signed_color  # noqa: E402
+from terminal.utils.error_handling import is_error  # noqa: E402
 
 
 def render() -> None:
@@ -27,15 +29,41 @@ def render() -> None:
     styled_header("Market Overview", "Cross asset regime context")
 
     render_indices_strip(data_manager, config)
-    styled_divider()
-    styled_section_label("RATES AND VOLATILITY")
-    render_rates_and_vol(data_manager, config)
-    styled_divider()
-    styled_section_label("REGIME CLASSIFIER")
-    render_regime(data_manager, config)
-    styled_divider()
-    styled_section_label("MARKET BREADTH")
-    render_breadth(data_manager, config)
+
+    row1_l, row1_r = st.columns([1, 1])
+    with row1_l:
+        render_rates_and_vol(data_manager, config)
+    with row1_r:
+        render_regime(data_manager, config)
+
+    row2_l, row2_r = st.columns([1, 1])
+    with row2_l:
+        render_breadth(data_manager, config)
+    with row2_r:
+        _render_macro_snapshot(data_manager, config)
+
+
+def _render_macro_snapshot(data_manager, config) -> None:
+    st.markdown(section_bar("MACRO SNAPSHOT"), unsafe_allow_html=True)
+    vix_id = config["market"]["macro_series"]["volatility"]["vix_series"]
+    hy_id = config["market"]["macro_series"]["volatility"]["hy_spread_series"]
+    macro = data_manager.get_macro([vix_id, hy_id, "FEDFUNDS"])
+    items: list[dict] = []
+    if not is_error(macro):
+        for key, label in [(vix_id, "VIX"), (hy_id, "HY OAS"), ("FEDFUNDS", "FED FUNDS")]:
+            v = macro.latest(key)
+            items.append({"label": label, "value": f"{v:.2f}" if v == v else "n/a"})
+    for ticker, label in [("GLD", "GOLD"), ("USO", "OIL"), ("UUP", "DXY")]:
+        data = data_manager.get_prices(ticker, period="1mo")
+        if is_error(data) or data.is_empty():
+            items.append({"label": label, "value": "n/a"})
+            continue
+        last = data.last_close()
+        prev = float(data.prices["close"].iloc[0])
+        chg = (last / prev - 1) if prev else 0.0
+        items.append({"label": label, "value": f"{last:,.2f}",
+                      "delta": f"{chg * 100:+.2f}%", "delta_color": signed_color(chg)})
+    st.markdown(dense_kpi_row(items, min_cell_px=110), unsafe_allow_html=True)
 
 
 render()

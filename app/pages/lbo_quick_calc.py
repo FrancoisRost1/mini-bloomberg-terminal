@@ -15,15 +15,13 @@ import streamlit as st  # noqa: E402
 from style_inject import (  # noqa: E402
     TOKENS,
     styled_card,
-    styled_divider,
     styled_header,
-    styled_section_label,
 )
 
 from terminal.adapters.lbo_adapter import run_base_case, sensitivity_grid  # noqa: E402
 from terminal.engines.pnl_engine import compute_lbo_equity_bridge  # noqa: E402
 from terminal.utils.chart_helpers import heatmap, interpretation_callout_html, waterfall  # noqa: E402
-from terminal.utils.density import dense_kpi_row, signed_color  # noqa: E402
+from terminal.utils.density import dense_kpi_row, section_bar, signed_color  # noqa: E402
 from terminal.utils.formatting import fmt_money, fmt_pct, fmt_ratio  # noqa: E402
 
 
@@ -35,13 +33,11 @@ def render() -> None:
     assumptions = _render_sidebar_inputs(defaults)
     result = run_base_case(assumptions)
 
-    styled_section_label("OUTPUTS")
+    st.markdown(section_bar("OUTPUTS"), unsafe_allow_html=True)
     _render_summary(result)
-    styled_divider()
-    styled_section_label("EQUITY BRIDGE")
+    st.markdown(section_bar("EQUITY BRIDGE"), unsafe_allow_html=True)
     _render_bridge(result)
-    styled_divider()
-    styled_section_label("IRR SENSITIVITY")
+    st.markdown(section_bar("IRR SENSITIVITY"), unsafe_allow_html=True)
     _render_sensitivity(assumptions, config)
 
 
@@ -80,7 +76,7 @@ def _render_summary(result) -> None:
 
 def _render_bridge(result) -> None:
     bridge = compute_lbo_equity_bridge(result)
-    chart_col, table_col = st.columns([3, 1])
+    chart_col, table_col = st.columns([2, 3])
     with chart_col:
         fig = waterfall(
             categories=["EBITDA Growth", "Multiple Change", "Debt Paydown", "Fees", "Total Value"],
@@ -123,7 +119,7 @@ def _render_sensitivity(assumptions, config) -> None:
     growth = list(sens["growth_rates"])
     grid = sensitivity_grid(assumptions, exit_mult, growth)
     df = pd.DataFrame(grid, index=[f"{g * 100:.0f}%" for g in growth], columns=[f"{m:.1f}x" for m in exit_mult])
-    chart_col, table_col = st.columns([3, 2])
+    chart_col, table_col = st.columns([2, 3])
     with chart_col:
         fig = heatmap(df, title="IRR. Exit Multiple by Revenue Growth", colorbar_unit="IRR")
         st.plotly_chart(fig, use_container_width=True)

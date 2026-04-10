@@ -1,10 +1,4 @@
-"""RESEARCH. Ticker Deep Dive workspace.
-
-Runs the full deterministic Research pipeline and renders the results
-in four phases. Phase rendering helpers live in
-``_research_page_helpers.py``. The LLM memo phase is optional and
-never blocks phases 1 to 3.
-"""
+"""RESEARCH. Ticker Deep Dive workspace. 2x2 multi pane layout."""
 
 from __future__ import annotations
 
@@ -17,10 +11,11 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 import streamlit as st  # noqa: E402
 
-from style_inject import styled_divider, styled_header  # noqa: E402
+from style_inject import styled_header  # noqa: E402
 
 from app.pages._research_page_helpers import (  # noqa: E402
-    render_phase1_prices,
+    render_phase1_chart,
+    render_phase1_stats,
     render_phase2_engines,
     render_phase3_recommendation,
     render_phase4_llm,
@@ -43,13 +38,18 @@ def render() -> None:
         st.markdown(unavailable_card(f"Cannot analyze {ticker}", packet["reason"]), unsafe_allow_html=True)
         return
 
-    render_phase1_prices(packet)
-    styled_divider()
-    render_phase2_engines(packet)
-    styled_divider()
-    render_phase3_recommendation(packet)
-    styled_divider()
-    render_phase4_llm(packet, config)
+    row1_l, row1_r = st.columns([1, 1])
+    with row1_l:
+        render_phase1_chart(packet)
+    with row1_r:
+        render_phase1_stats(packet)
+
+    row2_l, row2_r = st.columns([1, 1])
+    with row2_l:
+        render_phase2_engines(packet)
+        render_phase3_recommendation(packet)
+    with row2_r:
+        render_phase4_llm(packet, config)
 
 
 render()

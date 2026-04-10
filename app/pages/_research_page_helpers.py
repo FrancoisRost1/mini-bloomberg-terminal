@@ -8,24 +8,35 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
-from style_inject import TOKENS, styled_card, styled_section_label
+from style_inject import TOKENS, styled_card
 
 from terminal.synthesis.llm_client import generate_memo, is_available as llm_is_available
 from terminal.utils.chart_helpers import interpretation_callout_html, line_chart
-from terminal.utils.density import dense_kpi_row, signed_color
+from terminal.utils.density import dense_kpi_row, period_returns_tape, section_bar, signed_color
 from terminal.utils.error_handling import degraded_card, status_pill
 from terminal.utils.formatting import fmt_money, fmt_pct, fmt_ratio
 
 
-def render_phase1_prices(packet: dict[str, Any]) -> None:
+def render_phase1_chart(packet: dict[str, Any]) -> None:
     prices = packet["prices"]
-    fundamentals = packet["fundamentals"]
-    styled_section_label("PRICE AND KEY STATS")
     close = prices.prices["close"] if not prices.is_empty() else None
+    tape = period_returns_tape(close) if close is not None else ""
+    st.markdown(section_bar("PRICE", tape=tape), unsafe_allow_html=True)
     if close is None:
         st.markdown(degraded_card("no price series", prices.provider), unsafe_allow_html=True)
         return
+    st.plotly_chart(
+        line_chart({packet["ticker"]: close}, title=f"{packet['ticker']} price (1Y)", y_unit="USD"),
+        use_container_width=True,
+    )
+
+
+def render_phase1_stats(packet: dict[str, Any]) -> None:
+    fundamentals = packet["fundamentals"]
     ratios = fundamentals.key_ratios
+    close = packet["prices"].prices["close"] if not packet["prices"].is_empty() else None
+    st.markdown(section_bar("KEY STATS"), unsafe_allow_html=True)
+    rev_growth = ratios.get("revenue_growth")
     items = [
         {"label": "MARKET CAP", "value": fmt_money(fundamentals.market_cap)},
         {"label": "P/E", "value": fmt_ratio(ratios.get("pe_ratio"), suffix="")},
@@ -33,37 +44,33 @@ def render_phase1_prices(packet: dict[str, Any]) -> None:
         {"label": "EBITDA MARGIN", "value": fmt_pct(ratios.get("ebitda_margin"))},
         {"label": "FCF CONV", "value": fmt_pct(ratios.get("fcf_conversion"))},
         {"label": "ROE", "value": fmt_pct(ratios.get("roe"))},
-        {"label": "REV GROWTH", "value": fmt_pct(ratios.get("revenue_growth")),
-         "delta_color": signed_color(ratios.get("revenue_growth"))},
+        {"label": "REV GROWTH", "value": fmt_pct(rev_growth), "value_color": signed_color(rev_growth)},
         {"label": "ND/EBITDA", "value": fmt_ratio(ratios.get("net_debt_ebitda"))},
-        {"label": "INT COVERAGE", "value": fmt_ratio(ratios.get("interest_coverage"), suffix="x")},
+        {"label": "INT COVERAGE", "value": fmt_ratio(ratios.get("interest_coverage"))},
         {"label": "BETA", "value": fmt_ratio(ratios.get("beta"), suffix="")},
         {"label": "DIV YIELD", "value": fmt_pct(ratios.get("dividend_yield"))},
-        {"label": "SECTOR", "value": fundamentals.sector[:14] if fundamentals.sector else "n/a"},
     ]
-    st.markdown(dense_kpi_row(items, min_cell_px=105), unsafe_allow_html=True)
-    chart_col, ratio_col = st.columns([3, 1])
-    with chart_col:
-        st.plotly_chart(line_chart({packet["ticker"]: close}, title=f"{packet['ticker']} price (1Y)", y_unit="USD"), use_container_width=True)
-    with ratio_col:
-        rows = [("Sector", fundamentals.sector or "n/a"), ("Industry", fundamentals.industry or "n/a"),
-                ("Provider", fundamentals.provider), ("Last close", f"{close.iloc[-1]:.2f}"),
-                ("52w high", f"{close.tail(252).max():.2f}"), ("52w low", f"{close.tail(252).min():.2f}")]
-        st.dataframe(pd.DataFrame(rows, columns=["Field", "Value"]), use_container_width=True, hide_index=True)
+    st.markdown(dense_kpi_row(items, min_cell_px=95), unsafe_allow_html=True)
+    rows = [("Sector", fundamentals.sector or "n/a"), ("Industry", fundamentals.industry or "n/a"),
+            ("Provider", fundamentals.provider)]
+    if close is not None:
+        rows += [("Last close", f"{close.iloc[-1]:.2f}"), ("52w high", f"{close.tail(252).max():.2f}"),
+                 ("52w low", f"{close.tail(252).min():.2f}")]
+    st.dataframe(pd.DataFrame(rows, columns=["Field", "Value"]), use_container_width=True, hide_index=True)
 
 
 def render_phase2_engines(packet: dict[str, Any]) -> None:
-    styled_section_label("ENGINE RESULTS")
+    st.markdown(section_bar("ENGINE RESULTS"), unsafe_allow_html=True)
     engines = packet["engines"]
-    cols = st.columns(4)
+    cols = st.columns(2)
     labels = [
         ("pe_scoring", "PE SCORING"),
         ("factor_exposure", "FACTOR EXPOSURE"),
         ("tsmom", "TSMOM SIGNAL"),
         ("lbo", "LBO SNAPSHOT"),
     ]
-    for col, (key, label) in zip(cols, labels):
-        with col:
+    for i, (key, label) in enumerate(labels):
+        with cols[i % 2]:
             engine = engines.get(key, {})
             status = engine.get("status", "missing")
             st.markdown(status_pill(label, status), unsafe_allow_html=True)
@@ -74,40 +81,38 @@ def _engine_detail(key: str, engine: dict[str, Any]) -> None:
     if engine.get("status") != "success":
         st.caption(engine.get("reason", "no detail"))
         return
-    if key == "pe_scoring":
-        st.caption(f"PE score {engine['pe_score']:.1f} | flags {len(engine.get('red_flags', []))}")
-    elif key == "factor_exposure":
-        st.caption(f"composite {engine['composite']:.2f} | conf {engine['confidence']:.2f}")
-    elif key == "tsmom":
-        st.caption(f"signal {engine['signal']:+d} | 12 1 {engine['twelve_one_return'] * 100:+.1f}%")
-    elif key == "lbo":
-        st.caption(f"IRR {engine['irr'] * 100:+.1f}% | MOIC {engine['moic']:.2f}x")
+    detail_map = {
+        "pe_scoring": lambda e: f"PE score {e['pe_score']:.1f} | flags {len(e.get('red_flags', []))}",
+        "factor_exposure": lambda e: f"composite {e['composite']:.2f} | conf {e['confidence']:.2f}",
+        "tsmom": lambda e: f"signal {e['signal']:+d} | 12 1 {e['twelve_one_return'] * 100:+.1f}%",
+        "lbo": lambda e: f"IRR {e['irr'] * 100:+.1f}% | MOIC {e['moic']:.2f}x",
+    }
+    if key in detail_map:
+        st.caption(detail_map[key](engine))
 
 
 def render_phase3_recommendation(packet: dict[str, Any]) -> None:
     rec = packet["recommendation"]
     rating = rec["rating"]
     color_map = {
-        "BUY": TOKENS["accent_success"],
-        "HOLD": TOKENS["accent_warning"],
-        "SELL": TOKENS["accent_danger"],
-        "INSUFFICIENT_DATA": TOKENS["text_muted"],
+        "BUY": TOKENS["accent_success"], "HOLD": TOKENS["accent_warning"],
+        "SELL": TOKENS["accent_danger"], "INSUFFICIENT_DATA": TOKENS["text_muted"],
     }
     accent = color_map.get(rating, TOKENS["accent_primary"])
-    styled_section_label("DETERMINISTIC RECOMMENDATION")
+    st.markdown(section_bar("DETERMINISTIC RATING"), unsafe_allow_html=True)
     items = [
-        {"label": "RATING", "value": rating, "delta": f"grade {rec['confidence_grade']}", "delta_color": accent},
+        {"label": "RATING", "value": rating, "delta": f"grade {rec['confidence_grade']}",
+         "delta_color": accent, "value_color": accent},
         {"label": "COMPOSITE", "value": f"{rec['composite_score']:.1f}",
-         "delta_color": signed_color(rec["composite_score"] - 50)},
+         "value_color": signed_color(rec["composite_score"] - 50)},
         {"label": "CONFIDENCE", "value": f"{rec['confidence']:.2f}"},
     ]
     for key, val in (rec["sub_scores"] or {}).items():
         items.append({
-            "label": key.upper(),
-            "value": f"{val:.1f}" if val == val else "n/a",
-            "delta_color": signed_color(val - 50) if val == val else None,
+            "label": key.upper(), "value": f"{val:.1f}" if val == val else "n/a",
+            "value_color": signed_color(val - 50) if val == val else None,
         })
-    st.markdown(dense_kpi_row(items, min_cell_px=105), unsafe_allow_html=True)
+    st.markdown(dense_kpi_row(items, min_cell_px=95), unsafe_allow_html=True)
     styled_card(
         interpretation_callout_html(
             observation=f"Composite score {rec['composite_score']:.1f}.",
@@ -119,7 +124,7 @@ def render_phase3_recommendation(packet: dict[str, Any]) -> None:
 
 
 def render_phase4_llm(packet: dict[str, Any], config: dict[str, Any]) -> None:
-    styled_section_label("LLM MEMO")
+    st.markdown(section_bar("LLM MEMO"), unsafe_allow_html=True)
     llm_cfg = config["llm"]
     enabled_setting = llm_cfg.get("enabled", False)
     has_key = bool(os.environ.get("ANTHROPIC_API_KEY"))

@@ -15,15 +15,13 @@ import streamlit as st  # noqa: E402
 from style_inject import (  # noqa: E402
     TOKENS,
     styled_card,
-    styled_divider,
     styled_header,
-    styled_section_label,
 )
 
 from terminal.adapters.ma_comps_adapter import run_comps  # noqa: E402
 from terminal.adapters.pe_scoring_adapter import score_single_ticker  # noqa: E402
 from terminal.utils.chart_helpers import bar_chart, interpretation_callout_html  # noqa: E402
-from terminal.utils.density import dense_kpi_row, signed_color  # noqa: E402
+from terminal.utils.density import dense_kpi_row, section_bar, signed_color  # noqa: E402
 from terminal.utils.error_handling import degraded_card, is_error, status_pill, unavailable_card  # noqa: E402
 from terminal.utils.formatting import format_metric  # noqa: E402
 
@@ -42,14 +40,12 @@ def render() -> None:
 
     sector = fundamentals.sector
     _render_valuation_card(fundamentals, config)
-    styled_divider()
     _render_pe_score(fundamentals.key_ratios, config)
-    styled_divider()
     _render_ma_comps(sector, config)
 
 
 def _render_valuation_card(fundamentals, config) -> None:
-    styled_section_label("VALUATION METRICS")
+    st.markdown(section_bar("VALUATION METRICS"), unsafe_allow_html=True)
     metrics = config["comps"]["metrics"]
     items = [{"label": "SECTOR", "value": (fundamentals.sector or "n/a")[:14]}]
     for m in metrics:
@@ -60,7 +56,7 @@ def _render_valuation_card(fundamentals, config) -> None:
 
 
 def _render_pe_score(ratios, config) -> None:
-    styled_section_label("PE TARGET SCREENER SCORE")
+    st.markdown(section_bar("PE TARGET SCREENER SCORE"), unsafe_allow_html=True)
     result = score_single_ticker(ratios, config["comps"]["pe_scoring_bands"])
     score = result["pe_score"]
     if score == score:
@@ -87,7 +83,7 @@ def _render_pe_score(ratios, config) -> None:
     st.markdown(dense_kpi_row(items, min_cell_px=105), unsafe_allow_html=True)
     per_metric = {k: v for k, v in result["per_metric_scores"].items() if v == v}
     if per_metric:
-        chart_col, table_col = st.columns([3, 1])
+        chart_col, table_col = st.columns([2, 3])
         with chart_col:
             fig = bar_chart(per_metric, title="Per Metric Score (0 to 100)", y_unit="score")
             st.plotly_chart(fig, use_container_width=True)
@@ -108,7 +104,7 @@ def _render_pe_score(ratios, config) -> None:
 
 
 def _render_ma_comps(sector, config) -> None:
-    styled_section_label("RECENT M&A COMPS")
+    st.markdown(section_bar("RECENT M&A COMPS"), unsafe_allow_html=True)
     project_root = Path(config["_meta"]["project_root"])
     allow_synthetic = bool(config["comps"].get("allow_synthetic_demo", False))
     comps = run_comps(

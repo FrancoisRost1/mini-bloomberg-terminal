@@ -50,11 +50,13 @@ code, pre, kbd, samp {{
     line-height: 1.25 !important;
 }}
 
-/* Compact dataframe rows */
+/* Compact dataframe rows. Bloomberg target: ~10-11px, near-zero padding. */
 .stDataFrame [role="cell"], .stDataFrame [role="columnheader"] {{
-    font-size: 0.72rem !important;
-    padding: 0.18rem 0.4rem !important;
+    font-size: 0.68rem !important;
+    padding: 0.08rem 0.35rem !important;
+    line-height: 1.15 !important;
 }}
+.stDataFrame [role="row"] {{ min-height: 1.4rem !important; }}
 
 /* Plotly chart container: minimal padding */
 .stPlotlyChart {{ padding: 0.25rem !important; margin-bottom: 0.3rem !important; }}
