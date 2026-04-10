@@ -1,0 +1,410 @@
+# config.yaml -- Mini Bloomberg Terminal (Project 11)
+# Every key in this file must be consumed by code. No decorative keys.
+# No hardcoded thresholds, weights, or assumptions outside this file.
+
+# -------------------------------------------------------------------
+# APP MODE
+# -------------------------------------------------------------------
+# "production": Alpha Vantage + FRED. No yfinance. LLM on if key present. SQLite persistence.
+# "development": yfinance allowed (with DEV MODE banner). JSON watchlist. LLM optional.
+app:
+  title: "Mini Bloomberg Terminal"
+  version: "1.0.0"
+  mode: "production"              # "production" or "development"
+  debug: false
+
+# -------------------------------------------------------------------
+# DATA PROVIDERS
+# -------------------------------------------------------------------
+data:
+  # Production provider: Alpha Vantage (fully implemented, not a stub)
+  # API key loaded from ALPHA_VANTAGE_API_KEY env var
+  primary_provider: "alpha_vantage"
+
+  # Development-only provider (excluded from production config)
+  dev_provider: "yfinance"
+
+  # Future upgrade: Polygon.io (interface-ready, swap via config + API key)
+  # future_provider: "polygon"
+
+  # FRED is always used for macro in ALL modes
+  fred:
+    enabled: true
+    # API key loaded from FRED_API_KEY env var
+
+  # Alpha Vantage specific
+  alpha_vantage:
+    base_url: "https://www.alphavantage.co/query"
+    rate_limit_per_minute: 25     # free tier (upgrade to 75 on paid)
+    # API key loaded from ALPHA_VANTAGE_API_KEY env var
+
+  # Cache TTL (seconds) per data type -- aggressive to stay cheap
+  cache_ttl:
+    prices: 300           # 5 minutes
+    fundamentals: 3600    # 1 hour
+    macro: 1800           # 30 minutes
+    options: 120          # 2 minutes
+    engine_results: 900   # 15 minutes
+
+  # Rate limiting and retry
+  rate_limit:
+    max_retries: 3
+    backoff_base_seconds: 1.0
+    backoff_multiplier: 2.0
+
+  # yfinance-specific settings (used in development mode ONLY)
+  yfinance:
+    treasury_yield_divisor: 100    # yfinance returns yields as percentages
+    dividend_yield_warning: 0.15   # warn if q > this threshold
+    use_trailing_dividend: true    # use trailingAnnualDividendRate / spot instead of dividendYield
+
+# -------------------------------------------------------------------
+# MARKET WORKSPACE
+# -------------------------------------------------------------------
+market:
+  # Global indices
+  indices:
+    - ticker: "SPY"
+      label: "S&P 500"
+    - ticker: "QQQ"
+      label: "NASDAQ 100"
+    - ticker: "DIA"
+      label: "Dow Jones"
+    - ticker: "IWM"
+      label: "Russell 2000"
+    - ticker: "EFA"
+      label: "EAFE"
+    - ticker: "EEM"
+      label: "EM"
+
+  # Macro series (FRED codes)
+  macro_series:
+    rates:
+      - series_id: "DGS2"
+        label: "US 2Y"
+      - series_id: "DGS10"
+        label: "US 10Y"
+      - series_id: "DGS30"
+        label: "US 30Y"
+      - series_id: "FEDFUNDS"
+        label: "Fed Funds"
+      - series_id: "T10Y2Y"
+        label: "2s10s Spread"
+    volatility:
+      vix_ticker: "^VIX"
+      hy_spread_series: "BAMLH0A0HYM2"
+    commodities:
+      - ticker: "GLD"
+        label: "Gold"
+      - ticker: "USO"
+        label: "Oil"
+      - ticker: "DBC"
+        label: "Commodities"
+    fx:
+      - ticker: "UUP"
+        label: "Dollar (DXY proxy)"
+
+  # Breadth computation
+  breadth:
+    # Sector ETFs as S&P 500 proxy for breadth metrics
+    universe:
+      - "XLK"
+      - "XLF"
+      - "XLV"
+      - "XLY"
+      - "XLP"
+      - "XLE"
+      - "XLI"
+      - "XLB"
+      - "XLU"
+      - "XLRE"
+      - "XLC"
+    ma_period: 200        # moving average period for breadth
+    lookback_days: 252    # 1 year for trend metrics
+
+  # Regime detection (from P5, rule-based composite)
+  regime:
+    trend_lookback: 63          # ~3 months for trend signal
+    vol_stress_threshold: 0.25  # annualized vol above this = stress
+    drawdown_threshold: -0.10   # drawdown below this = risk-off signal
+    credit_spread_threshold: 5.0  # HY OAS above this = credit stress (percentage points)
+    regime_labels:
+      - "RISK_ON"
+      - "NEUTRAL"
+      - "RISK_OFF"
+
+# -------------------------------------------------------------------
+# RESEARCH WORKSPACE
+# -------------------------------------------------------------------
+research:
+  # Default chart period
+  default_price_period: "1y"
+
+  # Progressive loading timeouts (seconds)
+  engine_timeout: 30
+  total_pipeline_timeout: 60
+
+  # Recommendation thresholds (from P10)
+  recommendation:
+    buy_threshold: 65
+    sell_threshold: 35
+    min_valid_engines: 2
+    min_confidence: 0.4
+
+  # Composite score weights
+  composite_weights:
+    valuation: 0.35
+    quality: 0.25
+    momentum: 0.20
+    risk: 0.20
+
+  # Sub-score weights
+  valuation_weights:
+    pe_score: 0.50
+    lbo_irr: 0.30
+    ev_ebitda_inv: 0.20
+
+  quality_weights:
+    factor_quality: 0.40
+    ebitda_margin: 0.20
+    fcf_conversion: 0.20
+    roic: 0.20
+
+  momentum_weights:
+    factor_momentum: 0.50
+    tsmom: 0.30
+    price_position_52w: 0.20
+
+  risk_weights:
+    vol_regime: 0.40
+    red_flag_penalty: 0.30
+    interest_coverage: 0.30
+
+  # Override rules
+  overrides:
+    negative_ebitda_downgrade: true   # BUY -> HOLD if EBITDA < 0
+
+  # Confidence grading
+  confidence_grades:
+    A: 0.80
+    B: 0.60
+    C: 0.40
+    D: 0.20
+    # F: below 0.20
+
+  # Data gates
+  data_gates:
+    hard_fail_on_no_prices: true
+    hard_fail_on_no_financials: true
+    degraded_on_no_filings: true
+
+# -------------------------------------------------------------------
+# ANALYTICS: OPTIONS LAB
+# -------------------------------------------------------------------
+options_lab:
+  # Black-Scholes defaults
+  risk_free_rate_series: "DGS2"       # FRED series for risk-free rate
+  default_vol: 0.25                    # fallback if IV extraction fails
+
+  # IV solver settings (from P9)
+  iv_solver:
+    method: "brent"
+    sigma_min: 0.001
+    sigma_max: 10.0
+    max_iter: 100
+    tol: 1.0e-8
+
+  # Vol surface
+  vol_surface:
+    interpolation: "cubic"
+    moneyness_range: [0.7, 1.3]       # log-moneyness bounds
+    expiry_range_days: [7, 365]
+
+  # Payoff diagram
+  payoff:
+    spot_range_pct: 0.30              # +/- 30% from current spot
+    spot_points: 200
+
+  # Scenario analysis
+  scenario:
+    vol_shifts: [-0.10, -0.05, 0.0, 0.05, 0.10]   # absolute vol shifts
+    time_decay_days: [0, 7, 14, 30]
+
+# -------------------------------------------------------------------
+# ANALYTICS: LBO QUICK CALC
+# -------------------------------------------------------------------
+lbo_quick_calc:
+  # Default assumptions (user-adjustable in UI)
+  defaults:
+    entry_multiple: 8.0           # EV/EBITDA
+    exit_multiple: 8.0
+    leverage: 3.5                 # x EBITDA
+    hold_period: 5                # years
+    revenue_growth: 0.05          # 5%
+    ebitda_margin: 0.20           # 20%
+    capex_pct_revenue: 0.03
+    tax_rate: 0.25
+    nwc_pct_revenue: 0.10
+    debt_rate: 0.06
+    amort_rate: 0.05
+    cash_sweep: 0.50
+    fees_pct: 0.02
+
+  # Sensitivity grid
+  sensitivity:
+    exit_multiples: [6.0, 7.0, 8.0, 9.0, 10.0]
+    growth_rates: [0.00, 0.03, 0.05, 0.07, 0.10]
+
+# -------------------------------------------------------------------
+# ANALYTICS: COMPS & RELATIVE VALUE
+# -------------------------------------------------------------------
+comps:
+  # Peer selection
+  max_peers: 10
+  same_sector_only: true
+
+  # Valuation metrics to display
+  metrics:
+    - key: "ev_ebitda"
+      label: "EV/EBITDA"
+    - key: "pe_ratio"
+      label: "P/E"
+    - key: "ebitda_margin"
+      label: "EBITDA Margin"
+      format: "pct"
+    - key: "revenue_growth"
+      label: "Revenue Growth"
+      format: "pct"
+    - key: "roic"
+      label: "ROIC"
+      format: "pct"
+    - key: "net_debt_ebitda"
+      label: "Net Debt/EBITDA"
+    - key: "fcf_conversion"
+      label: "FCF Conversion"
+      format: "pct"
+
+  # Historical valuation range
+  historical_lookback_years: 5
+
+  # PE scoring weights (from P2)
+  scoring_weights:
+    sector_rank: 0.60
+    universe_rank: 0.40
+  min_sector_count: 3           # fall back to universe-only if sector < this
+
+# -------------------------------------------------------------------
+# PORTFOLIO WORKSPACE
+# -------------------------------------------------------------------
+portfolio:
+  # Optimizer settings
+  optimizer:
+    methods:
+      - "mean_variance"
+      - "hrp"
+    risk_aversion: 2.5            # gamma for MV
+    weight_cap: 0.25              # max single-position weight
+    min_assets: 3                 # minimum for optimization
+    max_assets: 30
+
+  # Covariance
+  covariance:
+    method: "ledoit_wolf"         # "sample", "ledoit_wolf", or "rmt"
+    lookback_days: 756            # ~3 years
+
+  # Expected returns
+  expected_returns:
+    method: "shrinkage"           # "historical" or "shrinkage"
+    shrinkage_target: "grand_mean"
+
+  # Transaction costs
+  transaction_cost_bps: 10
+
+  # Factor attribution (from P3)
+  attribution:
+    factors:
+      - "value"
+      - "momentum"
+      - "quality"
+      - "size"
+      - "low_vol"
+
+  # Robustness validation (from P7)
+  robustness:
+    cscv_blocks: 16
+    bootstrap_resamples: 1000
+    block_size: 21
+    pbo_threshold_robust: 0.25
+    pbo_threshold_overfit: 0.50
+    dsr_threshold: 0.95
+    plateau_tolerance: 0.10
+    plateau_stable: 0.30
+    plateau_fragile: 0.10
+    verdicts:
+      robust: "ROBUST"
+      likely_robust: "LIKELY ROBUST"
+      borderline: "BORDERLINE"
+      likely_overfit: "LIKELY OVERFIT"
+      overfit: "OVERFIT"
+
+# -------------------------------------------------------------------
+# P&L INTERPRETATION LAYER
+# -------------------------------------------------------------------
+pnl:
+  # Scenario definitions for Research workspace
+  scenarios:
+    bull:
+      label: "Bull Case"
+      price_change_pct: 0.20
+      multiple_expansion: 1.0
+    base:
+      label: "Base Case"
+      price_change_pct: 0.0
+      multiple_expansion: 0.0
+    bear:
+      label: "Bear Case"
+      price_change_pct: -0.20
+      multiple_expansion: -1.0
+
+# -------------------------------------------------------------------
+# LLM
+# -------------------------------------------------------------------
+llm:
+  enabled: "auto"                   # "auto" = ON when ANTHROPIC_API_KEY is present, OFF otherwise
+  provider: "anthropic"
+  model: "claude-sonnet-4-20250514"
+  max_tokens: 4000
+  temperature: 0.3
+  # API key loaded from ANTHROPIC_API_KEY env var
+  # LLM receives deterministic rating in prompt. Cannot override.
+  # If LLM output contradicts rating, flag inconsistency.
+  memo_sections:
+    - "thesis"
+    - "valuation"
+    - "quality"
+    - "momentum"
+    - "risk"
+    - "conclusion"
+
+# -------------------------------------------------------------------
+# WATCHLIST
+# -------------------------------------------------------------------
+watchlist:
+  max_tickers: 20
+  # Production: SQLite (data/terminal.db)
+  # Development fallback: JSON (data/watchlist.json)
+  sqlite_db: "data/terminal.db"
+  json_fallback: "data/watchlist.json"
+
+# -------------------------------------------------------------------
+# UI
+# -------------------------------------------------------------------
+ui:
+  theme: "bloomberg_dark"
+  accent_color: "#FF8C00"           # amber/orange
+  monospace_font: "JetBrains Mono, Fira Code, monospace"
+  chart_height: 450
+  kpi_style: "single_line_html"     # NEVER use multi-line f-strings
+  interpretation_format: "observation_interpretation_implication"
+  show_model_limitations: true
+  show_units_on_axes: true

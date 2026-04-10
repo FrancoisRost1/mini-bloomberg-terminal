@@ -1,0 +1,13 @@
+pandas>=2.0
+numpy>=1.24
+numpy-financial>=1.0
+scipy>=1.11
+pyyaml>=6.0
+streamlit>=1.32
+plotly>=5.18
+requests>=2.31
+fredapi>=0.5
+alpha_vantage>=2.3
+yfinance>=0.2
+anthropic>=0.25
+pytest>=7.4
