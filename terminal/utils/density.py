@@ -70,8 +70,12 @@ def dense_kpi_row(items: list[dict[str, Any]], min_cell_px: int = 100) -> str:
 
 
 def section_bar(label: str, tape: str = "", source: str = "") -> str:
-    """Loud section header. Orange uppercase mono with a thin underline."""
-    accent = TOKENS["accent_primary"]
+    """Loud section header. Bright orange uppercase mono on a 2px
+    underline. Higher contrast on the new #080808 background.
+    """
+    # Brighter orange than the project accent (#E07020) so the headers
+    # punch on near-black. Same hue, higher value.
+    accent = "#FF8A2A"
     pieces: list[str] = []
     if source:
         pieces.append(
@@ -88,9 +92,9 @@ def section_bar(label: str, tape: str = "", source: str = "") -> str:
     right = (f'<span style="float:right;">{"".join(pieces)}</span>' if pieces else "")
     return (
         f'<div style="color:{accent};font-family:{TOKENS["font_mono"]};'
-        f'font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;'
-        f'border-bottom:1px solid {accent};padding:0.2rem 0 0.1rem 0;'
-        f'margin:0.25rem 0 0.2rem 0;">{label}{right}</div>'
+        f'font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.14em;'
+        f'border-bottom:2px solid {accent};padding:0.18rem 0 0.08rem 0;'
+        f'margin:0.2rem 0 0.18rem 0;text-shadow:0 0 1px rgba(255,138,42,0.25);">{label}{right}</div>'
     )
 
 

@@ -1,12 +1,12 @@
 """Header ticker tape item builder.
 
 Pulled out of header.py so the page module stays under the line
-budget. Builds the list of dicts that ``bloomberg_tape`` consumes:
-provider status, watchlist count, VIX (FRED), and the configured
-market tickers from yfinance with arrows and signed % change.
+budget. Builds the list of dicts that the marquee component consumes:
+fixed market tickers (SPY, QQQ, AAPL, DJI, VIX, EURUSD, BTCUSD, CL,
+GLD) with arrows and signed % change.
 
-Each item served from the cache when fresh fetch fails carries a
-STALE prefix in its label.
+Each item served from the cache when fresh fetch fails carries an
+asterisk in its label so the tape always reads as a live tape.
 """
 
 from __future__ import annotations
@@ -16,85 +16,70 @@ from typing import Any
 from terminal.managers.data_manager import SharedDataManager
 from terminal.utils.error_handling import is_error
 from terminal.utils.last_good_cache import LastGoodCache
-from terminal.utils.watchlist_io import WatchlistStore
+from terminal.utils.watchlist_io import WatchlistStore  # noqa: F401  imported for type compat
 
 
-# Display label, yfinance symbol. Active ticker is injected at runtime.
-TAPE_TICKERS: list[tuple[str, str]] = [
-    ("SPY",     "SPY"),
-    ("QQQ",     "QQQ"),
-    ("DJI",     "^DJI"),
-    ("EURUSD",  "EURUSD=X"),
-    ("BTCUSD",  "BTC-USD"),
-    ("CL",      "CL=F"),
-    ("GLD",     "GLD"),
+# Display label, fetch symbol, route ("index" / "stock" / "vix" / "macro").
+TAPE_TICKERS: list[tuple[str, str, str]] = [
+    ("SPY",     "SPY",      "index"),
+    ("QQQ",     "QQQ",      "index"),
+    ("AAPL",    "AAPL",     "stock"),
+    ("DJI",     "^DJI",     "index"),
+    ("VIX",     "VIXCLS",   "vix"),
+    ("EURUSD",  "EURUSD=X", "index"),
+    ("BTCUSD",  "BTC-USD",  "index"),
+    ("CL",      "CL=F",     "index"),
+    ("GLD",     "GLD",      "index"),
 ]
 
 
 def build_tape_items(
     data_manager: SharedDataManager,
-    watchlist: WatchlistStore,
+    watchlist,  # accepted for backward compat with header.render signature
     config: dict[str, Any],
     cache: LastGoodCache,
 ) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
-
-    items.append(_provider_pill(data_manager))
-    items.append(_watchlist_pill(watchlist, config))
-    items.append(_vix_item(data_manager, config, cache))
-
-    active = (str(_active_ticker_safe()) or "AAPL").upper()
-    items.append(_active_ticker_item(data_manager, cache, active))
-
-    for label, ticker in TAPE_TICKERS:
-        items.append(_market_item(data_manager, cache, ticker, label))
-
+    for label, symbol, route in TAPE_TICKERS:
+        if route == "vix":
+            items.append(_vix_item(data_manager, config, cache))
+        elif route == "stock":
+            items.append(_stock_item(data_manager, cache, symbol, label))
+        else:
+            items.append(_index_item(data_manager, cache, symbol, label))
     return items
-
-
-def _active_ticker_safe() -> str:
-    """Read st.session_state.active_ticker without importing streamlit at module level."""
-    import streamlit as st
-    return st.session_state.get("active_ticker", "AAPL")
-
-
-def _provider_pill(data_manager: SharedDataManager) -> dict[str, Any]:
-    provider = data_manager.registry.equity()
-    label = provider.name.upper() if provider else "OFFLINE"
-    return {"label": "SRC", "price": label, "change_pct": None}
-
-
-def _watchlist_pill(watchlist: WatchlistStore, config: dict[str, Any]) -> dict[str, Any]:
-    cap = config["watchlist"]["max_tickers"]
-    return {"label": "WATCH", "price": f"{len(watchlist.list_tickers())}/{cap}", "change_pct": None}
 
 
 def _vix_item(data_manager: SharedDataManager, config: dict[str, Any], cache: LastGoodCache) -> dict[str, Any]:
     series_id = config["market"]["macro_series"]["volatility"]["vix_series"]
     macro = data_manager.get_macro([series_id])
     if not is_error(macro):
-        v = macro.latest(series_id)
-        if v == v:
-            cache.put("VIX", {"value": float(v)})
-            return {"label": "VIX", "price": f"{v:.2f}", "change_pct": None}
+        series = macro.series.get(series_id)
+        if series is not None and not series.dropna().empty:
+            clean = series.dropna()
+            v = float(clean.iloc[-1])
+            prev = float(clean.iloc[-2]) if len(clean) >= 2 else v
+            chg = (v - prev) / prev if prev else 0.0
+            cache.put("VIX", {"value": v, "change": chg})
+            return {"label": "VIX", "price": f"{v:.2f}", "change_pct": chg}
     cached = cache.get("VIX")
     if cached:
-        return {"label": "VIX*", "price": f"{cached[0]['value']:.2f}", "change_pct": None}
+        c = cached[0]
+        return {"label": "VIX*", "price": f"{c['value']:.2f}", "change_pct": c.get("change", 0.0)}
     return {"label": "VIX", "price": "n/a", "change_pct": None}
 
 
-def _active_ticker_item(data_manager: SharedDataManager, cache: LastGoodCache, ticker: str) -> dict[str, Any]:
-    """Active ticker may be a stock or an ETF. Use the any_prices cascade."""
+def _stock_item(data_manager: SharedDataManager, cache: LastGoodCache, ticker: str, label: str) -> dict[str, Any]:
     data = data_manager.get_any_prices(ticker, period="1mo")
-    return _build_market_dict(data, cache, ticker, ticker)
+    return _build_market_dict(data, cache, label)
 
 
-def _market_item(data_manager: SharedDataManager, cache: LastGoodCache, ticker: str, label: str) -> dict[str, Any]:
+def _index_item(data_manager: SharedDataManager, cache: LastGoodCache, ticker: str, label: str) -> dict[str, Any]:
     data = data_manager.get_index_prices(ticker, period="1mo")
-    return _build_market_dict(data, cache, ticker, label)
+    return _build_market_dict(data, cache, label)
 
 
-def _build_market_dict(data, cache: LastGoodCache, ticker: str, label: str) -> dict[str, Any]:
+def _build_market_dict(data, cache: LastGoodCache, label: str) -> dict[str, Any]:
     if not is_error(data) and not data.is_empty():
         last = data.last_close()
         prev = float(data.prices["close"].iloc[-2]) if len(data.prices) >= 2 else last

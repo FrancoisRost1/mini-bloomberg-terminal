@@ -6,6 +6,7 @@ from typing import Any
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 from style_inject import TOKENS, styled_card
 
@@ -20,6 +21,7 @@ from terminal.utils.chart_helpers import interpretation_callout_html, line_chart
 from terminal.utils.density import dense_kpi_row, period_returns_tape, section_bar, signed_color
 from terminal.utils.error_handling import inline_status_line, is_error, status_pill
 from terminal.utils.formatting import fmt_money, fmt_pct, fmt_ratio
+from terminal.utils.tv_chart import build_tv_chart_html
 
 
 def _close_series(packet: dict[str, Any]) -> pd.Series | None:
@@ -39,16 +41,31 @@ def _ratios(packet: dict[str, Any]) -> dict[str, Any]:
 
 
 def render_phase1_chart(packet: dict[str, Any]) -> None:
+    prices_obj = packet.get("prices")
     close = _close_series(packet)
     tape = period_returns_tape(close) if close is not None else ""
     st.markdown(section_bar("PRICE", tape=tape, source="FMP"), unsafe_allow_html=True)
-    if close is None:
+    if close is None or prices_obj is None or is_error(prices_obj):
         st.markdown(inline_status_line("OFF", source="FMP"), unsafe_allow_html=True)
         return
-    st.plotly_chart(
-        line_chart({packet["ticker"]: close}, title=f"{packet['ticker']} price (1Y)", y_unit="USD"),
-        use_container_width=True,
+    view = st.radio(
+        "Chart view",
+        options=["Candlestick", "Line"],
+        index=0,
+        horizontal=True,
+        key=f"chart_view_{packet['ticker']}",
+        label_visibility="collapsed",
     )
+    if view == "Candlestick":
+        components.html(
+            build_tv_chart_html(prices_obj.prices, packet["ticker"], height_px=380),
+            height=390,
+        )
+    else:
+        st.plotly_chart(
+            line_chart({packet["ticker"]: close}, title=f"{packet['ticker']} price (1Y)", y_unit="USD"),
+            use_container_width=True,
+        )
 
 
 def render_phase1_stats(packet: dict[str, Any]) -> None:

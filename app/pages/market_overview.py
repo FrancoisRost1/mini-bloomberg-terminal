@@ -18,6 +18,7 @@ from app.pages._market_overview_helpers import (  # noqa: E402
     render_indices_strip,
     render_rates_and_vol,
     render_regime,
+    render_sector_heatmap,
 )
 from terminal.utils.density import dense_kpi_row, section_bar, signed_color  # noqa: E402
 from terminal.utils.error_handling import is_error  # noqa: E402
@@ -29,6 +30,8 @@ def render() -> None:
     styled_header("Market Overview", "Cross asset regime context")
 
     render_indices_strip(data_manager, config)
+
+    render_sector_heatmap(data_manager, config)
 
     row1_l, row1_r = st.columns([1, 1])
     with row1_l:

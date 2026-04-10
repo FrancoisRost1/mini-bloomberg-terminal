@@ -52,12 +52,12 @@ def _detect_project_accent():
 # DESIGN TOKENS
 # ─────────────────────────────────────────────
 TOKENS = {
-    # Background layers (charcoal, not navy)
-    "bg_base": "#0A0A0F",        # Page background
-    "bg_surface": "#121218",     # Cards, containers
-    "bg_elevated": "#1A1A22",    # Elevated panels
-    "bg_hover": "#22222C",       # Hover states
-    "bg_active": "#2A2A36",      # Active/selected states
+    # Background layers (deep black, terminal-grade)
+    "bg_base": "#080808",        # Page background
+    "bg_surface": "#101014",     # Cards, containers
+    "bg_elevated": "#16161C",    # Elevated panels
+    "bg_hover": "#1E1E26",       # Hover states
+    "bg_active": "#262630",      # Active/selected states
 
     # Accent colors (muted, professional)
     # Default is neutral amber. Override accent_primary per project.
@@ -446,7 +446,7 @@ def styled_header(title: str, subtitle: str = ""):
     Usage: styled_header("LBO Engine", "AAPL | Base Case | 5yr Hold")
     """
     html = f"""
-    <div style="margin-bottom: 1.25rem;">
+    <div style="margin-bottom: 0.4rem;">
         <h1 style="
             font-family: {TOKENS["font_display"]};
             font-weight: 600;

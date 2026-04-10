@@ -7,6 +7,7 @@ import streamlit as st
 
 from style_inject import TOKENS, styled_card
 
+from app.pages._market_heatmap import render_sector_heatmap as render_sector_heatmap  # noqa: F401  re export
 from terminal.adapters.regime_adapter import run_regime
 from terminal.engines.breadth_engine import compute_breadth
 from terminal.utils.chart_helpers import bar_chart, interpretation_callout_html

@@ -16,13 +16,14 @@ from pathlib import Path
 from typing import Any
 
 import streamlit as st
+import streamlit.components.v1 as components
 
-from style_inject import TOKENS
+from style_inject import TOKENS  # noqa: F401  used by other helpers
 
 from app.header_tape import build_tape_items
 from terminal.managers.data_manager import SharedDataManager
 from terminal.utils.error_handling import dev_mode_banner
-from terminal.utils.tapes import bloomberg_tape
+from terminal.utils.marquee import build_marquee_html
 from terminal.utils.last_good_cache import LastGoodCache
 from terminal.utils.watchlist_io import WatchlistStore
 
@@ -42,9 +43,9 @@ def render(data_manager: SharedDataManager, watchlist: WatchlistStore, config: d
     _render_watchlist_select(col_watchlist, watchlist)
     _render_watchlist_actions(col_actions, watchlist)
 
-    # Row 2: bloomberg style ticker tape
+    # Row 2: custom HTML/JS scrolling marquee (CSS animation, no rerun).
     items = build_tape_items(data_manager, watchlist, config, _cache(config))
-    st.markdown(bloomberg_tape(items), unsafe_allow_html=True)
+    components.html(build_marquee_html(items), height=36)
 
 
 def _render_ticker_input(col) -> None:

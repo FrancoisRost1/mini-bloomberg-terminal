@@ -18,6 +18,7 @@ from style_inject import (  # noqa: E402
     styled_header,
 )
 
+from app.pages._comps_peers import render_peer_fundamentals  # noqa: E402
 from terminal.adapters.ma_comps_adapter import run_comps  # noqa: E402
 from terminal.adapters.pe_scoring_adapter import score_single_ticker  # noqa: E402
 from terminal.utils.chart_helpers import bar_chart, interpretation_callout_html  # noqa: E402
@@ -39,12 +40,11 @@ def render() -> None:
     ratios = fundamentals.key_ratios if fund_ok else {}
     sector = fundamentals.sector if fund_ok else ""
 
-    # Single line peer status note. The page renders single ticker
-    # absolute valuation regardless; peer relative comparison is the
-    # documented v2 deferral.
-    st.caption("PEER RELATIVE VIEW DEFERRED ON CURRENT PLAN. Single ticker valuation rendered against absolute bands.")
-
-    tab_val, tab_pe, tab_ma = st.tabs(["VALUATION METRICS", "PE SCORE", "M&A COMPS"])
+    tab_peers, tab_val, tab_pe, tab_ma = st.tabs(
+        ["PEER FUNDAMENTALS", "VALUATION METRICS", "PE SCORE", "M&A COMPS"]
+    )
+    with tab_peers:
+        render_peer_fundamentals(data_manager, ticker, sector)
     with tab_val:
         if fund_ok:
             _render_valuation_card(fundamentals, config)

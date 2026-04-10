@@ -69,12 +69,7 @@ def render() -> None:
         return
 
     atm_strike = float(expiry_chain.iloc[(expiry_chain["strike"] - spot).abs().argsort().iloc[0]]["strike"])
-    strike = st.slider(
-        "Strike",
-        min_value=float(expiry_chain["strike"].min()),
-        max_value=float(expiry_chain["strike"].max()),
-        value=atm_strike,
-    )
+    strike = _render_strike_selector(expiry_chain, atm_strike)
 
     days = (pd.Timestamp(expiry) - pd.Timestamp(datetime.utcnow())).days
     tau = max(1 / 365.0, days / 365.0)
@@ -93,6 +88,35 @@ def render() -> None:
         safe_render(lambda: render_scenario(greeks, spot), label="scenario", source="local")
     with tab_iv:
         safe_render(lambda: render_iv_smile(expiry_chain, spot, tau, rate, config), label="iv_smile", source="yfinance")
+
+
+def _render_strike_selector(expiry_chain, atm_strike: float) -> float:
+    """Two ways to pick a strike: a selectbox of actual chain strikes,
+    and a numeric input as an alternative for off chain values.
+    """
+    strikes = sorted({float(s) for s in expiry_chain["strike"].dropna().tolist()})
+    if not strikes:
+        return atm_strike
+    atm_idx = min(range(len(strikes)), key=lambda i: abs(strikes[i] - atm_strike))
+    col_a, col_b = st.columns([3, 2])
+    with col_a:
+        chosen = st.selectbox(
+            "Strike (chain)",
+            options=strikes,
+            index=atm_idx,
+            format_func=lambda v: f"{v:,.2f}",
+            key="opt_strike_select",
+        )
+    with col_b:
+        manual = st.number_input(
+            "Strike (manual)",
+            min_value=float(strikes[0]),
+            max_value=float(strikes[-1]),
+            value=float(chosen),
+            step=max(0.5, (strikes[-1] - strikes[0]) / 100.0),
+            key="opt_strike_manual",
+        )
+    return float(manual)
 
 
 def _render_inputs(chain, config) -> tuple[str, str, float]:

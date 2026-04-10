@@ -97,6 +97,45 @@ def heatmap(
     return apply_plotly_theme(fig)
 
 
+def sector_treemap(
+    labels: list[str],
+    returns_pct: list[float],
+    title: str,
+    height: int = MAIN_HEIGHT,
+) -> go.Figure:
+    """Equal-weight treemap colored by 1D return.
+
+    ``returns_pct`` is in percent (e.g. -1.23 for -1.23%). Cells are
+    sized equally so the heatmap reads as pure direction; color comes
+    from the canonical danger / elevated / success ramp.
+    """
+    colorscale = [
+        [0.0, TOKENS["accent_danger"]],
+        [0.5, TOKENS["bg_elevated"]],
+        [1.0, TOKENS["accent_success"]],
+    ]
+    text = [f"{lbl}<br><b>{r:+.2f}%</b>" for lbl, r in zip(labels, returns_pct)]
+    fig = go.Figure(go.Treemap(
+        labels=labels,
+        values=[1] * len(labels),
+        parents=[""] * len(labels),
+        text=text,
+        textinfo="text",
+        textfont={"family": "JetBrains Mono, monospace", "size": 12},
+        marker={
+            "colors": returns_pct,
+            "colorscale": colorscale,
+            "cmid": 0.0,
+            "line": {"color": "#080808", "width": 1},
+        },
+        hovertemplate="<b>%{label}</b><br>%{customdata:+.2f}%<extra></extra>",
+        customdata=returns_pct,
+    ))
+    fig.update_layout(title={"text": title}, height=height,
+                      margin={"l": 4, "r": 4, "t": 30, "b": 4})
+    return apply_plotly_theme(fig)
+
+
 def waterfall(
     categories: list[str],
     values: list[float],
