@@ -15,13 +15,25 @@ import pandas as pd
 
 def _to_records(prices: pd.DataFrame) -> dict:
     """Convert a (DateTimeIndex, OHLCV) frame into the JSON shape the
-    TradingView library expects."""
+    TradingView library expects.
+
+    lightweight-charts wants ``time`` as integer Unix seconds in UTC.
+    Older versions of this helper used ``df.index.view("int64") //
+    10**9``; on pandas 2.x that path silently collapses to 0 when the
+    index is tz-aware (yfinance returns America/New_York), which shows
+    up as "Jan 70" across the whole axis. Per-row ``ts.timestamp()``
+    is stable in every pandas version for both tz-aware and naive
+    indices.
+    """
     df = prices.copy()
     df = df.dropna(how="all")
     if df.empty:
         return {"candles": [], "volume": [], "volume_ma20": [], "ma50": [], "ma200": []}
-    df.index = pd.to_datetime(df.index)
-    times = (df.index.view("int64") // 10**9).astype(int).tolist()  # epoch seconds
+    idx = pd.DatetimeIndex(pd.to_datetime(df.index))
+    if idx.tz is not None:
+        idx = idx.tz_convert("UTC").tz_localize(None)
+    df.index = idx
+    times = [int(pd.Timestamp(ts).timestamp()) for ts in idx]
 
     candles = [
         {"time": t, "open": float(o), "high": float(h), "low": float(l), "close": float(c)}

@@ -87,23 +87,37 @@ def _pct_change_bars(series: pd.Series, bars: int) -> float:
 
 
 def _ytd_pct(series: pd.Series) -> float:
-    """Year-to-date percent return from the last observation before Jan 1."""
+    """Year-to-date percent return from the last observation before Jan 1.
+
+    yfinance sometimes returns a tz-aware DatetimeIndex
+    (America/New_York). Comparing such an index against a naive
+    pd.Timestamp raises ``Cannot compare tz-naive and tz-aware
+    datetime-like objects``. We normalize by stripping tz on a local
+    copy before slicing.
+    """
     if series is None or series.empty:
         return float("nan")
-    idx = series.index
     try:
-        year = idx[-1].year
-    except AttributeError:
+        idx = pd.DatetimeIndex(series.index)
+    except (TypeError, ValueError):
+        return float("nan")
+    if idx.tz is not None:
+        idx = idx.tz_localize(None)
+    local = series.copy()
+    local.index = idx
+    try:
+        year = int(idx[-1].year)
+    except (AttributeError, IndexError):
         return float("nan")
     jan1 = pd.Timestamp(f"{year}-01-01")
-    prior_segment = series[series.index < jan1]
+    prior_segment = local[local.index < jan1]
     if prior_segment.empty:
-        start = float(series.iloc[0])
+        start = float(local.iloc[0])
     else:
         start = float(prior_segment.iloc[-1])
     if start == 0:
         return float("nan")
-    return (float(series.iloc[-1]) / start - 1.0) * 100.0
+    return (float(local.iloc[-1]) / start - 1.0) * 100.0
 
 
 def _fmt_signed_pct(value: float) -> str:

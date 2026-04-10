@@ -125,9 +125,10 @@ def compute_ratios(
         elif not ebit.empty and (interest.empty or abs(interest.iloc[-1]) == 0):
             # EBIT is fine but there is no interest expense to divide by.
             # Either FMP did not return the field for this filer, or the
-            # company is debt free. Either way, show "not reported" rather
-            # than a generic "n/a" in the KPI strip.
-            notes["interest_coverage"] = "not reported"
+            # company is debt free. The KPI cell is narrow so we use
+            # the abbreviated "N/R" sentinel rather than spelling out
+            # "not reported" (which would clip on the Research strip).
+            notes["interest_coverage"] = "N/R"
     ratios["pe_ratio"] = _resolve_pe(price, profile, quote, net_income_latest)
     if revenue == revenue and revenue > 0 and ebitda == ebitda:
         ratios["ebitda_margin"] = float(ebitda / revenue)

@@ -19,6 +19,25 @@ from app.pages._portfolio_common import METHOD_PALETTE, build_portfolio_series
 from terminal.utils.density import colored_dataframe, section_bar
 
 
+def _hex_to_rgba(hex_color: str, alpha: float = 0.08) -> str:
+    """Convert a ``#RRGGBB`` CSS color into a Plotly-safe ``rgba()``.
+
+    Plotly fill colors reject the 8-digit ``#RRGGBBAA`` shorthand and
+    raise ``Value must be a string (e.g., 'foo')``; we translate to
+    ``rgba(r,g,b,a)`` which every Plotly release accepts.
+    """
+    s = hex_color.lstrip("#")
+    if len(s) < 6:
+        return f"rgba(0,0,0,{alpha:.3f})"
+    try:
+        r = int(s[0:2], 16)
+        g = int(s[2:4], 16)
+        b = int(s[4:6], 16)
+    except ValueError:
+        return f"rgba(0,0,0,{alpha:.3f})"
+    return f"rgba({r},{g},{b},{alpha:.3f})"
+
+
 def render_drawdown_chart(returns: pd.DataFrame, weights: dict[str, dict[str, float]]) -> None:
     """Drawdown path for MV vs HRP vs equal weight.
 
@@ -44,7 +63,7 @@ def render_drawdown_chart(returns: pd.DataFrame, weights: dict[str, dict[str, fl
             x=dd.index, y=dd.values, name=name, mode="lines",
             line={"width": 1.4, "color": color},
             fill="tozeroy",
-            fillcolor=color + "15",
+            fillcolor=_hex_to_rgba(color, 0.10),
         ))
         max_dd_labels.append(f"{name} max dd {float(dd.min()):.1f}%")
     fig.update_xaxes(title_text="Date")

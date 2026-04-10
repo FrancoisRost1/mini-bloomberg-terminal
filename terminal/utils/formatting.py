@@ -73,11 +73,14 @@ def fmt_ratio_with_note(value: Any, notes: dict[str, str] | None, key: str,
     """Ratio formatter that honors a companion ``_notes`` dict.
 
     If the value is nan AND the notes dict has an explanatory entry for
-    ``key`` (e.g. ``"not reported"``), render that phrase uppercased in
-    monospace space instead of the generic ``n/a`` placeholder.
+    ``key`` (e.g. ``"N/R"``), render that phrase verbatim instead of
+    the generic ``n/a`` placeholder. Notes are assumed to be already
+    short and display-ready (no implicit uppercasing here, because
+    callers like the Research KPI strip use narrow cells that clip
+    anything longer than ~4 characters).
     """
     if value is None or (isinstance(value, float) and math.isnan(value)):
         if notes and key in notes:
-            return notes[key].upper()
+            return str(notes[key])
         return "n/a"
     return f"{value:.{decimals}f}{suffix}"
