@@ -2,8 +2,8 @@
 
 Project specific helpers beyond the canonical style_inject. Exposes
 ticker_tape, dense_kpi_row, section_bar, period_returns_tape,
-signed_color, and mono_inline. Use for the data dense surfaces a
-research terminal needs.
+signed_color, mono_inline. Pandas Styler helpers for directional
+coloring live in dataframe_styling.py and are re exported here.
 """
 
 from __future__ import annotations
@@ -14,6 +14,8 @@ from typing import Any
 import pandas as pd
 
 from style_inject import TOKENS
+
+from .dataframe_styling import colored_dataframe  # noqa: F401  re export
 
 
 def signed_color(value: Any) -> str:

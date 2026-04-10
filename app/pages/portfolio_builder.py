@@ -69,16 +69,20 @@ def _ticker_input(config) -> list[str]:
 
 
 def _fetch_returns(data_manager, tickers, lookback) -> pd.DataFrame | None:
-    period = "5y" if lookback > 504 else "2y"
-    closes: dict[str, pd.Series] = {}
-    for ticker in tickers:
-        data = data_manager.get_prices(ticker, period=period)
-        if is_error(data) or data.is_empty():
+    """Cascade through 2y -> 1y -> 6mo -> 3mo until at least 60 days of data exists."""
+    for period, min_rows in [("2y", 252), ("1y", 126), ("6mo", 60), ("3mo", 30)]:
+        closes: dict[str, pd.Series] = {}
+        for ticker in tickers:
+            data = data_manager.get_prices(ticker, period=period)
+            if is_error(data) or data.is_empty():
+                continue
+            closes[ticker] = data.prices["close"]
+        if not closes:
             continue
-        closes[ticker] = data.prices["close"]
-    if not closes:
-        return None
-    return pd.DataFrame(closes).dropna(how="all").pct_change().dropna().tail(lookback)
+        df = pd.DataFrame(closes).dropna(how="all").pct_change().dropna()
+        if len(df) >= min_rows:
+            return df.tail(lookback)
+    return None
 
 
 def _render_method_pane(method: str, w: dict[str, float], returns: pd.DataFrame) -> None:

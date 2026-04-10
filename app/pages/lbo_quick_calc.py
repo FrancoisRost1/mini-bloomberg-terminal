@@ -21,7 +21,7 @@ from style_inject import (  # noqa: E402
 from terminal.adapters.lbo_adapter import run_base_case, sensitivity_grid  # noqa: E402
 from terminal.engines.pnl_engine import compute_lbo_equity_bridge  # noqa: E402
 from terminal.utils.chart_helpers import heatmap, interpretation_callout_html, waterfall  # noqa: E402
-from terminal.utils.density import dense_kpi_row, section_bar, signed_color  # noqa: E402
+from terminal.utils.density import colored_dataframe, dense_kpi_row, section_bar, signed_color  # noqa: E402
 from terminal.utils.formatting import fmt_money, fmt_pct, fmt_ratio  # noqa: E402
 
 
@@ -95,15 +95,16 @@ def _render_bridge(result) -> None:
     with table_col:
         bridge_table = pd.DataFrame(
             [
-                ("EBITDA growth", fmt_money(bridge["ebitda_growth"])),
-                ("Multiple change", fmt_money(bridge["multiple_expansion"])),
-                ("Debt paydown", fmt_money(bridge["debt_paydown"])),
-                ("Fees drag", fmt_money(bridge["fees_drag"])),
-                ("Total value", fmt_money(bridge["total_value_creation"])),
+                ("EBITDA growth", bridge["ebitda_growth"]),
+                ("Multiple change", bridge["multiple_expansion"]),
+                ("Debt paydown", bridge["debt_paydown"]),
+                ("Fees drag", bridge["fees_drag"]),
+                ("Total value", bridge["total_value_creation"]),
             ],
-            columns=["Leg", "Value"],
+            columns=["Leg", "Value ($)"],
         )
-        st.dataframe(bridge_table, use_container_width=True, hide_index=True)
+        st.dataframe(colored_dataframe(bridge_table, ["Value ($)"]),
+                     use_container_width=True, hide_index=True)
     styled_card(
         interpretation_callout_html(
             observation=f"Total value created. {fmt_money(bridge['total_value_creation'])}.",
@@ -125,9 +126,10 @@ def _render_sensitivity(assumptions, config) -> None:
         fig = heatmap(df, title="IRR. Exit Multiple by Revenue Growth", colorbar_unit="IRR")
         st.plotly_chart(fig, use_container_width=True)
     with table_col:
-        display = df.applymap(lambda v: f"{v * 100:+.1f}%" if v == v else "n/a")
+        display = df.map(lambda v: f"{v * 100:+.1f}%" if v == v else "n/a")
         display.insert(0, "Growth", display.index)
-        st.dataframe(display, use_container_width=True, hide_index=True)
+        directional = [c for c in display.columns if c != "Growth"]
+        st.dataframe(colored_dataframe(display, directional), use_container_width=True, hide_index=True)
 
 
 render()

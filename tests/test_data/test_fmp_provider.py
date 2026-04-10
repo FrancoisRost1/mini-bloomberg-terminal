@@ -43,7 +43,7 @@ def test_get_prices_parses_historical(provider, monkeypatch):
             {"date": "2024-01-03", "open": 186, "high": 187, "low": 185, "close": 186.5, "adjClose": 186.5, "volume": 1_100_000},
         ],
     }
-    monkeypatch.setattr("terminal.data.provider_fmp.requests.get", lambda *a, **k: _resp(payload))
+    monkeypatch.setattr("terminal.data._fmp_http.requests.get", lambda *a, **k: _resp(payload))
     result = provider.get_prices("AAPL", period="1mo")
     assert not result.is_empty()
     assert result.last_close() == 186.5
@@ -67,7 +67,7 @@ def test_get_fundamentals_builds_ratios(provider, monkeypatch):
         {"date": "2023-12-31", "operatingCashFlow": 130e9, "capitalExpenditure": -11e9},
     ]
     payloads = iter([profile, quote, income, balance, cashflow])
-    monkeypatch.setattr("terminal.data.provider_fmp.requests.get", lambda *a, **k: _resp(next(payloads)))
+    monkeypatch.setattr("terminal.data._fmp_http.requests.get", lambda *a, **k: _resp(next(payloads)))
     result = provider.get_fundamentals("AAPL")
     assert result.has_financials()
     assert result.sector == "Technology"
@@ -93,25 +93,36 @@ def test_rate_limit_retries_on_429(provider, monkeypatch):
             return _resp({"error": "rate limit"}, status=429)
         return _resp({"historical": []})
 
-    monkeypatch.setattr("terminal.data.provider_fmp.requests.get", fake_get)
-    monkeypatch.setattr("terminal.data.provider_fmp.time.sleep", lambda *_: None)
-    provider._request("v3/historical-price-full/AAPL")
+    monkeypatch.setattr("terminal.data._fmp_http.requests.get", fake_get)
+    monkeypatch.setattr("terminal.data._fmp_http.time.sleep", lambda *_: None)
+    provider.http.request("v3/historical-price-full/AAPL")
     assert state["calls"] == 3
 
 
 def test_missing_key_raises(config):
     cfg = copy.deepcopy(config)
     p = FMPProvider(cfg)
-    p.api_key = ""
+    p.http.api_key = ""
     with pytest.raises(RuntimeError, match="FMP_API_KEY"):
-        p._request("v3/quote/AAPL")
+        p.http.request("v3/quote/AAPL")
+
+
+def test_options_endpoint_403_disables_capability(provider, monkeypatch):
+    """Bug 9 regression: a 403 on options must flip supports_options_chain to False."""
+    def fake_get(*a, **k):
+        return _resp({}, status=403)
+    monkeypatch.setattr("terminal.data._fmp_http.requests.get", fake_get)
+    assert provider.supports_options_chain() is True
+    chain = provider.get_options_chain("AAPL")
+    assert chain.is_empty()
+    assert provider.supports_options_chain() is False
 
 
 def test_options_chain_empty_when_endpoint_fails(provider, monkeypatch):
     def fake_get(*a, **k):
         raise RuntimeError("FMP options not available")
 
-    monkeypatch.setattr("terminal.data.provider_fmp.requests.get", fake_get)
+    monkeypatch.setattr("terminal.data._fmp_http.requests.get", fake_get)
     chain = provider.get_options_chain("AAPL")
     assert chain.is_empty()
     assert chain.provider == "fmp"

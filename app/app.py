@@ -72,21 +72,19 @@ def main() -> None:
 
     render_header(data_manager, watchlist, config)
 
+    analytics: list = [
+        st.Page("pages/lbo_quick_calc.py", title="LBO Quick Calc", url_path="lbo-quick-calc"),
+        st.Page("pages/comps_relative_value.py", title="Comps Relative Value", url_path="comps-relative-value"),
+    ]
+    provider = data_manager.registry.equity()
+    if provider is not None and provider.supports_options_chain():
+        analytics.insert(0, st.Page("pages/options_lab.py", title="Options Lab", url_path="options-lab"))
+
     pages = {
-        "MARKET": [
-            st.Page("pages/market_overview.py", title="Market Overview", url_path="market-overview"),
-        ],
-        "RESEARCH": [
-            st.Page("pages/ticker_deep_dive.py", title="Ticker Deep Dive", url_path="ticker-deep-dive"),
-        ],
-        "ANALYTICS": [
-            st.Page("pages/options_lab.py", title="Options Lab", url_path="options-lab"),
-            st.Page("pages/lbo_quick_calc.py", title="LBO Quick Calc", url_path="lbo-quick-calc"),
-            st.Page("pages/comps_relative_value.py", title="Comps Relative Value", url_path="comps-relative-value"),
-        ],
-        "PORTFOLIO": [
-            st.Page("pages/portfolio_builder.py", title="Portfolio Builder", url_path="portfolio-builder"),
-        ],
+        "MARKET": [st.Page("pages/market_overview.py", title="Market Overview", url_path="market-overview")],
+        "RESEARCH": [st.Page("pages/ticker_deep_dive.py", title="Ticker Deep Dive", url_path="ticker-deep-dive")],
+        "ANALYTICS": analytics,
+        "PORTFOLIO": [st.Page("pages/portfolio_builder.py", title="Portfolio Builder", url_path="portfolio-builder")],
     }
     navigation = st.navigation(pages)
     navigation.run()

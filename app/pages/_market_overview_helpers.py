@@ -10,7 +10,13 @@ from style_inject import TOKENS, styled_card
 from terminal.adapters.regime_adapter import run_regime
 from terminal.engines.breadth_engine import compute_breadth
 from terminal.utils.chart_helpers import bar_chart, interpretation_callout_html
-from terminal.utils.density import dense_kpi_row, period_returns_tape, section_bar, signed_color
+from terminal.utils.density import (
+    colored_dataframe,
+    dense_kpi_row,
+    period_returns_tape,
+    section_bar,
+    signed_color,
+)
 from terminal.utils.error_handling import degraded_card, is_error
 from terminal.utils.formatting import fmt_pct
 
@@ -30,7 +36,8 @@ def render_indices_strip(data_manager, config) -> None:
         chg = (last / prev - 1) * 100 if prev else 0.0
         rows.append({"Index": idx["label"], "Last": f"{last:,.2f}",
                      "Chg %": f"{chg:+.2f}%", "60D Trend": closes.tail(60).tolist()})
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True,
+    st.dataframe(colored_dataframe(pd.DataFrame(rows), ["Chg %"]),
+                 use_container_width=True, hide_index=True,
                  column_config={"60D Trend": st.column_config.LineChartColumn("60D", width="medium")})
 
 
@@ -57,7 +64,8 @@ def render_rates_and_vol(data_manager, config) -> None:
         rows.append({"Tenor": label, "Latest": f"{latest:.2f}%",
                      "1D bp": f"{(latest - prior) * 100:+.0f}",
                      "60D Trend": clean.tail(60).tolist()})
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True,
+    st.dataframe(colored_dataframe(pd.DataFrame(rows), ["1D bp"]),
+                 use_container_width=True, hide_index=True,
                  column_config={"60D Trend": st.column_config.LineChartColumn("60D", width="medium")})
 
 
@@ -91,7 +99,7 @@ def render_regime(data_manager, config) -> None:
         st.plotly_chart(bar_chart(regime["scores"], title="Regime Signal Decomposition", y_unit="score", color_by_sign=True), use_container_width=True)
     with table_col:
         scores_df = pd.DataFrame([(k.upper(), v) for k, v in regime["scores"].items()], columns=["Signal", "Score"])
-        st.dataframe(scores_df, use_container_width=True, hide_index=True)
+        st.dataframe(colored_dataframe(scores_df, ["Score"]), use_container_width=True, hide_index=True)
     styled_card(
         interpretation_callout_html(
             observation=f"Composite score {regime['scores']['composite']:+d}.",
@@ -134,5 +142,6 @@ def render_breadth(data_manager, config) -> None:
         chg = (last / start - 1) * 100 if start else 0.0
         rows.append({"Sector": ticker, "Last": f"{last:,.2f}",
                      "1Y %": f"{chg:+.1f}%", "60D Trend": series.tail(60).tolist()})
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True,
+    st.dataframe(colored_dataframe(pd.DataFrame(rows), ["1Y %"]),
+                 use_container_width=True, hide_index=True,
                  column_config={"60D Trend": st.column_config.LineChartColumn("60D", width="small")})

@@ -42,3 +42,10 @@ class MarketDataProvider(ABC):
     def healthcheck(self) -> bool:
         """Lightweight probe for the registry to decide if the provider is live."""
         return True
+
+    def supports_options_chain(self) -> bool:
+        """Capability flag. Used by the navigation layer to hide pages that
+        require an endpoint the active provider does not serve. Default
+        True; providers should override with False or with a runtime probe.
+        """
+        return True

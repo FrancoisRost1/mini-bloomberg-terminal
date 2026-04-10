@@ -21,7 +21,7 @@ from style_inject import (  # noqa: E402
 from terminal.adapters.ma_comps_adapter import run_comps  # noqa: E402
 from terminal.adapters.pe_scoring_adapter import score_single_ticker  # noqa: E402
 from terminal.utils.chart_helpers import bar_chart, interpretation_callout_html  # noqa: E402
-from terminal.utils.density import dense_kpi_row, section_bar, signed_color  # noqa: E402
+from terminal.utils.density import colored_dataframe, dense_kpi_row, section_bar, signed_color  # noqa: E402
 from terminal.utils.error_handling import degraded_card, is_error, status_pill, unavailable_card  # noqa: E402
 from terminal.utils.formatting import format_metric  # noqa: E402
 
@@ -93,10 +93,11 @@ def _render_pe_score(ratios, config) -> None:
             st.plotly_chart(fig, use_container_width=True)
         with table_col:
             df = pd.DataFrame(
-                [(k.replace("_", " ").title(), f"{v:.1f}") for k, v in per_metric.items()],
-                columns=["Metric", "Score"],
+                [(k.replace("_", " ").title(), v - 50) for k, v in per_metric.items()],
+                columns=["Metric", "Score (vs 50)"],
             )
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.dataframe(colored_dataframe(df, ["Score (vs 50)"]),
+                         use_container_width=True, hide_index=True)
     styled_card(
         interpretation_callout_html(
             observation=f"{len(result.get('red_flags', []))} red flag(s) detected.",
