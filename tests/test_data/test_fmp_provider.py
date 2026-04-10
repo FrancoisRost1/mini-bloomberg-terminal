@@ -120,6 +120,26 @@ def test_calls_only_stable_endpoints(provider, monkeypatch):
     for url in seen_urls:
         assert "/stable/" in url, f"non stable endpoint hit: {url}"
         assert "/v3/" not in url, f"v3 endpoint must not be called: {url}"
+        # Bug regression: stable endpoints live at /stable/, NOT /api/stable/.
+        # If the base URL contains /api the constructed URL is wrong and FMP 403s.
+        assert "/api/stable/" not in url, f"wrong base URL: {url}"
+
+
+def test_url_composition_matches_audit_script(provider, monkeypatch):
+    """Hard URL regression. The constructed URL must equal what
+    scripts/_fmp_endpoints.py produces, otherwise the audit and the
+    runtime hit different surfaces."""
+    captured: dict[str, str] = {}
+
+    def fake_get(url, params=None, timeout=None):
+        captured["url"] = url
+        captured["symbol"] = (params or {}).get("symbol", "")
+        return _resp([{"symbol": "AAPL", "date": "2024-01-02", "close": 100, "open": 99, "high": 101, "low": 98, "volume": 1000}])
+
+    monkeypatch.setattr("terminal.data._fmp_http.requests.get", fake_get)
+    provider.get_prices("AAPL")
+    assert captured["url"] == "https://financialmodelingprep.com/stable/historical-price-eod/full"
+    assert captured["symbol"] == "AAPL"
 
 
 def test_rate_limit_retries_on_429(provider, monkeypatch):

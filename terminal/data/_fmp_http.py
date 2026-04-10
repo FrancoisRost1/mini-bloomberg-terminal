@@ -1,7 +1,11 @@
 """FMP HTTP layer.
 
-Pulled out of provider_fmp.py so the provider stays under the per file
-budget. Owns rate limiting, retry, and 403 detection.
+Owns rate limiting, retry, and 403 detection. The forbidden path
+cache that earlier versions used has been removed: it could poison
+the entire FMP route when one path returned 403, and the URL bug
+that caused those 403s in the first place is fixed in config.yaml.
+Each request now goes through cleanly; if FMP refuses an endpoint
+the caller handles the FMPEndpointForbidden exception per call.
 """
 
 from __future__ import annotations
@@ -30,7 +34,6 @@ class FMPHttp:
         self.backoff_mult = float(retry_cfg["backoff_multiplier"])
         self.api_key = os.environ.get("FMP_API_KEY", "")
         self._last_calls: list[float] = []
-        self.forbidden_paths: set[str] = set()
 
     def throttle(self) -> None:
         now = time.time()
@@ -44,8 +47,6 @@ class FMPHttp:
     def request(self, path: str, params: dict[str, str] | None = None) -> Any:
         if not self.api_key:
             raise RuntimeError("FMP_API_KEY environment variable not set")
-        if path in self.forbidden_paths:
-            raise FMPEndpointForbidden(f"FMP endpoint {path} known forbidden in this session")
         merged = dict(params or {})
         merged["apikey"] = self.api_key
         url = f"{self.base_url.rstrip('/')}/{path.lstrip('/')}"
@@ -54,7 +55,6 @@ class FMPHttp:
             self.throttle()
             resp = requests.get(url, params=merged, timeout=20)
             if resp.status_code == 403:
-                self.forbidden_paths.add(path)
                 raise FMPEndpointForbidden(f"FMP 403 on {path}: requires tier upgrade")
             if resp.status_code == 429:
                 if attempt >= self.max_retries:
@@ -67,7 +67,6 @@ class FMPHttp:
             if isinstance(data, dict) and "Error Message" in data:
                 msg = data["Error Message"]
                 if "Special Endpoint" in msg or "premium" in msg.lower() or "upgrade" in msg.lower():
-                    self.forbidden_paths.add(path)
                     raise FMPEndpointForbidden(f"FMP gating on {path}: {msg}")
                 raise RuntimeError(f"FMP error: {msg}")
             return data

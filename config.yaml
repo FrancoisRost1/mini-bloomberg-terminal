@@ -32,9 +32,13 @@ data:
     enabled: true
     # API key loaded from FRED_API_KEY env var
 
-  # FMP specific
+  # FMP specific.
+  # base_url has NO /api prefix because the stable/ endpoints live at
+  # https://financialmodelingprep.com/stable/* (verified by the
+  # endpoint audit). The legacy v3/ and v4/ endpoints live at /api/v3
+  # and /api/v4 but we no longer call them.
   fmp:
-    base_url: "https://financialmodelingprep.com/api"
+    base_url: "https://financialmodelingprep.com"
     rate_limit_per_minute: 300     # Starter tier is 750/min; throttle at 300 as a safety margin
     # API key loaded from FMP_API_KEY env var
 

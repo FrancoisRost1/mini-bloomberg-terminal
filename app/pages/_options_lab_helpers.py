@@ -77,9 +77,11 @@ def render_scenario(greeks: dict[str, float], spot: float) -> None:
     with table_col:
         pct_levels = [-0.2, -0.1, -0.05, 0, 0.05, 0.1, 0.2]
         rows = []
+        idx_values = df.index.to_numpy()
         for p in pct_levels:
             target = spot * (1 + p)
-            nearest = df.index[(df.index - target).abs().argmin()]
+            nearest_pos = int(np.abs(idx_values - target).argmin())
+            nearest = df.index[nearest_pos]
             pnl = df.loc[nearest, "pnl"]
             rows.append((f"{p * 100:+.0f}%", f"${pnl:+,.0f}"))
         st.dataframe(pd.DataFrame(rows, columns=["Move", "P&L"]), use_container_width=True, hide_index=True)
