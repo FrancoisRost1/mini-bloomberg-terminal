@@ -1,7 +1,7 @@
 """Integration test: full Research pipeline on synthetic data.
 
 Covered by the spec (Section 12). Uses the ``FakeProvider`` so the test
-runs fully offline and does not touch Alpha Vantage or yfinance.
+runs fully offline and does not touch FMP or yfinance.
 """
 
 from __future__ import annotations

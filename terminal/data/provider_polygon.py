@@ -28,7 +28,7 @@ class PolygonProvider(MarketDataProvider):
     def _not_implemented(self) -> None:
         raise NotImplementedError(
             "Polygon provider is interface-ready but not wired in v1. "
-            "Swap Alpha Vantage for Polygon by implementing this class."
+            "Swap FMP for Polygon by implementing this class."
         )
 
     def get_prices(self, ticker: str, period: str = "1y") -> PriceData:

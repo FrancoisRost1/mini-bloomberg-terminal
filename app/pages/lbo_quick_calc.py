@@ -1,7 +1,8 @@
-"""ANALYTICS: LBO Quick Calc workspace.
+"""ANALYTICS. LBO Quick Calc workspace.
 
-Renders base-case LBO mechanics + sensitivity grid + P&L equity bridge.
-All defaults come from config.yaml; users can tweak them in the sidebar.
+Renders base case LBO mechanics, the equity bridge waterfall, and the
+IRR sensitivity heatmap. Defaults come from config.yaml; users can
+tweak them in the sidebar.
 """
 
 from __future__ import annotations
@@ -9,8 +10,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# Bootstrap project root for the streamlit-as-script load path.
-# See app/app.py docstring for the rationale.
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
@@ -18,30 +17,43 @@ if str(_PROJECT_ROOT) not in sys.path:
 import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
+from style_inject import (  # noqa: E402
+    TOKENS,
+    styled_card,
+    styled_divider,
+    styled_header,
+    styled_kpi,
+    styled_section_label,
+)
+
 from terminal.adapters.lbo_adapter import run_base_case, sensitivity_grid  # noqa: E402
 from terminal.engines.pnl_engine import compute_lbo_equity_bridge  # noqa: E402
-from terminal.utils.chart_helpers import heatmap, interpretation_callout, waterfall  # noqa: E402
-from terminal.utils.formatting import fmt_money, fmt_pct, fmt_ratio, styled_kpi  # noqa: E402
+from terminal.utils.chart_helpers import heatmap, interpretation_callout_html, waterfall  # noqa: E402
+from terminal.utils.formatting import fmt_money, fmt_pct, fmt_ratio  # noqa: E402
 
 
 def render() -> None:
     config = st.session_state["_config"]
-    st.title("LBO Quick Calc")
-    st.caption("What are the PE return mechanics for this target?")
+    styled_header("LBO Quick Calc", "Base case mechanics | Equity bridge | IRR sensitivity")
 
     defaults = config["lbo_quick_calc"]["defaults"]
     assumptions = _render_sidebar_inputs(defaults)
 
     result = run_base_case(assumptions)
+    styled_section_label("OUTPUTS")
     _render_summary(result)
+    styled_divider()
+    styled_section_label("EQUITY BRIDGE")
     _render_bridge(result)
+    styled_divider()
+    styled_section_label("IRR SENSITIVITY")
     _render_sensitivity(assumptions, config)
 
 
 def _render_sidebar_inputs(defaults) -> dict:
     st.sidebar.markdown("### LBO Assumptions")
     st.sidebar.caption(
-        "Model limitations: base case only, no Monte Carlo, no covenant "
+        "Model limitations. Base case only, no Monte Carlo, no covenant "
         "breach detection, constant rates, flat margin trajectory."
     )
     assumptions = dict(defaults)
@@ -57,15 +69,17 @@ def _render_sidebar_inputs(defaults) -> dict:
 def _render_summary(result) -> None:
     cols = st.columns(5)
     with cols[0]:
-        st.markdown(styled_kpi("Entry EV", fmt_money(result["entry_ev"])), unsafe_allow_html=True)
+        styled_kpi("ENTRY EV", fmt_money(result["entry_ev"]))
     with cols[1]:
-        st.markdown(styled_kpi("Sponsor Equity", fmt_money(result["sponsor_equity"])), unsafe_allow_html=True)
+        styled_kpi("SPONSOR EQUITY", fmt_money(result["sponsor_equity"]))
     with cols[2]:
-        st.markdown(styled_kpi("Exit EV", fmt_money(result["exit_ev"])), unsafe_allow_html=True)
+        styled_kpi("EXIT EV", fmt_money(result["exit_ev"]))
     with cols[3]:
-        st.markdown(styled_kpi("IRR", fmt_pct(result["irr"])), unsafe_allow_html=True)
+        irr = result["irr"]
+        irr_color = TOKENS["accent_success"] if (irr == irr and irr >= 0) else TOKENS["accent_danger"]
+        styled_kpi("IRR", fmt_pct(irr), delta_color=irr_color)
     with cols[4]:
-        st.markdown(styled_kpi("MOIC", fmt_ratio(result["moic"])), unsafe_allow_html=True)
+        styled_kpi("MOIC", fmt_ratio(result["moic"]))
 
 
 def _render_bridge(result) -> None:
@@ -79,38 +93,37 @@ def _render_bridge(result) -> None:
             bridge["fees_drag"],
             bridge["total_value_creation"],
         ],
-        title="Equity Value Bridge: Entry to Exit",
+        title="Equity Value Bridge. Entry to Exit",
         y_unit="USD",
     )
     st.plotly_chart(fig, use_container_width=True)
-    st.markdown(
-        interpretation_callout(
-            observation=f"Total value created: {fmt_money(bridge['total_value_creation'])}.",
+    styled_card(
+        interpretation_callout_html(
+            observation=f"Total value created. {fmt_money(bridge['total_value_creation'])}.",
             interpretation="Decomposes sponsor equity growth into operating, multiple, and leverage legs.",
             implication="A plan relying mostly on multiple expansion is more fragile than one driven by EBITDA growth or deleveraging.",
         ),
-        unsafe_allow_html=True,
+        accent_color=TOKENS["accent_primary"],
     )
 
 
 def _render_sensitivity(assumptions, config) -> None:
-    st.markdown("### IRR Sensitivity")
     sens = config["lbo_quick_calc"]["sensitivity"]
     exit_mult = list(sens["exit_multiples"])
     growth = list(sens["growth_rates"])
     grid = sensitivity_grid(assumptions, exit_mult, growth)
     df = pd.DataFrame(grid, index=[f"{g * 100:.0f}%" for g in growth], columns=[f"{m:.1f}x" for m in exit_mult])
-    fig = heatmap(df, title="IRR: Exit Multiple x Revenue Growth", colorbar_unit="IRR")
+    fig = heatmap(df, title="IRR. Exit Multiple by Revenue Growth", colorbar_unit="IRR")
     st.plotly_chart(fig, use_container_width=True)
     best = max(max(row) for row in grid)
     worst = min(min(row) for row in grid)
-    st.markdown(
-        interpretation_callout(
+    styled_card(
+        interpretation_callout_html(
             observation=f"IRR ranges from {worst * 100:+.1f}% to {best * 100:+.1f}% across the grid.",
             interpretation="Wide dispersion signals high sensitivity to exit multiple or operating performance.",
             implication="Tight dispersion is safer; wide dispersion demands a tighter thesis on exit assumptions.",
         ),
-        unsafe_allow_html=True,
+        accent_color=TOKENS["accent_primary"],
     )
 
 

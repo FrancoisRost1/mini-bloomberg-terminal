@@ -19,7 +19,7 @@ The product-level thesis is that an analyst should never have to switch between 
 
 **Core claim:** Deterministic analytics compounded with disciplined data hygiene produce better decisions than any single exotic model. The terminal operationalises this claim in three ways:
 
-1. **Data plumbing is treated as a production problem, not a notebook concern.** Alpha Vantage is the live-first production provider. yfinance exists only as a development fallback and is refused at the mode boundary in production. This is encoded in `provider_registry.py` and guarded by `tests/test_data/test_provider_registry.py`. The belief: research conclusions built on scraped data without SLA are lower in quality than the same conclusions built on paid API data, even when the numbers look the same.
+1. **Data plumbing is treated as a production problem, not a notebook concern.** Financial Modeling Prep is the live-first production provider. yfinance exists only as a development fallback and is refused at the mode boundary in production. This is encoded in `provider_registry.py` and guarded by `tests/test_data/test_provider_registry.py`. The belief: research conclusions built on scraped data without SLA are lower in quality than the same conclusions built on paid API data, even when the numbers look the same.
 
 2. **The LLM is an interpreter, not a decision maker.** The Research pipeline computes the deterministic recommendation before the LLM is ever called. The LLM receives the rating as an immutable input in its prompt and is forbidden from overriding it. If the LLM output contradicts the deterministic rating, the inconsistency is flagged. The belief: narrative coherence without deterministic grounding is a failure mode specific to LLM-augmented research, and the guardrail must be architectural, not aspirational.
 
@@ -33,9 +33,9 @@ The product-level thesis is that an analyst should never have to switch between 
 
 **Data layer risks**
 
-- **Alpha Vantage outage or rate-limit surge.** Free tier is 25 req/min, paid is 75 req/min. The terminal caches aggressively (5 minutes for prices, 1 hour for fundamentals) and uses exponential backoff on rate-limit responses. If Alpha Vantage is down, production mode surfaces DEGRADED badges rather than silently falling back to yfinance. Mitigated by `provider_registry.py` mode enforcement and the degraded-state rendering in `utils/error_handling.py`.
+- **Financial Modeling Prep outage or rate limit surge.** Starter tier is 750 req/min, far above what the terminal consumes. The terminal still caches aggressively (5 minutes for prices, 1 hour for fundamentals) and retries on 429 with exponential backoff. If FMP is down, production mode surfaces DEGRADED badges rather than silently falling back to yfinance. Mitigated by `provider_registry.py` mode enforcement and the degraded state rendering in `utils/error_handling.py`.
 - **Stale data masquerading as live data.** Caching can hide staleness. Mitigated by visible TTLs in the header, the `snapshot_age()` timestamp on the SharedDataManager, and the fact that cache keys embed the config hash so config changes invalidate automatically.
-- **Alpha Vantage options chain coverage.** Not every ticker has a live HISTORICAL_OPTIONS response. Mitigated by the Options Lab explicitly rendering a DATA UNAVAILABLE card rather than crashing when the chain is empty.
+- **FMP options chain coverage.** Not every ticker has a live options response from FMP. Mitigated by the Options Lab explicitly rendering a DATA UNAVAILABLE card rather than crashing when the chain is empty.
 - **Dividend yield field.** The yfinance `dividendYield` field is unreliable; the yfinance provider uses `trailingAnnualDividendRate / spot` and warns when q exceeds the configured threshold.
 
 **Model risks**
@@ -61,18 +61,18 @@ When a terminal is the product, valuation is about the cost-to-value ratio of ru
 
 **Running cost in production:**
 
-- Alpha Vantage paid tier: ~USD 50/month for 75 req/min and fundamentals coverage.
+- Financial Modeling Prep Starter tier: ~USD 22/month for 750 req/min, full historical, fundamentals, and options coverage.
 - FRED API: free (API key required).
 - Anthropic API: variable, with caching on by default the per-session cost is small.
 - Railway / Render container: ~USD 5 to 20/month for a small always-on instance.
 - Cloudflare DNS and domain: small fixed annual cost.
 - SQLite persistence: zero (filesystem on the container volume).
 
-**Total:** ~USD 60 to 80/month for a fully live-first production deployment with continuous LLM availability. The comparison benchmark is a Bloomberg Terminal seat at ~USD 24,000/year. The value gap is not about feature parity (there is none) but about the cost of having a reproducible, auditable, self-hosted research environment that an analyst actually owns.
+**Total:** ~USD 30 to 50/month for a fully live first production deployment with continuous LLM availability. The comparison benchmark is a Bloomberg Terminal seat at ~USD 24,000/year. The value gap is not about feature parity (there is none) but about the cost of having a reproducible, auditable, self-hosted research environment that an analyst actually owns.
 
 **Assumptions embedded in the terminal's default config:**
 
-- Cache TTL: 5 min prices, 1 hour fundamentals, 30 min macro, 2 min options, 15 min engine results. Chosen for a single-user low-tier Alpha Vantage plan.
+- Cache TTL: 5 min prices, 1 hour fundamentals, 30 min macro, 2 min options, 15 min engine results. Chosen for a single user FMP Starter plan.
 - Recommendation thresholds: BUY >= 65, SELL <= 35, HOLD between. From the P10 audit.
 - Composite weights: valuation 35, quality 25, momentum 20, risk 20. These are opinionated: valuation carries the most weight because it is the most reproducible signal. Users can mutate weights in config.yaml and the test suite guarantees config changes propagate.
 - Data gates: hard-fail on no prices or no financials. Degraded on missing filings. The Research workspace refuses to serve a number when the underlying data is missing.
@@ -83,7 +83,7 @@ When a terminal is the product, valuation is about the cost-to-value ratio of ru
 
 For a terminal, "return" is the quality-of-decision uplift over using the prior fragmented toolchain. Three scenarios.
 
-**Bull case: terminal is load-bearing.** The analyst uses the terminal daily. Deterministic recommendations are checked against LLM narratives and disagreements are investigated; the disagreement log itself becomes a research diary. Portfolio robustness verdicts are gating criteria for production allocations. Alpha Vantage is in production mode, caches are warm, LLM is always available. Decisions are auditable through the deterministic path, and the terminal pays for itself many times over in avoided bad trades.
+**Bull case: terminal is load-bearing.** The analyst uses the terminal daily. Deterministic recommendations are checked against LLM narratives and disagreements are investigated; the disagreement log itself becomes a research diary. Portfolio robustness verdicts are gating criteria for production allocations. Financial Modeling Prep is in production mode, caches are warm, LLM is always available. Decisions are auditable through the deterministic path, and the terminal pays for itself many times over in avoided bad trades.
 
 **Base case: terminal is a research surface.** The analyst uses the terminal for Market Overview and Ticker Deep Dive primarily, with occasional trips into Options Lab and LBO Quick Calc. Portfolio workspace is used for ad hoc construction rather than production allocation. The terminal replaces half a dozen tabs and three spreadsheets. Marginal decision quality improves through faster iteration and consolidated state.
 
@@ -102,7 +102,7 @@ For a terminal, "return" is the quality-of-decision uplift over using the prior 
 
 In rough priority order:
 
-1. Replace the Alpha Vantage options chain coverage gap with a secondary options data source. Options are the page most likely to show DATA UNAVAILABLE.
+1. Replace the Financial Modeling Prep options chain coverage gap with a secondary options data source. Options are the page most likely to show DATA UNAVAILABLE.
 2. Add an explicit decision log table (SQLite) alongside the watchlist. Every Research pipeline run writes the rating, composite score, rule trace, and LLM output if present. This is the single biggest upgrade to reproducibility.
 3. Wire Black-Litterman and Risk Parity into the Portfolio workspace. BL in particular closes the gap between the LLM narrative on the Research page and the deterministic portfolio weights.
 4. Make the regime classifier time-aware. The current rule composite has no memory; adding a 3-day persistence filter (as in P5 full) would reduce regime flicker.

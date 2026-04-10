@@ -1,16 +1,10 @@
-"""MARKET: Market Overview workspace.
-
-Answers: what regime are we in? Renders global indices, rates, vol,
-cross-asset strip, the rule-based regime classifier, and breadth.
-"""
+"""MARKET. Market Overview workspace. Renders indices, rates, regime, breadth."""
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-# Bootstrap project root for the streamlit-as-script load path.
-# See app/app.py docstring for the rationale.
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
@@ -18,26 +12,37 @@ if str(_PROJECT_ROOT) not in sys.path:
 import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
+from style_inject import (  # noqa: E402
+    TOKENS,
+    styled_card,
+    styled_divider,
+    styled_header,
+    styled_kpi,
+    styled_section_label,
+)
+
 from terminal.adapters.regime_adapter import run_regime  # noqa: E402
 from terminal.engines.breadth_engine import compute_breadth  # noqa: E402
-from terminal.utils.chart_helpers import bar_chart, interpretation_callout, line_chart  # noqa: E402
+from terminal.utils.chart_helpers import bar_chart, interpretation_callout_html, line_chart  # noqa: E402
 from terminal.utils.error_handling import degraded_card, is_error  # noqa: E402
-from terminal.utils.formatting import fmt_pct, styled_kpi  # noqa: E402
+from terminal.utils.formatting import fmt_pct  # noqa: E402
 
 
 def render() -> None:
     config = st.session_state["_config"]
     data_manager = st.session_state["_data_manager"]
 
-    st.title("Market Overview")
-    st.caption("What regime are we in?")
+    styled_header("Market Overview", "Cross asset regime context")
 
     _render_indices_strip(data_manager, config)
-    st.markdown("### Rates and Volatility")
+    styled_divider()
+    styled_section_label("RATES AND VOLATILITY")
     _render_rates_and_vol(data_manager, config)
-    st.markdown("### Regime Classifier")
+    styled_divider()
+    styled_section_label("REGIME CLASSIFIER")
     _render_regime(data_manager, config)
-    st.markdown("### Market Breadth")
+    styled_divider()
+    styled_section_label("MARKET BREADTH")
     _render_breadth(data_manager, config)
 
 
@@ -48,12 +53,18 @@ def _render_indices_strip(data_manager, config) -> None:
         with col:
             data = data_manager.get_prices(idx["ticker"], period="1mo")
             if is_error(data) or data.is_empty():
-                st.markdown(styled_kpi(idx["label"], "n/a"), unsafe_allow_html=True)
+                styled_kpi(idx["label"], "n/a")
                 continue
             last = data.last_close()
             start = float(data.prices["close"].iloc[0])
             change = (last / start - 1) if start else 0.0
-            st.markdown(styled_kpi(idx["label"], f"{last:,.2f}  ({change * 100:+.2f}%)"), unsafe_allow_html=True)
+            color = TOKENS["accent_success"] if change >= 0 else TOKENS["accent_danger"]
+            styled_kpi(
+                idx["label"],
+                f"{last:,.2f}",
+                delta=f"{change * 100:+.2f}%",
+                delta_color=color,
+            )
 
 
 def _render_rates_and_vol(data_manager, config) -> None:
@@ -66,13 +77,15 @@ def _render_rates_and_vol(data_manager, config) -> None:
     rates_series = {r["label"]: macro.series.get(r["series_id"], pd.Series(dtype=float)) for r in macro_cfg["rates"]}
     fig = line_chart(rates_series, title="US Rate Curve (FRED)", y_unit="yield (%)")
     st.plotly_chart(fig, use_container_width=True)
-    st.markdown(
-        interpretation_callout(
-            observation=f"Latest 10Y at {fmt_pct((rates_series['US 10Y'].dropna().iloc[-1] / 100) if not rates_series['US 10Y'].dropna().empty else float('nan'))}",
-            interpretation="Curve shape signals the market's growth and inflation outlook.",
+    ten_y = rates_series.get("US 10Y", pd.Series(dtype=float)).dropna()
+    latest_10y = float(ten_y.iloc[-1]) if not ten_y.empty else float("nan")
+    styled_card(
+        interpretation_callout_html(
+            observation=f"Latest 10Y yield {fmt_pct(latest_10y / 100)}.",
+            interpretation="Curve shape signals the market growth and inflation outlook.",
             implication="Inverted curves have historically preceded recessions with long and variable lags.",
         ),
-        unsafe_allow_html=True,
+        accent_color=TOKENS["accent_primary"],
     )
 
 
@@ -86,19 +99,20 @@ def _render_regime(data_manager, config) -> None:
     hy_series = hy.series.get(config["market"]["macro_series"]["volatility"]["hy_spread_series"]) if not is_error(hy) else None
     regime = run_regime(spy_close, hy_series, config["market"]["regime"])
     label = regime["regime"]
-    color_map = {"RISK_ON": "#00C853", "NEUTRAL": "#FFAB00", "RISK_OFF": "#FF3D57"}
-    st.markdown(styled_kpi("Composite Regime", f"{label}  (confidence {regime['confidence']:.2f})", color_map.get(label, "#FF8C00")), unsafe_allow_html=True)
+    color_map = {"RISK_ON": TOKENS["accent_success"], "NEUTRAL": TOKENS["accent_warning"], "RISK_OFF": TOKENS["accent_danger"]}
+    accent = color_map.get(label, TOKENS["accent_primary"])
+    styled_kpi("Composite Regime", label, delta=f"confidence {regime['confidence']:.2f}", delta_color=accent)
     st.plotly_chart(
-        bar_chart(regime["scores"], title="Regime Signal Decomposition", y_unit="signal score", color_by_sign=True),
+        bar_chart(regime["scores"], title="Regime Signal Decomposition", y_unit="score", color_by_sign=True),
         use_container_width=True,
     )
-    st.markdown(
-        interpretation_callout(
+    styled_card(
+        interpretation_callout_html(
             observation=f"Composite score {regime['scores']['composite']:+d} across trend, vol, drawdown, and credit.",
             interpretation="Each signal is scored in {-1, 0, +1}; the sum maps to the regime label.",
-            implication="Regime transitions are slower than headlines -- treat this as a filter, not a timing signal.",
+            implication="Regime transitions are slower than headlines. Treat as a filter, not a timing signal.",
         ),
-        unsafe_allow_html=True,
+        accent_color=accent,
     )
 
 
@@ -117,13 +131,13 @@ def _render_breadth(data_manager, config) -> None:
     breadth = compute_breadth(df, config["market"]["breadth"])
     cols = st.columns(3)
     with cols[0]:
-        st.markdown(styled_kpi("% above 200d MA", fmt_pct(breadth["pct_above_ma"])), unsafe_allow_html=True)
+        styled_kpi("% Above 200d MA", fmt_pct(breadth["pct_above_ma"]))
     with cols[1]:
         ad = breadth["adv_decl_ratio"]
-        st.markdown(styled_kpi("Advance/Decline", f"{ad:.2f}" if ad == ad else "n/a"), unsafe_allow_html=True)
+        styled_kpi("Advance Decline", f"{ad:.2f}" if ad == ad else "n/a")
     with cols[2]:
         nhl = breadth["new_highs_lows"]
-        st.markdown(styled_kpi("Net New Highs", f"{nhl['net']:+d}"), unsafe_allow_html=True)
+        styled_kpi("Net New Highs", f"{nhl['net']:+d}")
 
 
 render()

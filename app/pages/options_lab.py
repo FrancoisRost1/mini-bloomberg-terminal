@@ -1,9 +1,8 @@
-"""ANALYTICS: Options Lab workspace.
+"""ANALYTICS. Options Lab workspace.
 
-Renders Greeks dashboard, IV from the live chain, payoff diagram, and
-a Greeks-based P&L scenario. Rendering helpers and value resolvers
-live in ``_options_lab_helpers.py`` so this file stays under the
-per-module line budget.
+Renders the Greeks dashboard, IV from the live chain, payoff diagram,
+and a Greeks based P&L scenario. Helpers live in
+``_options_lab_helpers.py``.
 """
 
 from __future__ import annotations
@@ -12,14 +11,14 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-# Bootstrap project root for the streamlit-as-script load path.
-# See app/app.py docstring for the rationale.
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
+
+from style_inject import styled_divider, styled_header, styled_section_label  # noqa: E402
 
 from app.pages._options_lab_helpers import (  # noqa: E402
     render_greeks_kpis,
@@ -38,14 +37,13 @@ def render() -> None:
     data_manager = st.session_state["_data_manager"]
     ticker = st.session_state.get("active_ticker", "AAPL")
 
-    st.title(f"Options Lab: {ticker}")
-    st.caption("What is the options risk and reward math?")
+    styled_header(f"Options Lab. {ticker}", "European vanilla | BS Greeks | Brent IV")
     st.sidebar.markdown("### Options Lab limitations")
     st.sidebar.caption(
         "European vanilla only. No delta hedging simulation. No early "
-        "exercise. Greeks scenario is a local Taylor expansion, not a full "
-        "repricing. IV surface is strike-wise only (single expiry). "
-        "Risk-free rate is fetched from FRED (DGS2)."
+        "exercise. Greeks scenario is a local Taylor expansion, not a "
+        "full repricing. IV surface is strike wise only (single expiry). "
+        "Risk free rate is fetched from FRED (DGS2)."
     )
 
     chain = data_manager.get_options_chain(ticker)
@@ -57,6 +55,7 @@ def render() -> None:
         return
 
     expiries = chain.expiries()
+    styled_section_label("CONTRACT INPUTS")
     col1, col2, col3 = st.columns(3)
     expiry = col1.selectbox("Expiry", options=expiries)
     opt_type = col2.selectbox("Type", options=["call", "put"])
@@ -81,19 +80,23 @@ def render() -> None:
         value=atm_strike,
     )
 
-    # Bug 3 fix: pd.Timestamp.utcnow() is tz-aware in pandas 2.x and
-    # subtracting it from a naive Timestamp raises TypeError. Use a
-    # naive datetime explicitly so the math stays consistent.
     days_to_expiry = (pd.Timestamp(expiry) - pd.Timestamp(datetime.utcnow())).days
     tau = max(1 / 365.0, days_to_expiry / 365.0)
-
     rate = resolve_rate(data_manager, config)
+
     greeks = all_greeks(spot, strike, tau, rate, sigma, option_type=opt_type)
     price = black_scholes(spot, strike, tau, rate, sigma, option_type=opt_type)
 
+    styled_section_label("GREEKS")
     render_greeks_kpis(price, greeks)
+    styled_divider()
+    styled_section_label("PAYOFF")
     render_payoff(spot, strike, price, opt_type, config)
+    styled_divider()
+    styled_section_label("SCENARIO")
     render_scenario(greeks, spot)
+    styled_divider()
+    styled_section_label("IV SMILE")
     render_iv_smile(expiry_chain, spot, tau, rate, config)
 
 

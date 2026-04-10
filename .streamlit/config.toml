@@ -1,14 +1,17 @@
+# .streamlit/config.toml
+# Bloomberg orange accent for the mini-bloomberg-terminal project.
+# style_inject.py also auto-detects this from the folder name at runtime.
+
 [theme]
 base = "dark"
-primaryColor = "#FF8C00"
-backgroundColor = "#0E1117"
-secondaryBackgroundColor = "#161A23"
-textColor = "#E6E6E6"
-font = "monospace"
+primaryColor = "#E07020"
+backgroundColor = "#0A0A0F"
+secondaryBackgroundColor = "#121218"
+textColor = "#E8E8EC"
+font = "sans serif"
 
 [server]
 headless = true
-port = 8501
 enableCORS = false
 enableXsrfProtection = true
 

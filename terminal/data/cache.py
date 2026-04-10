@@ -29,7 +29,7 @@ class DiskCache:
     """Small pickle cache on disk, keyed by (namespace, config_hash, args).
 
     Not designed to replace Redis. It exists to keep API spend low on
-    low-tier Alpha Vantage plans and to make page navigation snappy.
+    low tier paid provider plans and to make page navigation snappy.
     """
 
     def __init__(self, base_dir: Path, config_hash: str):

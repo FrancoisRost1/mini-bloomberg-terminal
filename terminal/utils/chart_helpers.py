@@ -1,9 +1,18 @@
-"""Plotly chart factory with Bloomberg dark theme.
+"""Plotly chart factory backed by the canonical design system.
 
-Every chart built here has an explicit string title, labelled axes with
-units, and a required interpretation callout built via the
-observation/interpretation/implication format. Pages never construct
-plotly figures directly -- they always go through these helpers.
+Every figure built here is themed via ``apply_plotly_theme`` from the
+project root ``style_inject.py``. Heights match DESIGN.md (main charts
+320 to 360, secondary 240 to 280). Colors come from ``TOKENS`` so that
+swapping the project accent automatically reskins every chart.
+
+DESIGN.md rules enforced here:
+- Always call ``apply_plotly_theme(fig)`` before returning.
+- Every chart has an explicit string title.
+- Every axis has explicit units.
+- Default chart height is 320 (main) or 280 (secondary). Never 450.
+- Heatmap colorscale uses the danger/elevated/success token tuple.
+- The interpretation callout uses ``styled_card`` semantics, not a
+  parallel HTML implementation.
 """
 
 from __future__ import annotations
@@ -13,31 +22,11 @@ from typing import Any
 import pandas as pd
 import plotly.graph_objects as go
 
-
-BG_COLOR = "#0E1117"
-PAPER_COLOR = "#161A23"
-GRID_COLOR = "#262B3A"
-TEXT_COLOR = "#E6E6E6"
-ACCENT = "#FF8C00"
-POS_COLOR = "#00C853"
-NEG_COLOR = "#FF3D57"
+from style_inject import TOKENS, apply_plotly_theme
 
 
-def _apply_theme(fig: go.Figure, title: str, height: int) -> go.Figure:
-    fig.update_layout(
-        title={"text": title, "x": 0.0, "xanchor": "left", "font": {"color": TEXT_COLOR, "size": 14}},
-        paper_bgcolor=BG_COLOR,
-        plot_bgcolor=PAPER_COLOR,
-        font={"family": "JetBrains Mono, monospace", "color": TEXT_COLOR, "size": 11},
-        height=height,
-        margin={"l": 50, "r": 20, "t": 50, "b": 40},
-        hovermode="x unified",
-        showlegend=True,
-        legend={"bgcolor": "rgba(0,0,0,0)", "font": {"color": TEXT_COLOR}},
-    )
-    fig.update_xaxes(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR)
-    fig.update_yaxes(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR)
-    return fig
+MAIN_HEIGHT = 340
+SECONDARY_HEIGHT = 260
 
 
 def line_chart(
@@ -45,54 +34,67 @@ def line_chart(
     title: str,
     y_unit: str,
     x_unit: str = "Date",
-    height: int = 450,
+    height: int = MAIN_HEIGHT,
 ) -> go.Figure:
-    """Single-line or multi-line chart with explicit units on both axes."""
+    """Single or multi-line chart with explicit unit-labelled axes."""
     fig = go.Figure()
-    palette = [ACCENT, "#00B0FF", POS_COLOR, "#B388FF", "#FFD600"]
-    for i, (name, data) in enumerate(series.items()):
+    for name, data in series.items():
         if data is None or data.empty:
             continue
         fig.add_trace(go.Scatter(
             x=data.index, y=data.values, name=name, mode="lines",
-            line={"color": palette[i % len(palette)], "width": 1.5},
+            line={"width": 1.5},
         ))
     fig.update_xaxes(title_text=x_unit)
     fig.update_yaxes(title_text=y_unit)
-    return _apply_theme(fig, title, height)
+    fig.update_layout(title={"text": title}, height=height)
+    return apply_plotly_theme(fig)
 
 
 def bar_chart(
     values: dict[str, float],
     title: str,
     y_unit: str,
-    height: int = 400,
+    height: int = SECONDARY_HEIGHT,
     color_by_sign: bool = False,
 ) -> go.Figure:
-    """Horizontal or vertical bar chart keyed by label."""
+    """Vertical bar chart keyed by category label."""
     labels = list(values.keys())
     data = list(values.values())
-    colors = [POS_COLOR if v >= 0 else NEG_COLOR for v in data] if color_by_sign else [ACCENT] * len(data)
+    if color_by_sign:
+        colors = [
+            TOKENS["accent_success"] if v >= 0 else TOKENS["accent_danger"]
+            for v in data
+        ]
+    else:
+        colors = [TOKENS["accent_primary"]] * len(data)
     fig = go.Figure(go.Bar(x=labels, y=data, marker_color=colors))
     fig.update_yaxes(title_text=y_unit)
-    return _apply_theme(fig, title, height)
+    fig.update_layout(title={"text": title}, height=height)
+    return apply_plotly_theme(fig)
 
 
 def heatmap(
     matrix: pd.DataFrame,
     title: str,
     colorbar_unit: str,
-    height: int = 450,
+    height: int = MAIN_HEIGHT,
 ) -> go.Figure:
-    """Heatmap for sensitivity tables and correlation-style views."""
+    """Heatmap built from the canonical danger / elevated / success tokens."""
+    colorscale = [
+        [0.0, TOKENS["accent_danger"]],
+        [0.5, TOKENS["bg_elevated"]],
+        [1.0, TOKENS["accent_success"]],
+    ]
     fig = go.Figure(go.Heatmap(
         z=matrix.values,
         x=[str(c) for c in matrix.columns],
         y=[str(i) for i in matrix.index],
-        colorscale="Oranges",
+        colorscale=colorscale,
         colorbar={"title": colorbar_unit},
     ))
-    return _apply_theme(fig, title, height)
+    fig.update_layout(title={"text": title}, height=height)
+    return apply_plotly_theme(fig)
 
 
 def waterfall(
@@ -100,20 +102,31 @@ def waterfall(
     values: list[float],
     title: str,
     y_unit: str = "$",
-    height: int = 400,
+    height: int = SECONDARY_HEIGHT,
 ) -> go.Figure:
     """Equity-bridge-style waterfall for the LBO P&L layer."""
     measures = ["relative"] * len(categories)
     fig = go.Figure(go.Waterfall(
         x=categories, y=values, measure=measures,
-        increasing={"marker": {"color": POS_COLOR}},
-        decreasing={"marker": {"color": NEG_COLOR}},
-        totals={"marker": {"color": ACCENT}},
+        increasing={"marker": {"color": TOKENS["accent_success"]}},
+        decreasing={"marker": {"color": TOKENS["accent_danger"]}},
+        totals={"marker": {"color": TOKENS["accent_primary"]}},
     ))
     fig.update_yaxes(title_text=y_unit)
-    return _apply_theme(fig, title, height)
+    fig.update_layout(title={"text": title}, height=height)
+    return apply_plotly_theme(fig)
 
 
-def interpretation_callout(observation: str, interpretation: str, implication: str) -> str:
-    """Single-line HTML callout in observation/interpretation/implication format."""
-    return f'<div style="padding:10px 14px;background:#161A23;border-left:3px solid {ACCENT};border-radius:4px;font-family:JetBrains Mono,monospace;font-size:12px;color:#E6E6E6;line-height:1.5;"><b style="color:{ACCENT};">Observation:</b> {observation}<br/><b style="color:{ACCENT};">Interpretation:</b> {interpretation}<br/><b style="color:{ACCENT};">Implication:</b> {implication}</div>'
+def interpretation_callout_html(observation: str, interpretation: str, implication: str) -> str:
+    """Build the observation / interpretation / implication card HTML.
+
+    Returns a single-line HTML string designed to be passed to
+    ``styled_card`` from the canonical design system. The accent line
+    on the left of the card is applied by ``styled_card`` itself, so
+    this function only formats the inner content.
+    """
+    return (
+        f'<b style="color: {TOKENS["accent_primary"]};">Observation.</b> {observation}<br/>'
+        f'<b style="color: {TOKENS["accent_primary"]};">Interpretation.</b> {interpretation}<br/>'
+        f'<b style="color: {TOKENS["accent_primary"]};">Implication.</b> {implication}'
+    )

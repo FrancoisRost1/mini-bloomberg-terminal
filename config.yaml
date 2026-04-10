@@ -5,7 +5,7 @@
 # -------------------------------------------------------------------
 # APP MODE
 # -------------------------------------------------------------------
-# "production": Alpha Vantage + FRED. No yfinance. LLM on if key present. SQLite persistence.
+# "production": FMP + FRED. No yfinance. LLM on if key present. SQLite persistence.
 # "development": yfinance allowed (with DEV MODE banner). JSON watchlist. LLM optional.
 app:
   title: "Mini Bloomberg Terminal"
@@ -17,9 +17,9 @@ app:
 # DATA PROVIDERS
 # -------------------------------------------------------------------
 data:
-  # Production provider: Alpha Vantage (fully implemented, not a stub)
-  # API key loaded from ALPHA_VANTAGE_API_KEY env var
-  primary_provider: "alpha_vantage"
+  # Production provider: Financial Modeling Prep (fully implemented).
+  # API key loaded from FMP_API_KEY env var.
+  primary_provider: "fmp"
 
   # Development-only provider (excluded from production config)
   dev_provider: "yfinance"
@@ -32,11 +32,11 @@ data:
     enabled: true
     # API key loaded from FRED_API_KEY env var
 
-  # Alpha Vantage specific
-  alpha_vantage:
-    base_url: "https://www.alphavantage.co/query"
-    rate_limit_per_minute: 25     # free tier (upgrade to 75 on paid)
-    # API key loaded from ALPHA_VANTAGE_API_KEY env var
+  # FMP specific
+  fmp:
+    base_url: "https://financialmodelingprep.com/api"
+    rate_limit_per_minute: 300     # Starter tier is 750/min; throttle at 300 as a safety margin
+    # API key loaded from FMP_API_KEY env var
 
   # Cache TTL (seconds) per data type -- aggressive to stay cheap
   cache_ttl:

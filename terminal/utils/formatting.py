@@ -1,10 +1,15 @@
-"""Number formatting helpers and styled KPI builder.
+"""Number formatting helpers.
 
-Known bug (P8, P9, P10): Streamlit's Markdown parser treats 4+ space
-indentation as a code block, which caused styled HTML KPIs to leak
-closing tags onto the page. Mitigation: every HTML string here is
-built as a SINGLE-LINE concatenated f-string. Do not refactor back
-to multi-line templates.
+KPI / header / divider / card components live in the canonical
+``style_inject.py`` at the project root (``styled_kpi``, ``styled_header``,
+``styled_section_label``, ``styled_divider``, ``styled_card``). This
+module only carries pure number formatters used everywhere.
+
+The previous version of this file declared its own ``styled_kpi`` and
+``badge``; both were removed because they bypassed the design system
+TOKENS and used a different visual signature than the other 10 finance
+projects. Do NOT reintroduce them. Use the canonical helpers from
+``style_inject.py`` instead.
 """
 
 from __future__ import annotations
@@ -46,14 +51,11 @@ def fmt_bps(value: float) -> str:
     return f"{value * 10000:.0f}bps"
 
 
-def styled_kpi(label: str, value: str, accent: str = "#FF8C00") -> str:
-    """Single-line HTML KPI card. MUST stay on one line (see module docstring)."""
-    return f'<div style="padding:10px 14px;background:#161A23;border-left:3px solid {accent};border-radius:4px;font-family:JetBrains Mono,Fira Code,monospace;"><div style="color:#888;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;">{label}</div><div style="color:#E6E6E6;font-size:20px;font-weight:600;margin-top:4px;">{value}</div></div>'
-
-
-def badge(text: str, color: str) -> str:
-    """Single-line HTML status badge."""
-    return f'<span style="display:inline-block;padding:3px 10px;background:{color}22;color:{color};border:1px solid {color};border-radius:3px;font-family:JetBrains Mono,monospace;font-size:11px;font-weight:600;letter-spacing:0.5px;">{text}</span>'
+def fmt_signed_pct(value: float, decimals: int = 2) -> str:
+    """Signed percent for delta strings used by ``styled_kpi(delta=...)``."""
+    if value is None or (isinstance(value, float) and math.isnan(value)):
+        return "n/a"
+    return f"{value * 100:+.{decimals}f}%"
 
 
 def format_metric(value: Any, fmt: str) -> str:

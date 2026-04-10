@@ -2,7 +2,7 @@
 
 Unified investment research workstation in Streamlit. Integrates ten standalone financial engines (LBO, PE screener, factor models, regime detection, TSMOM, options, portfolio optimisation, robustness lab, and an AI research agent) into a single Bloomberg-style terminal with four workspaces: Market, Research, Analytics, Portfolio.
 
-Production stack: Railway (hosting) + Cloudflare (domain / DNS) + Alpha Vantage (market data) + FRED (macro) + Anthropic (LLM) + SQLite (persistence). Streamlit Community Cloud is not a target for this application.
+Production stack: Railway (hosting) + Cloudflare (domain / DNS) + Financial Modeling Prep (market data) + FRED (macro) + Anthropic (LLM) + SQLite (persistence). Streamlit Community Cloud is not a target for this application.
 
 ## Why this exists
 
@@ -15,7 +15,7 @@ A focused, institutional-grade research terminal where an analyst can go from ma
 pip3 install -r requirements.txt
 
 # 2. Set environment variables
-export ALPHA_VANTAGE_API_KEY=...   # REQUIRED in production
+export FMP_API_KEY=...             # REQUIRED in production (Financial Modeling Prep)
 export FRED_API_KEY=...            # REQUIRED (macro)
 export ANTHROPIC_API_KEY=...       # optional, auto-enables LLM memo
 export APP_MODE=development        # "production" or "development"
@@ -31,7 +31,7 @@ See `.env.example` for the full list of environment variables.
 
 ## Modes
 
-- **production** (default, what runs on Railway): Alpha Vantage + FRED. No yfinance. LLM on if `ANTHROPIC_API_KEY` present. SQLite persistence (`data/terminal.db`).
+- **production** (default, what runs on Railway): Financial Modeling Prep + FRED. No yfinance. LLM on if `ANTHROPIC_API_KEY` present. SQLite persistence (`data/terminal.db`).
 - **development**: yfinance allowed with a visible DEV MODE banner. JSON watchlist fallback. LLM optional.
 
 The mode is enforced at `terminal/data/provider_registry.py`. Production mode will refuse to instantiate yfinance even if it is configured. This is guarded by `tests/test_data/test_provider_registry.py`.

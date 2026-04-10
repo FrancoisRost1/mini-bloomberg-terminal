@@ -1,9 +1,9 @@
-"""RESEARCH: Ticker Deep Dive workspace.
+"""RESEARCH. Ticker Deep Dive workspace.
 
-Runs the full deterministic Research pipeline and renders results in
-four phases: price + stats, engine cards, deterministic recommendation,
-optional LLM memo. Phase rendering helpers live in
-``_research_page_helpers.py``. LLM absence never blocks Phases 1-3.
+Runs the full deterministic Research pipeline and renders the results
+in four phases. Phase rendering helpers live in
+``_research_page_helpers.py``. The LLM memo phase is optional and
+never blocks phases 1 to 3.
 """
 
 from __future__ import annotations
@@ -11,13 +11,13 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# Bootstrap project root for the streamlit-as-script load path.
-# See app/app.py docstring for the rationale.
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 import streamlit as st  # noqa: E402
+
+from style_inject import styled_divider, styled_header  # noqa: E402
 
 from app.pages._research_page_helpers import (  # noqa: E402
     render_phase1_prices,
@@ -34,10 +34,9 @@ def render() -> None:
     data_manager = st.session_state["_data_manager"]
     ticker = st.session_state.get("active_ticker", "AAPL")
 
-    st.title(f"Research: {ticker}")
-    st.caption("Should I own this?")
+    styled_header(f"Research. {ticker}", "Deterministic pipeline | Sub scores | Memo synthesis")
 
-    with st.spinner(f"Running research pipeline for {ticker}..."):
+    with st.spinner(f"Running research pipeline for {ticker}."):
         packet = run_pipeline(ticker, data_manager, config)
 
     if packet.get("status") == "hard_failure":
@@ -45,8 +44,11 @@ def render() -> None:
         return
 
     render_phase1_prices(packet)
+    styled_divider()
     render_phase2_engines(packet)
+    styled_divider()
     render_phase3_recommendation(packet)
+    styled_divider()
     render_phase4_llm(packet, config)
 
 

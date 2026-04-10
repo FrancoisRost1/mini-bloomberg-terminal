@@ -1,31 +1,80 @@
 """Error boundary helpers for the UI.
 
-The app must never crash on data failure. These helpers render explicit
-DEGRADED / DATA UNAVAILABLE cards that keep the layout intact while
-flagging exactly what broke.
+The terminal must never crash on data failure. These helpers return
+HTML strings (single-line, per the styled_kpi rule) that pages render
+via ``st.markdown(..., unsafe_allow_html=True)``. They use ``TOKENS``
+from the canonical design system so colors stay consistent.
+
+Status pills follow the DESIGN.md hard rules: sharp corners, muted
+palette, no glow, no gradient.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from .formatting import badge
-
-DEGRADED_COLOR = "#FFAB00"
-UNAVAILABLE_COLOR = "#FF3D57"
-DEV_COLOR = "#00B0FF"
+from style_inject import TOKENS
 
 
-def degraded_card(reason: str, provider: str = "-") -> str:
-    return f'<div style="padding:12px 16px;background:#161A23;border-left:3px solid {DEGRADED_COLOR};border-radius:4px;font-family:JetBrains Mono,monospace;color:#E6E6E6;font-size:12px;">{badge("DEGRADED", DEGRADED_COLOR)}<div style="margin-top:6px;color:#AAA;">Provider: {provider}</div><div style="margin-top:4px;">{reason}</div></div>'
+def _pill(label: str, color: str) -> str:
+    return (
+        f'<span style="display:inline-block;'
+        f'padding:0.2rem 0.55rem;'
+        f'background:{TOKENS["bg_elevated"]};'
+        f'color:{color};'
+        f'border:1px solid {color};'
+        f'border-radius:{TOKENS["radius_sm"]};'
+        f'font-family:{TOKENS["font_body"]};'
+        f'font-size:0.65rem;'
+        f'font-weight:600;'
+        f'letter-spacing:0.08em;'
+        f'text-transform:uppercase;">{label}</span>'
+    )
+
+
+def _card(label: str, color: str, what: str, reason: str) -> str:
+    return (
+        f'<div style="background:{TOKENS["bg_surface"]};'
+        f'border:1px solid {TOKENS["border_default"]};'
+        f'border-left:3px solid {color};'
+        f'border-radius:{TOKENS["radius_md"]};'
+        f'padding:0.75rem 1rem;'
+        f'box-shadow:{TOKENS["shadow_sm"]};'
+        f'margin-bottom:0.75rem;">'
+        f'{_pill(label, color)}'
+        f'<div style="margin-top:0.4rem;color:{TOKENS["text_muted"]};'
+        f'font-size:{TOKENS["text_xs"]};font-family:{TOKENS["font_body"]};">{what}</div>'
+        f'<div style="margin-top:0.2rem;color:{TOKENS["text_secondary"]};'
+        f'font-size:{TOKENS["text_sm"]};font-family:{TOKENS["font_body"]};">{reason}</div>'
+        f'</div>'
+    )
+
+
+def degraded_card(reason: str, provider: str = "n/a") -> str:
+    return _card("DEGRADED", TOKENS["accent_warning"], f"Provider: {provider}", reason)
 
 
 def unavailable_card(what: str, reason: str) -> str:
-    return f'<div style="padding:12px 16px;background:#161A23;border-left:3px solid {UNAVAILABLE_COLOR};border-radius:4px;font-family:JetBrains Mono,monospace;color:#E6E6E6;font-size:12px;">{badge("DATA UNAVAILABLE", UNAVAILABLE_COLOR)}<div style="margin-top:6px;color:#AAA;">{what}</div><div style="margin-top:4px;">{reason}</div></div>'
+    return _card("DATA UNAVAILABLE", TOKENS["accent_danger"], what, reason)
 
 
 def dev_mode_banner() -> str:
-    return f'<div style="padding:8px 14px;background:#161A23;border:1px solid {DEV_COLOR};border-radius:4px;font-family:JetBrains Mono,monospace;color:{DEV_COLOR};font-size:11px;text-align:center;letter-spacing:0.5px;">{badge("DEV MODE", DEV_COLOR)}  Serving development data (yfinance). Not for production use.</div>'
+    return _card(
+        "DEV MODE",
+        TOKENS["accent_info"],
+        "Serving development data (yfinance).",
+        "Not for production use. Set APP_MODE=production for live data.",
+    )
+
+
+def status_pill(label: str, status: str) -> str:
+    """Inline status pill for engine cards. ``status`` chooses the color."""
+    color = {
+        "success": TOKENS["accent_success"],
+        "failed": TOKENS["accent_danger"],
+        "missing": TOKENS["text_muted"],
+    }.get(status, TOKENS["accent_warning"])
+    return _pill(f"{label}: {status.upper()}", color)
 
 
 def is_error(obj: Any) -> bool:

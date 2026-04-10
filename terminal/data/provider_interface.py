@@ -1,6 +1,6 @@
 """Abstract market data provider interface.
 
-All concrete providers (Alpha Vantage, yfinance, Polygon) implement this
+All concrete providers (FMP, yfinance, Polygon) implement this
 contract and return normalized schemas from ``schemas.py``. The UI layer
 only ever talks to this interface.
 """
@@ -16,7 +16,7 @@ class MarketDataProvider(ABC):
     """Abstract interface for market data providers.
 
     Rationale: enforces a single boundary where the rest of the app can
-    remain provider-agnostic. Swapping Alpha Vantage for Polygon in v2
+    remain provider agnostic. Swapping FMP for Polygon in v2
     should only require changing a config key and adding an API key.
     """
 

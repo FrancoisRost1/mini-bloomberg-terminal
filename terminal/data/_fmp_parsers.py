@@ -1,0 +1,128 @@
+"""Financial Modeling Prep payload parsers.
+
+Pure functions, no I/O. Split out of provider_fmp.py to keep the
+provider class under the per module line budget. FMP returns JSON
+arrays for everything; the parsers normalize them into the terminal
+schemas (PriceData, Fundamentals, OptionsChain).
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+import pandas as pd
+
+
+PERIOD_TO_DAYS = {"1mo": 21, "3mo": 63, "6mo": 126, "1y": 252, "2y": 504, "5y": 1260}
+
+
+def safe_float(value: Any) -> float:
+    try:
+        if value is None or value == "":
+            return float("nan")
+        return float(value)
+    except (TypeError, ValueError):
+        return float("nan")
+
+
+def parse_historical(payload: list[dict[str, Any]] | dict[str, Any], period: str) -> pd.DataFrame:
+    """Convert FMP historical-price-full payload to OHLCV.
+
+    FMP returns either a top-level list (paid tier) or a dict with a
+    ``historical`` key (the most common shape). Both are handled.
+    """
+    if isinstance(payload, dict):
+        rows = payload.get("historical", [])
+    else:
+        rows = payload or []
+    if not rows:
+        return pd.DataFrame(columns=["open", "high", "low", "close", "adj_close", "volume"])
+    df = pd.DataFrame(rows)
+    if "date" not in df.columns:
+        return pd.DataFrame(columns=["open", "high", "low", "close", "adj_close", "volume"])
+    df["date"] = pd.to_datetime(df["date"])
+    df = df.set_index("date").sort_index()
+    rename = {"adjClose": "adj_close"}
+    df = df.rename(columns=rename)
+    if "adj_close" not in df.columns and "close" in df.columns:
+        df["adj_close"] = df["close"]
+    keep = [c for c in ["open", "high", "low", "close", "adj_close", "volume"] if c in df.columns]
+    df = df[keep]
+    for c in keep:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+    n = PERIOD_TO_DAYS.get(period, 252)
+    return df.tail(n)
+
+
+def parse_statement(payload: list[dict[str, Any]]) -> pd.DataFrame:
+    """Convert an annual statement array (income, balance, cash flow) into a DataFrame."""
+    if not payload:
+        return pd.DataFrame()
+    df = pd.DataFrame(payload)
+    if "date" not in df.columns:
+        return pd.DataFrame()
+    df["date"] = pd.to_datetime(df["date"])
+    df = df.set_index("date").sort_index()
+    for col in df.columns:
+        if df[col].dtype == object:
+            try:
+                df[col] = pd.to_numeric(df[col], errors="ignore")
+            except (TypeError, ValueError):
+                pass
+    return df
+
+
+def compute_ratios(
+    profile: dict[str, Any],
+    quote: dict[str, Any],
+    income: pd.DataFrame,
+    balance: pd.DataFrame,
+    cashflow: pd.DataFrame,
+) -> dict[str, float]:
+    """Build the canonical key_ratios dict from FMP payloads.
+
+    Keys must match what the rest of the pipeline expects: pe_ratio,
+    ev_ebitda, ebitda_margin, roe, dividend_yield, beta, plus
+    revenue_growth, fcf_conversion, net_debt_ebitda, interest_coverage
+    when the data is available.
+    """
+    ratios: dict[str, float] = {
+        "pe_ratio": safe_float(quote.get("pe")),
+        "beta": safe_float(profile.get("beta")),
+        "dividend_yield": safe_float(profile.get("lastDiv")) / safe_float(quote.get("price"))
+        if safe_float(quote.get("price")) > 0 else float("nan"),
+    }
+    revenue = ebitda = float("nan")
+    if not income.empty:
+        revenue = safe_float(income.get("revenue", pd.Series(dtype=float)).dropna().iloc[-1]) if "revenue" in income.columns else float("nan")
+        ebitda = safe_float(income.get("ebitda", pd.Series(dtype=float)).dropna().iloc[-1]) if "ebitda" in income.columns else float("nan")
+        if "revenue" in income.columns:
+            rev = income["revenue"].dropna()
+            if len(rev) >= 2 and rev.iloc[-2] > 0:
+                ratios["revenue_growth"] = float(rev.iloc[-1] / rev.iloc[-2] - 1.0)
+        ebit = income.get("operatingIncome", pd.Series(dtype=float)).dropna()
+        interest = income.get("interestExpense", pd.Series(dtype=float)).dropna()
+        if not ebit.empty and not interest.empty and interest.iloc[-1] > 0:
+            ratios["interest_coverage"] = float(ebit.iloc[-1] / interest.iloc[-1])
+    if revenue == revenue and revenue > 0 and ebitda == ebitda:
+        ratios["ebitda_margin"] = float(ebitda / revenue)
+    market_cap = safe_float(profile.get("mktCap"))
+    if market_cap == market_cap and ebitda == ebitda and ebitda > 0 and not balance.empty:
+        debt = balance.get("totalDebt", pd.Series(dtype=float)).dropna()
+        cash = balance.get("cashAndCashEquivalents", pd.Series(dtype=float)).dropna()
+        if not debt.empty:
+            net_debt = float(debt.iloc[-1]) - (float(cash.iloc[-1]) if not cash.empty else 0.0)
+            ratios["ev_ebitda"] = float((market_cap + net_debt) / ebitda)
+            ratios["net_debt_ebitda"] = float(net_debt / ebitda)
+    if not balance.empty and not income.empty:
+        equity = balance.get("totalStockholdersEquity", pd.Series(dtype=float)).dropna()
+        net_income = income.get("netIncome", pd.Series(dtype=float)).dropna()
+        if not equity.empty and not net_income.empty and equity.iloc[-1] > 0:
+            ratios["roe"] = float(net_income.iloc[-1] / equity.iloc[-1])
+    if not cashflow.empty and ebitda == ebitda and ebitda > 0:
+        ocf = cashflow.get("operatingCashFlow", pd.Series(dtype=float)).dropna()
+        capex = cashflow.get("capitalExpenditure", pd.Series(dtype=float)).dropna()
+        if not ocf.empty and not capex.empty:
+            fcf = float(ocf.iloc[-1]) - abs(float(capex.iloc[-1]))
+            ratios["fcf_conversion"] = float(fcf / ebitda)
+    return ratios

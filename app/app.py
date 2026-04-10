@@ -1,17 +1,18 @@
-"""Mini Bloomberg Terminal -- entry point.
+"""Mini Bloomberg Terminal entry point.
 
-Sets up page config, injects the theme, builds the shared data manager,
-wires the four workspaces via st.navigation, and renders the global
-header on every page. All orchestration only; no business logic here.
+Sets up page config, injects the canonical design system, builds the
+shared data manager, wires the four workspaces via st.navigation, and
+renders the global header on every page. Orchestration only; no
+business logic.
 
 Import strategy: ``streamlit run app/app.py`` loads this file as a
 top-level script (``__name__ == "__main__"``), NOT as the
-``app.app`` package member. Relative imports like ``from .header import``
-therefore raise ``ImportError: attempted relative import with no known
-parent package``. We fix this by adding the project root to ``sys.path``
-at module load and using absolute ``app.*`` and ``terminal.*`` imports
-everywhere. This is a hard requirement for Streamlit deployment and
-must NOT be reverted to relative imports.
+``app.app`` package member. Relative imports therefore raise
+``ImportError: attempted relative import with no known parent package``.
+We bootstrap the project root onto sys.path before any project import
+and use absolute ``app.*`` and ``terminal.*`` imports throughout. The
+canonical ``style_inject`` lives at the project root and is imported
+flat, matching every other Streamlit project in the Finance Lab.
 """
 
 from __future__ import annotations
@@ -19,17 +20,15 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# Bootstrap project root onto sys.path BEFORE any project imports.
-# Required so that ``app.*`` and ``terminal.*`` resolve as packages
-# when streamlit loads this file as a top-level script.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import streamlit as st  # noqa: E402
 
+from style_inject import inject_styles  # noqa: E402
+
 from app.header import render as render_header  # noqa: E402
-from app.style_inject import inject as inject_style  # noqa: E402
 from terminal.config_loader import load_config  # noqa: E402
 from terminal.managers.analytics_manager import AnalyticsManager  # noqa: E402
 from terminal.managers.data_manager import SharedDataManager  # noqa: E402
@@ -61,7 +60,7 @@ def main() -> None:
         layout="wide",
         initial_sidebar_state="expanded",
     )
-    inject_style()
+    inject_styles()
     _init_session_state()
     config, data_manager, analytics_manager, watchlist = _bootstrap()
     st.session_state["_config"] = config
@@ -81,7 +80,7 @@ def main() -> None:
         "ANALYTICS": [
             st.Page("pages/options_lab.py", title="Options Lab", url_path="options-lab"),
             st.Page("pages/lbo_quick_calc.py", title="LBO Quick Calc", url_path="lbo-quick-calc"),
-            st.Page("pages/comps_relative_value.py", title="Comps & Relative Value", url_path="comps-relative-value"),
+            st.Page("pages/comps_relative_value.py", title="Comps Relative Value", url_path="comps-relative-value"),
         ],
         "PORTFOLIO": [
             st.Page("pages/portfolio_builder.py", title="Portfolio Builder", url_path="portfolio-builder"),

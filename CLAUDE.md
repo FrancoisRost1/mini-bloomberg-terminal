@@ -11,7 +11,7 @@
 # Run the app locally (development mode)
 APP_MODE=development streamlit run app/app.py
 
-# Run the app in production mode (requires ALPHA_VANTAGE_API_KEY + FRED_API_KEY)
+# Run the app in production mode (requires FMP_API_KEY + FRED_API_KEY)
 APP_MODE=production streamlit run app/app.py
 
 # Run all tests
@@ -36,10 +36,11 @@ Python: `python3` (not `python`). Package manager: `pip3`.
 
 - Project scaffolded in Phase 2 with two correctness/audit passes applied.
 - Parent `~/Documents/CODE/CLAUDE.md` carries cross-project universal rules and formulas. Read it before deviating from patterns.
-- Production provider is Alpha Vantage (`terminal/data/provider_alphavantage.py`) with auto-fallback from `TIME_SERIES_DAILY_ADJUSTED` (paid) to `TIME_SERIES_DAILY` (free) via `PremiumEndpointError`. yfinance is dev-only. Mode enforcement lives in `terminal/data/provider_registry.py`.
-- All config flows through `terminal/config_loader.py`; PE scoring bands and regime thresholds live in `config.yaml`. Every consumed key has a config-truthfulness test.
+- Production provider is Financial Modeling Prep (`terminal/data/provider_fmp.py`). Starter tier covers quotes, daily prices, profile, income / balance / cash flow, and options when available. yfinance is dev only. Mode enforcement lives in `terminal/data/provider_registry.py`.
+- All config flows through `terminal/config_loader.py`; PE scoring bands and regime thresholds live in `config.yaml`. Every consumed key has a config truthfulness test.
+- Design system is canonical. `style_inject.py` lives at the project root and is imported flat (`from style_inject import inject_styles, TOKENS, styled_header, styled_kpi, styled_section_label, styled_divider, styled_card, apply_plotly_theme`). It is the same file across every Streamlit project in the Finance Lab. Do NOT fork it. The accent color (#E07020 Bloomberg orange) is auto detected from the folder name.
 - File size limit: ~150 lines per Python module. Split proactively.
-- Production stack: Railway (hosting) + Cloudflare (DNS) + Alpha Vantage (market data) + FRED (macro) + Anthropic (LLM) + SQLite (persistence). Streamlit Community Cloud is irrelevant.
+- Production stack: Railway (hosting) + Cloudflare (DNS) + Financial Modeling Prep (market data) + FRED (macro) + Anthropic (LLM) + SQLite (persistence). Streamlit Community Cloud is irrelevant.
 
 ### Phase 2 audit fixes applied (reference)
 
@@ -57,7 +58,7 @@ Python: `python3` (not `python`). Package manager: `pip3`.
 
 - **Portfolio Phase 3 (robustness validation)**: removed from the page. The previous implementation generated a fake trial matrix by perturbing the fitted weights with Gaussian noise, producing theatrical PBO verdicts. The robustness adapter remains available standalone for v2 to wire into a real CSCV parameter sweep.
 - **Risk Parity and Black-Litterman optimizers** (already deferred in v1).
-- **Cold-render Alpha Vantage budget optimization**: Market Overview can exceed the free-tier rate limit on a single render. Mitigation requires either pre-warming on boot or accepting a paid-tier requirement.
+- **Cold render API budget optimization**: Market Overview can issue 20+ provider calls on a single cold render. With FMP Starter (750 req/min) this is no longer a hard limit, but pre warming on boot is still on the v2 list.
 
 ---
 
@@ -68,13 +69,13 @@ This application is intended to run as an always-on hosted website, not a classr
 Every infrastructure, provider, caching, and persistence decision must optimize for reliability and real usage, not for free-tier convenience.
 
 Hard rules:
-- The production path uses Alpha Vantage as the primary market data provider. yfinance is allowed only for local development. No silent fallback to yfinance in production.
+- The production path uses Financial Modeling Prep (FMP) as the primary market data provider. yfinance is allowed only for local development. No silent fallback to yfinance in production.
 - If the primary provider is unavailable, the app must show an explicit DEGRADED or DATA UNAVAILABLE state. It must never silently serve stale or unofficial data without labeling it.
 - LLM synthesis is enabled by default when ANTHROPIC_API_KEY is present. The app still works fully without it, but the intended live deployment includes continuous LLM availability.
 - Persistence uses SQLite for the hosted app. JSON fallback is allowed only for local development.
 - The real deployment target is a paid hosted container environment (cloud VM, Railway, Render, etc.). Streamlit Community Cloud is not a target for the real application and must not influence architecture decisions.
-- Cache aggressively. The terminal must stay cheap and responsive on low-tier API plans (Alpha Vantage 25 req/min is more than enough for single-user usage).
-Production stack: Railway (hosting) + Cloudflare (domain/DNS) + Alpha Vantage (market data) + FRED (macro) + Anthropic (LLM) + SQLite (persistence). Streamlit Community Cloud is irrelevant.
+- Cache aggressively. The terminal must stay cheap and responsive on low tier API plans (FMP Starter is 750 req/min, more than enough for single user usage).
+Production stack: Railway (hosting) + Cloudflare (domain/DNS) + Financial Modeling Prep (market data) + FRED (macro) + Anthropic (LLM) + SQLite (persistence). Streamlit Community Cloud is irrelevant.
 
 ---
 
@@ -164,7 +165,7 @@ mini-bloomberg-terminal/
     data/
       __init__.py
       provider_interface.py         # MarketDataProvider ABC
-      provider_alphavantage.py      # Alpha Vantage: PRODUCTION provider (fully implemented)
+      provider_fmp.py               # Financial Modeling Prep: PRODUCTION provider (fully implemented)
       provider_yfinance.py          # yfinance: LOCAL DEV ONLY (excluded from production config)
       provider_polygon.py           # Polygon.io: future upgrade stub (interface-ready, not wired)
       provider_fred.py              # FRED API for macro data (always used, not a fallback)
@@ -295,7 +296,7 @@ class OptionsChain:
 ```python
 # provider_registry.py
 # - Reads config.yaml for mode: "production" or "development"
-# - production mode: Alpha Vantage only. If unavailable, DEGRADED state. No silent yfinance fallback.
+# - production mode: FMP only. If unavailable, DEGRADED state. No silent yfinance fallback.
 # - development mode: yfinance allowed, with visible DEV MODE indicator.
 # - FRED is always used for macro in both modes.
 # - Architecture preserves easy swap to Polygon: change config provider key + add API key.
@@ -303,7 +304,7 @@ class OptionsChain:
 
 ### Provider implementations
 
-1. **provider_alphavantage.py**: PRODUCTION provider. Fully implemented Alpha Vantage integration using their documented REST API. Covers: daily/intraday prices, company fundamentals (income statement, balance sheet, cash flow), key ratios, and options chain. API key loaded from ALPHA_VANTAGE_API_KEY env var. Rate limit: 75 requests/minute on paid tier. Must handle rate limiting with exponential backoff. All responses normalized into terminal schemas. This is NOT a stub. It must be fully implemented in Phase 2 (Scaffold).
+1. **provider_fmp.py**: PRODUCTION provider. Fully implemented Financial Modeling Prep integration using their documented v3 REST API. Covers quotes, daily prices, company profile, annual income statement, balance sheet, cash flow, and options chain (when available). API key loaded from FMP_API_KEY env var. Rate limit: 750 requests/minute on Starter tier. Throttle is enforced at 300/min as a safety margin. All responses normalized into terminal schemas. This is NOT a stub.
 2. **provider_yfinance.py**: LOCAL DEVELOPMENT ONLY. Wraps yfinance into normalized schemas for offline/dev work. Known limitations documented (scraping fragility, unreliable dividendYield, no SLA). Excluded from production config by default. If yfinance is serving data in production mode, the app must display a visible DEV MODE warning.
 3. **provider_polygon.py**: Future upgrade path to Polygon.io. Implements the same MarketDataProvider interface. Not wired in v1, but the interface is ready so swapping providers requires only a config change and API key.
 4. **provider_fred.py**: FRED API for macro data. Required in all modes (free API key). Handles: Treasury yields, credit spreads, VIX history, GDP, CPI, unemployment. Dedicated source, not a fallback.
@@ -648,7 +649,7 @@ CMD ["streamlit", "run", "app/app.py", "--server.port=8501", "--server.headless=
 ### Environment variables
 
 ```
-ALPHA_VANTAGE_API_KEY   # REQUIRED for production (market data)
+FMP_API_KEY   # REQUIRED for production (market data)
 ANTHROPIC_API_KEY       # LLM memo synthesis (enabled automatically when present)
 FRED_API_KEY            # REQUIRED for macro data
 APP_MODE                # "production" or "development" (default: production)
@@ -656,7 +657,7 @@ APP_MODE                # "production" or "development" (default: production)
 
 ### Mode behavior
 
-- **production** (default): Alpha Vantage + FRED. No yfinance. LLM on if key present. SQLite persistence.
+- **production** (default): FMP + FRED. No yfinance. LLM on if key present. SQLite persistence.
 - **development**: yfinance allowed (with visible DEV MODE banner). JSON watchlist fallback. LLM optional.
 
 ---
@@ -712,7 +713,7 @@ APP_MODE                # "production" or "development" (default: production)
 - LBO Quick Calc is base case only, not full scenario lab with Monte Carlo.
 - Market breadth is computed from a configurable universe (default: S&P 500 proxy via sector ETFs), not individual stock-level breadth.
 - Polygon.io provider is interface-ready but not wired in v1. Migration requires config change + API key only.
-- Alpha Vantage options chain coverage may be limited for some tickers. Degrade gracefully with explicit messaging.
+- FMP options chain coverage may be limited for some tickers. Degrade gracefully with explicit messaging.
 
 ---
 
@@ -722,7 +723,7 @@ APP_MODE                # "production" or "development" (default: production)
 pandas
 numpy
 numpy-financial
-alpha_vantage             # PRODUCTION market data provider
+# FMP is accessed via plain requests; no SDK package needed.
 yfinance                  # LOCAL DEVELOPMENT ONLY
 fredapi                   # FRED macro data (required in all modes)
 pyyaml
@@ -755,4 +756,4 @@ requests
 
 *CLAUDE.md -- Mini Bloomberg Terminal (Project 11)*
 *Written: 2026-04-10*
-*Status: COMPLETE -- v1 cut shipped 2026-04-10. 123 tests passing. Two audit passes applied. Production stack: Railway + Cloudflare + Alpha Vantage + FRED + Anthropic + SQLite.*
+*Status: COMPLETE. v1 cut shipped 2026-04-10. 125 tests passing. Two audit passes applied, design system aligned to canonical, FMP swapped in for Alpha Vantage. Production stack: Railway + Cloudflare + Financial Modeling Prep + FRED + Anthropic + SQLite.*
