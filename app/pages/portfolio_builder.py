@@ -14,6 +14,7 @@ import streamlit as st  # noqa: E402
 
 from style_inject import styled_header  # noqa: E402
 
+from app.pages._portfolio_helpers import render_backtest_chart, render_correlation_heatmap  # noqa: E402
 from terminal.adapters.optimizer_adapter import run_optimizer  # noqa: E402
 from terminal.utils.chart_helpers import bar_chart  # noqa: E402
 from terminal.utils.density import dense_kpi_row, section_bar, signed_color  # noqa: E402
@@ -56,7 +57,9 @@ def render() -> None:
     row2_l, row2_r = st.columns([1, 1])
     with row2_l:
         _render_concentration(weights)
+        render_correlation_heatmap(returns)
     with row2_r:
+        render_backtest_chart(returns, weights)
         _render_validate_pane()
 
 

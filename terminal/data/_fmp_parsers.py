@@ -102,6 +102,7 @@ def compute_ratios(
         "dividend_yield": (last_div / price) if price > 0 and last_div == last_div else float("nan"),
     }
     revenue = ebitda = float("nan")
+    net_income_latest = float("nan")
     if not income.empty:
         rev_col = "revenue" if "revenue" in income.columns else None
         if rev_col:
@@ -114,11 +115,29 @@ def compute_ratios(
             eb = income["ebitda"].dropna()
             if not eb.empty:
                 ebitda = safe_float(eb.iloc[-1])
+        ni_series = income.get("netIncome", pd.Series(dtype=float)).dropna()
+        if not ni_series.empty:
+            net_income_latest = safe_float(ni_series.iloc[-1])
         ebit_col = "operatingIncome" if "operatingIncome" in income.columns else "ebit"
         ebit = income.get(ebit_col, pd.Series(dtype=float)).dropna()
         interest = income.get("interestExpense", pd.Series(dtype=float)).dropna()
-        if not ebit.empty and not interest.empty and interest.iloc[-1] > 0:
-            ratios["interest_coverage"] = float(ebit.iloc[-1] / interest.iloc[-1])
+        if not ebit.empty and not interest.empty and abs(interest.iloc[-1]) > 0:
+            # FMP reports interestExpense as positive in some sectors, negative in others.
+            ratios["interest_coverage"] = float(ebit.iloc[-1] / abs(interest.iloc[-1]))
+    # P/E fallback: if FMP returned no quote.pe, derive from net income / shares outstanding.
+    pe_native = ratios.get("pe_ratio", float("nan"))
+    if (pe_native != pe_native) or pe_native <= 0:
+        shares = safe_float(_first(quote, "sharesOutstanding", "outstandingShares"))
+        if shares != shares or shares <= 0:
+            mcap = safe_float(_first(profile, "mktCap", "marketCap"))
+            if mcap == mcap and price > 0:
+                shares = mcap / price
+        if (shares == shares and shares > 0
+                and net_income_latest == net_income_latest and net_income_latest > 0
+                and price > 0):
+            eps = net_income_latest / shares
+            if eps > 0:
+                ratios["pe_ratio"] = float(price / eps)
     if revenue == revenue and revenue > 0 and ebitda == ebitda:
         ratios["ebitda_margin"] = float(ebitda / revenue)
     market_cap = safe_float(_first(profile, "mktCap", "marketCap"))

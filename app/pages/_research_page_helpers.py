@@ -17,6 +17,10 @@ from app.pages._research_engine_renderers import (
     render_pe_engine,
     render_tsmom_engine,
 )
+from app.pages._research_financials import (
+    render_52w_range_bar,
+    render_financials_table,
+)
 from terminal.utils.chart_helpers import interpretation_callout_html, line_chart
 from terminal.utils.density import dense_kpi_row, period_returns_tape, section_bar, signed_color
 from terminal.utils.error_handling import inline_status_line, is_error, status_pill
@@ -88,16 +92,12 @@ def render_phase1_stats(packet: dict[str, Any]) -> None:
         {"label": "DIV YIELD", "value": fmt_pct(ratios.get("dividend_yield"))},
     ]
     st.markdown(dense_kpi_row(items, min_cell_px=95), unsafe_allow_html=True)
+    close = _close_series(packet)
+    render_52w_range_bar(close)
     if fundamentals is None or is_error(fundamentals):
         st.markdown(inline_status_line("OFF", source="FMP"), unsafe_allow_html=True)
         return
-    close = _close_series(packet)
-    rows = [("Sector", fundamentals.sector or "n/a"), ("Industry", fundamentals.industry or "n/a"),
-            ("Provider", fundamentals.provider)]
-    if close is not None:
-        rows += [("Last close", f"{close.iloc[-1]:.2f}"), ("52w high", f"{close.tail(252).max():.2f}"),
-                 ("52w low", f"{close.tail(252).min():.2f}")]
-    st.dataframe(pd.DataFrame(rows, columns=["Field", "Value"]), use_container_width=True, hide_index=True)
+    render_financials_table(fundamentals)
 
 
 def render_phase2_engines(packet: dict[str, Any]) -> None:

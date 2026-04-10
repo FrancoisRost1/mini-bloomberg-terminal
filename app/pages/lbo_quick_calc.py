@@ -18,6 +18,7 @@ from style_inject import (  # noqa: E402
     styled_header,
 )
 
+from app.pages._lbo_helpers import render_credit_metrics, render_sources_and_uses  # noqa: E402
 from terminal.adapters.lbo_adapter import run_base_case, sensitivity_grid  # noqa: E402
 from terminal.engines.pnl_engine import compute_lbo_equity_bridge  # noqa: E402
 from terminal.utils.chart_helpers import heatmap, interpretation_callout_html, waterfall  # noqa: E402
@@ -74,6 +75,9 @@ def _render_summary(result) -> None:
          "delta_color": signed_color(moic - 1.0) if moic == moic else None},
     ]
     st.markdown(dense_kpi_row(items, min_cell_px=110), unsafe_allow_html=True)
+    debt_rate = float(st.session_state["_config"]["lbo_quick_calc"]["defaults"]["debt_rate"])
+    render_credit_metrics(result, debt_rate=debt_rate)
+    render_sources_and_uses(result)
 
 
 def _render_bridge(result) -> None:
