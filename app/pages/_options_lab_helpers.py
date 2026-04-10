@@ -49,13 +49,14 @@ def render_scenario(greeks: dict[str, float], spot: float, price: float) -> None
     """
     spot_range = np.linspace(spot * 0.8, spot * 1.2, 100)
     df = compute_option_scenario(greeks, spot_range, vol_shift=0.0, time_decay_days=7)
-    chart_col, table_col = st.columns([2, 3])
+    chart_col, table_col = st.columns([3, 4])
     with chart_col:
         fig = line_chart(
             {"7d Greeks P&L": df["pnl"]},
-            title="Greeks Scenario (7 days forward)",
+            title="Greeks Scenario (7d fwd)",
             y_unit="P&L ($)", x_unit="Spot ($)",
         )
+        fig.update_layout(height=240, margin={"l": 36, "r": 10, "t": 28, "b": 28})
         st.plotly_chart(fig, use_container_width=True)
     with table_col:
         pct_levels = [-0.2, -0.1, -0.05, 0.0, 0.05, 0.1, 0.2]
@@ -70,14 +71,19 @@ def render_scenario(greeks: dict[str, float], spot: float, price: float) -> None
             opt_value = max(0.0, premium + pnl)
             pnl_pct = (pnl / premium) * 100.0 if premium > 0 else float("nan")
             rows.append({
-                "Spot":         f"${float(nearest):,.2f}",
-                "Move":         f"{p * 100:+.0f}%",
-                "Opt Value":    f"${opt_value:,.2f}",
-                "P&L ($)":      f"${pnl:+,.2f}",
-                "P&L (%)":      f"{pnl_pct:+.1f}%" if pnl_pct == pnl_pct else "n/a",
+                "Spot":      f"${float(nearest):,.2f}",
+                "Move":      f"{p * 100:+.0f}%",
+                "Opt Val":   f"${opt_value:,.2f}",
+                "P&L $":     f"${pnl:+,.2f}",
+                "P&L %":     f"{pnl_pct:+.1f}%" if pnl_pct == pnl_pct else "n/a",
             })
         table = pd.DataFrame(rows)
-        styler = colored_dataframe(table, ["P&L ($)", "P&L (%)"])
+        # Right-align every numeric column and force monospace.
+        num_cols = ["Spot", "Move", "Opt Val", "P&L $", "P&L %"]
+        styler = (
+            colored_dataframe(table, ["P&L $", "P&L %"])
+            .set_properties(subset=num_cols, **{"text-align": "right", "font-family": "JetBrains Mono, monospace"})
+        )
         st.dataframe(styler, use_container_width=True, hide_index=True)
 
 

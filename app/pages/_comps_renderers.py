@@ -62,7 +62,7 @@ def render_pe_score(ratios, config) -> None:
             "value": f"{v:.0f}" if v == v else "n/a",
             "delta_color": signed_color(v - 50) if v == v else None,
         })
-    st.markdown(dense_kpi_row(items, min_cell_px=105), unsafe_allow_html=True)
+    st.markdown(dense_kpi_row(items, min_cell_px=118), unsafe_allow_html=True)
     render_pe_metric_bars(ratios, config["comps"]["pe_scoring_bands"])
     per_metric = {k: v for k, v in result["per_metric_scores"].items() if v == v}
     if per_metric:

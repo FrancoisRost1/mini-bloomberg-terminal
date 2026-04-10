@@ -127,7 +127,7 @@ def _render_method_pane(method: str, w: dict[str, float], returns: pd.DataFrame)
         {"label": "MIN W", "value": fmt_pct(min(w.values()) if w else 0)},
         {"label": "ASSETS", "value": str(sum(1 for v in w.values() if v > 1e-4))},
     ]
-    st.markdown(dense_kpi_row(items, min_cell_px=85), unsafe_allow_html=True)
+    st.markdown(dense_kpi_row(items, min_cell_px=105), unsafe_allow_html=True)
     rows = [{"Asset": a, "Weight": f"{wt * 100:.1f}%",
              "60D Trend": (1 + returns[a]).cumprod().tail(60).tolist() if a in returns.columns else []}
             for a, wt in sorted(w.items(), key=lambda kv: -kv[1])]

@@ -33,7 +33,7 @@ def render_pe_engine(e: dict[str, Any]) -> None:
             "value": f"{v:.0f}" if v == v else "n/a",
             "value_color": signed_color(v - 50) if v == v else None,
         })
-    st.markdown(dense_kpi_row(items, min_cell_px=90), unsafe_allow_html=True)
+    st.markdown(dense_kpi_row(items, min_cell_px=105), unsafe_allow_html=True)
     if e.get("red_flags"):
         st.caption("Flags: " + ", ".join(e["red_flags"]))
 
@@ -50,7 +50,7 @@ def render_factor_engine(e: dict[str, Any]) -> None:
             "value": f"{v:.2f}" if v == v else "n/a",
             "value_color": signed_color(v - 0.5) if v == v else None,
         })
-    st.markdown(dense_kpi_row(items, min_cell_px=90), unsafe_allow_html=True)
+    st.markdown(dense_kpi_row(items, min_cell_px=105), unsafe_allow_html=True)
 
 
 def render_tsmom_engine(e: dict[str, Any]) -> None:
@@ -64,7 +64,7 @@ def render_tsmom_engine(e: dict[str, Any]) -> None:
         {"label": "POSITION", "value": f"{e['position']:+.2f}",
          "value_color": signed_color(e["position"])},
     ]
-    st.markdown(dense_kpi_row(items, min_cell_px=95), unsafe_allow_html=True)
+    st.markdown(dense_kpi_row(items, min_cell_px=108), unsafe_allow_html=True)
 
 
 def render_lbo_engine(e: dict[str, Any]) -> None:
@@ -76,7 +76,7 @@ def render_lbo_engine(e: dict[str, Any]) -> None:
         {"label": "SPONSOR EQ", "value": f"${e['sponsor_equity'] / 1e9:.1f}B"},
         {"label": "EQUITY EXIT", "value": f"${e['equity_at_exit'] / 1e9:.1f}B"},
     ]
-    st.markdown(dense_kpi_row(items, min_cell_px=90), unsafe_allow_html=True)
+    st.markdown(dense_kpi_row(items, min_cell_px=105), unsafe_allow_html=True)
 
 
 def render_llm_memo(packet: dict[str, Any], config: dict[str, Any]) -> None:

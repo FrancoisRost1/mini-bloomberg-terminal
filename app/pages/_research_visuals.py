@@ -47,7 +47,7 @@ def render_phase3_recommendation(packet: dict[str, Any]) -> None:
     for key, val in (rec.get("sub_scores") or {}).items():
         items.append({"label": key.upper(), "value": f"{val:.1f}" if val == val else "n/a",
                       "value_color": signed_color(val - 50) if val == val else None})
-    st.markdown(dense_kpi_row(items, min_cell_px=95), unsafe_allow_html=True)
+    st.markdown(dense_kpi_row(items, min_cell_px=118), unsafe_allow_html=True)
     render_score_stacked_bar(rec)
     obs = f"Composite score {composite:.1f}." if composite == composite else "Composite unavailable."
     styled_card(

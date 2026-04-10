@@ -1,4 +1,14 @@
-"""MARKET. Market Overview workspace. 2x2 multi pane layout."""
+"""MARKET. Market Overview workspace.
+
+Dense grid layout: most of the dashboard fits above the fold on a
+1400px+ viewport.
+
+  Row 1 : Global indices (60%)        | Regime classifier (40%)
+  Row 2 : Rates table (50%)           | Yield curve (50%)
+  Row 3 : FX (33%) | Commodities (33%)| Macro snapshot (33%)
+  Row 4 : Sector heatmap              (full width)
+  Row 5 : Breadth table (60%)         | Gainers/losers (40%)
+"""
 
 from __future__ import annotations
 
@@ -13,7 +23,12 @@ import streamlit as st  # noqa: E402
 
 from style_inject import styled_header  # noqa: E402
 
-from app.pages._market_extras import render_fx_row, render_gainers_losers, render_yield_curve  # noqa: E402
+from app.pages._market_extras import (  # noqa: E402
+    render_commodities_row,
+    render_fx_row,
+    render_gainers_losers,
+    render_yield_curve,
+)
 from app.pages._market_overview_helpers import (  # noqa: E402
     render_breadth,
     render_indices_strip,
@@ -30,24 +45,38 @@ def render() -> None:
     data_manager = st.session_state["_data_manager"]
     styled_header("Market Overview", "Cross asset regime context")
 
-    render_indices_strip(data_manager, config)
-    render_fx_row(data_manager)
-    render_gainers_losers(data_manager, config)
-
-    render_sector_heatmap(data_manager, config)
-
-    row1_l, row1_r = st.columns([1, 1])
+    # Row 1: indices | regime
+    row1_l, row1_r = st.columns([6, 4])
     with row1_l:
-        render_rates_and_vol(data_manager, config)
-        render_yield_curve(data_manager)
+        render_indices_strip(data_manager, config)
     with row1_r:
         render_regime(data_manager, config)
 
+    # Row 2: rates | yield curve
     row2_l, row2_r = st.columns([1, 1])
     with row2_l:
-        render_breadth(data_manager, config)
+        render_rates_and_vol(data_manager, config)
     with row2_r:
+        render_yield_curve(data_manager)
+
+    # Row 3: FX | commodities | macro
+    row3_l, row3_c, row3_r = st.columns([1, 1, 1])
+    with row3_l:
+        render_fx_row(data_manager)
+    with row3_c:
+        render_commodities_row(data_manager)
+    with row3_r:
         _render_macro_snapshot(data_manager, config)
+
+    # Row 4: sector heatmap (full width)
+    render_sector_heatmap(data_manager, config)
+
+    # Row 5: breadth | gainers-losers
+    row5_l, row5_r = st.columns([6, 4])
+    with row5_l:
+        render_breadth(data_manager, config)
+    with row5_r:
+        render_gainers_losers(data_manager, config)
 
 
 def _render_macro_snapshot(data_manager, config) -> None:
@@ -60,7 +89,7 @@ def _render_macro_snapshot(data_manager, config) -> None:
         for key, label in [(vix_id, "VIX"), (hy_id, "HY OAS"), ("FEDFUNDS", "FED FUNDS")]:
             v = macro.latest(key)
             items.append({"label": label, "value": f"{v:.2f}" if v == v else "n/a"})
-    for ticker, label in [("GLD", "GOLD"), ("USO", "OIL"), ("UUP", "DXY")]:
+    for ticker, label in [("UUP", "DXY")]:
         data = data_manager.get_index_prices(ticker, period="1mo")
         if is_error(data) or data.is_empty():
             items.append({"label": label, "value": "n/a"})
@@ -70,7 +99,7 @@ def _render_macro_snapshot(data_manager, config) -> None:
         chg = (last / prev - 1) if prev else 0.0
         items.append({"label": label, "value": f"{last:,.2f}",
                       "delta": f"{chg * 100:+.2f}%", "delta_color": signed_color(chg)})
-    st.markdown(dense_kpi_row(items, min_cell_px=110), unsafe_allow_html=True)
+    st.markdown(dense_kpi_row(items, min_cell_px=118), unsafe_allow_html=True)
 
 
 render()

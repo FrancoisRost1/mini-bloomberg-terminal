@@ -79,16 +79,25 @@ def render_peer_fundamentals(data_manager, ticker: str, sector: str | None) -> N
     rows.append(median_row)
     df = pd.DataFrame(rows)
     accent = TOKENS["accent_primary"]
-    bg_active = TOKENS["bg_active"]
-    bg_median = TOKENS["bg_elevated"]
+    # Vivid orange tint so the target row stands out at a glance.
+    active_bg = "rgba(224,112,32,0.22)"
+    median_bg = TOKENS["bg_elevated"]
     muted = TOKENS["text_muted"]
 
     def _highlight(row):
         label = str(row["Ticker"]).upper()
         if label == ticker.upper():
-            return [f"background-color: {bg_active}; color: {accent}; font-weight: 700;"] * len(row)
+            return [
+                f"background-color: {active_bg}; color: {accent}; "
+                "font-weight: 800; border-top: 1px solid rgba(224,112,32,0.55); "
+                "border-bottom: 1px solid rgba(224,112,32,0.55);"
+            ] * len(row)
         if label == "SECTOR MEDIAN":
-            return [f"background-color: {bg_median}; color: {muted}; font-style: italic; font-weight: 600; border-top: 1px solid rgba(255,255,255,0.12);"] * len(row)
+            return [
+                f"background-color: {median_bg}; color: {muted}; "
+                "font-style: italic; font-weight: 600; "
+                "border-top: 1px solid rgba(255,255,255,0.14);"
+            ] * len(row)
         return [""] * len(row)
 
     styled = df.style.apply(_highlight, axis=1)

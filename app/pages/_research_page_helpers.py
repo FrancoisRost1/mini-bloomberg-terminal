@@ -49,7 +49,17 @@ def _ratios(packet: dict[str, Any]) -> dict[str, Any]:
     return getattr(f, "key_ratios", {}) or {}
 
 
-def render_phase1_chart(packet: dict[str, Any]) -> None:
+_PERIOD_CHOICES: list[tuple[str, str]] = [
+    ("1M", "1mo"),
+    ("3M", "3mo"),
+    ("6M", "6mo"),
+    ("1Y", "1y"),
+    ("2Y", "2y"),
+    ("5Y", "5y"),
+]
+
+
+def render_phase1_chart(packet: dict[str, Any], data_manager=None) -> None:
     prices_obj = packet.get("prices")
     close = _close_series(packet)
     tape = period_returns_tape(close) if close is not None else ""
@@ -57,21 +67,44 @@ def render_phase1_chart(packet: dict[str, Any]) -> None:
     if close is None or prices_obj is None or is_error(prices_obj):
         st.markdown(inline_status_line("OFF", source="FMP"), unsafe_allow_html=True)
         return
-    view = st.radio(
-        "Chart view",
-        options=["Candlestick", "Line"],
-        index=0,
-        horizontal=True,
-        key=f"chart_view_{packet['ticker']}",
-        label_visibility="collapsed",
-    )
+    ticker = packet["ticker"]
+    ctrl_l, ctrl_r = st.columns([3, 4])
+    with ctrl_l:
+        view = st.radio(
+            "Chart view",
+            options=["Candlestick", "Line"],
+            index=0,
+            horizontal=True,
+            key=f"chart_view_{ticker}",
+            label_visibility="collapsed",
+        )
+    with ctrl_r:
+        period_label = st.radio(
+            "Period",
+            options=[p[0] for p in _PERIOD_CHOICES],
+            index=3,  # default 1Y
+            horizontal=True,
+            key=f"chart_period_{ticker}",
+            label_visibility="collapsed",
+        )
+    period_key = dict(_PERIOD_CHOICES)[period_label]
+
+    # Refetch for the chosen period when the user changes it. The
+    # default_price_period in config stays authoritative for the rest
+    # of the pipeline; this override is chart only.
+    if data_manager is not None and period_key != prices_obj.period:
+        refetched = data_manager.get_stock_prices(ticker, period_key)
+        if not is_error(refetched) and not refetched.is_empty():
+            prices_obj = refetched
+            close = refetched.prices["close"]
+
     placeholder = chart_skeleton(height=380)
     if view == "Candlestick":
-        html = build_tv_chart_html(prices_obj.prices, packet["ticker"], height_px=380)
+        html = build_tv_chart_html(prices_obj.prices, ticker, height_px=380)
         placeholder.empty()
         components.html(html, height=390)
     else:
-        fig = line_chart({packet["ticker"]: close}, title=f"{packet['ticker']} price (1Y)", y_unit="USD")
+        fig = line_chart({ticker: close}, title=f"{ticker} price ({period_label})", y_unit="USD")
         placeholder.empty()
         st.plotly_chart(fig, use_container_width=True)
 
@@ -97,7 +130,7 @@ def render_phase1_stats(packet: dict[str, Any]) -> None:
         {"label": "BETA", "value": fmt_ratio(ratios.get("beta"), suffix="")},
         {"label": "DIV YIELD", "value": fmt_pct(ratios.get("dividend_yield"))},
     ]
-    st.markdown(dense_kpi_row(items, min_cell_px=95), unsafe_allow_html=True)
+    st.markdown(dense_kpi_row(items, min_cell_px=118), unsafe_allow_html=True)
     close = _close_series(packet)
     render_52w_range_bar(close)
     if fundamentals is None or is_error(fundamentals):

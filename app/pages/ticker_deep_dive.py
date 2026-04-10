@@ -72,7 +72,8 @@ def render() -> None:
 
     row1_l, row1_r = st.columns([1, 1])
     with row1_l:
-        safe_render(lambda: render_phase1_chart(packet), label="phase1_chart", source="FMP")
+        safe_render(lambda: render_phase1_chart(packet, data_manager),
+                    label="phase1_chart", source="FMP")
     with row1_r:
         safe_render(lambda: render_phase1_stats(packet), label="phase1_stats", source="FMP")
 
