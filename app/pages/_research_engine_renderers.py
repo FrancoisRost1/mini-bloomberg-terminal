@@ -33,7 +33,9 @@ def render_pe_engine(e: dict[str, Any]) -> None:
             "value": f"{v:.0f}" if v == v else "n/a",
             "value_color": signed_color(v - 50) if v == v else None,
         })
-    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=120), unsafe_allow_html=True)
+    # Lives in a 50% column, so cap the row count. 10 items split
+    # into 3 rows reads comfortably at 130px min cell width.
+    st.markdown(dense_kpi_rows(items, rows=3, min_cell_px=130), unsafe_allow_html=True)
     if e.get("red_flags"):
         st.caption("Flags: " + ", ".join(e["red_flags"]))
 
@@ -50,10 +52,10 @@ def render_factor_engine(e: dict[str, Any]) -> None:
             "value": f"{v:.2f}" if v == v else "n/a",
             "value_color": signed_color(v - 0.5) if v == v else None,
         })
-    # 7 cells maximum (composite + conf + 5 factors) -> single row
-    # at a comfortable width. Bumps the min width so factor labels
-    # like "LOW VOL" don't clip.
-    st.markdown(dense_kpi_row(items, min_cell_px=118), unsafe_allow_html=True)
+    # 7 cells (composite + conf + 5 factors) inside a 50% column is
+    # too cramped on one line. Split into 2 balanced rows so factor
+    # labels like "LOW VOL" don't touch the neighbouring cell.
+    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=130), unsafe_allow_html=True)
 
 
 def render_tsmom_engine(e: dict[str, Any]) -> None:
@@ -67,7 +69,7 @@ def render_tsmom_engine(e: dict[str, Any]) -> None:
         {"label": "POSITION", "value": f"{e['position']:+.2f}",
          "value_color": signed_color(e["position"])},
     ]
-    st.markdown(dense_kpi_row(items, min_cell_px=120), unsafe_allow_html=True)
+    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=130), unsafe_allow_html=True)
 
 
 def render_lbo_engine(e: dict[str, Any]) -> None:
@@ -79,7 +81,8 @@ def render_lbo_engine(e: dict[str, Any]) -> None:
         {"label": "SPONSOR EQ", "value": f"${e['sponsor_equity'] / 1e9:.1f}B"},
         {"label": "EQUITY EXIT", "value": f"${e['equity_at_exit'] / 1e9:.1f}B"},
     ]
-    st.markdown(dense_kpi_row(items, min_cell_px=118), unsafe_allow_html=True)
+    # 6 cells split into 2 rows of 3 inside the 50% engine column.
+    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=130), unsafe_allow_html=True)
 
 
 def render_engine_grid(packet: dict[str, Any]) -> None:

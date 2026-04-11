@@ -76,7 +76,7 @@ def _render_summary(result) -> None:
     # 11 KPIs with wide labels ("EQUITY EXIT", "ENTRY EBITDA") do not
     # fit in a single row without clipping. Split into two rows of six
     # and five: row 1 = entry side, row 2 = exit side + returns.
-    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=125), unsafe_allow_html=True)
+    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=135), unsafe_allow_html=True)
     debt_rate = float(st.session_state["_config"]["lbo_quick_calc"]["defaults"]["debt_rate"])
     render_credit_metrics(result, debt_rate=debt_rate)
     render_sources_and_uses(result)

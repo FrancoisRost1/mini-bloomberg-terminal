@@ -107,7 +107,7 @@ def _render_macro_snapshot(data_manager, config) -> None:
         chg = (last / prev - 1) if prev else 0.0
         items.append({"label": label, "value": f"{last:,.2f}",
                       "delta": f"{chg * 100:+.2f}%", "delta_color": signed_color(chg)})
-    st.markdown(dense_kpi_row(items, min_cell_px=118), unsafe_allow_html=True)
+    st.markdown(dense_kpi_row(items, min_cell_px=135), unsafe_allow_html=True)
 
 
 render()

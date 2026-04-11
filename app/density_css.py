@@ -41,22 +41,24 @@ section[data-testid="stMain"] a[data-testid="stPageLink-NavLink"] {{
 }}
 .stApp {{ background-color: #080808 !important; }}
 
-/* Vertical block stacking: collapse all default gaps */
-[data-testid="stVerticalBlock"] {{ gap: 0.08rem !important; }}
+/* Vertical block stacking: collapse Streamlit's generous default gaps,
+   but leave ~3px between siblings so section headers never look like
+   they are touching the content immediately below. */
+[data-testid="stVerticalBlock"] {{ gap: 0.22rem !important; }}
 [data-testid="stHorizontalBlock"] {{ gap: 0.2rem !important; }}
-[data-testid="element-container"] {{ margin-bottom: 0 !important; }}
 
-/* Any block wrapped in a .stMarkdown with trailing margin gets zeroed.
-   Section bars and inline HTML strips must not produce whitespace below. */
-.stMarkdown {{ margin-bottom: 0 !important; }}
-.stMarkdown > div:last-child {{ margin-bottom: 0 !important; }}
-/* Explicit element containers on plotly, dataframe, expander must all
-   collapse to zero trailing gap. Bloomberg target: content touches
-   content with a 2-4px breathing row. */
+/* Element containers keep a tiny trailing margin so KPI strips and
+   section bars have room to breathe below. Zero'ing this out caused
+   the orange headers to clip into the KPI rows and chart titles. */
+[data-testid="element-container"] {{ margin-bottom: 0.08rem !important; }}
+
+/* Plotly / dataframe / expander containers stay tight (they already
+   carry their own padding) so the grid is dense without forcing
+   orange section headers to touch. */
 div[data-testid="element-container"]:has(.stPlotlyChart),
 div[data-testid="element-container"]:has(.stDataFrame),
 div[data-testid="element-container"]:has([data-testid="stExpander"]) {{
-    margin-top: 0 !important; margin-bottom: 0.05rem !important;
+    margin-top: 0 !important; margin-bottom: 0.08rem !important;
 }}
 
 /* Section dividers */
@@ -172,9 +174,9 @@ section[data-testid="stSidebarNav"] span[class*="StyledNavSection"] {{
 .stButton > button {{ padding: 0.18rem 0.55rem !important; font-size: 0.66rem !important; }}
 
 /* Page title h1: max 0.5rem from first content. Zero top margin. */
-h1 {{ margin-top: 0 !important; margin-bottom: 0.02rem !important; font-size: 1.1rem !important; line-height: 1.15 !important; }}
+h1 {{ margin-top: 0 !important; margin-bottom: 0.2rem !important; font-size: 1.1rem !important; line-height: 1.15 !important; }}
 /* Custom styled_header wrapper margin (designs use a 1.25rem margin-bottom inline). */
-.stMarkdown div[style*="margin-bottom: 1.25rem"] {{ margin-bottom: 0.2rem !important; }}
+.stMarkdown div[style*="margin-bottom: 1.25rem"] {{ margin-bottom: 0.3rem !important; }}
 .stMarkdown div[style*="margin-bottom: 0.4rem"] {{ margin-bottom: 0.15rem !important; }}
 
 /* Markdown body line height tighter */

@@ -128,7 +128,7 @@ def render_phase1_stats(packet: dict[str, Any]) -> None:
         {"label": "BETA", "value": fmt_ratio(ratios.get("beta"), suffix="")},
         {"label": "DIV YIELD", "value": fmt_pct(ratios.get("dividend_yield"))},
     ]
-    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=125), unsafe_allow_html=True)
+    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=135), unsafe_allow_html=True)
     close = _close_series(packet)
     render_52w_range_bar(close)
     if fundamentals is None or is_error(fundamentals):

@@ -62,7 +62,7 @@ def render_fx_row(data_manager) -> None:
         _build_last_chg_item(label, data_manager.get_index_prices(ticker, period="1mo"), 4)
         for label, ticker in FX_PAIRS
     ]
-    st.markdown(dense_kpi_row(items, min_cell_px=118), unsafe_allow_html=True)
+    st.markdown(dense_kpi_row(items, min_cell_px=130), unsafe_allow_html=True)
 
 
 def render_commodities_row(data_manager) -> None:
@@ -72,7 +72,7 @@ def render_commodities_row(data_manager) -> None:
         _build_last_chg_item(label, data_manager.get_index_prices(ticker, period="1mo"), dec)
         for label, ticker, dec in COMMODITY_TICKERS
     ]
-    st.markdown(dense_kpi_row(items, min_cell_px=118), unsafe_allow_html=True)
+    st.markdown(dense_kpi_row(items, min_cell_px=130), unsafe_allow_html=True)
 
 
 def render_gainers_losers(data_manager, config) -> None:
@@ -115,4 +115,4 @@ def render_gainers_losers(data_manager, config) -> None:
     if not items:
         st.caption("DATA OFF | no sector ETF data available")
         return
-    st.markdown(dense_kpi_row(items, min_cell_px=118), unsafe_allow_html=True)
+    st.markdown(dense_kpi_row(items, min_cell_px=130), unsafe_allow_html=True)

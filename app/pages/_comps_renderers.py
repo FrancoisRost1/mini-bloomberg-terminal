@@ -21,7 +21,7 @@ from app.pages._comps_charts import render_pe_metric_bars
 from terminal.adapters.ma_comps_adapter import run_comps
 from terminal.adapters.pe_scoring_adapter import score_single_ticker
 from terminal.utils.chart_helpers import interpretation_callout_html
-from terminal.utils.density import colored_dataframe, dense_kpi_row, section_bar, signed_color
+from terminal.utils.density import colored_dataframe, dense_kpi_row, dense_kpi_rows, section_bar, signed_color
 from terminal.utils.error_handling import inline_status_line, status_pill
 from terminal.utils.formatting import format_metric
 
@@ -34,7 +34,9 @@ def render_valuation_card(fundamentals, config) -> None:
         fmt = m.get("format", "ratio")
         value = fundamentals.key_ratios.get(m["key"])
         items.append({"label": m["label"].upper(), "value": format_metric(value, fmt)})
-    st.markdown(dense_kpi_row(items, min_cell_px=120), unsafe_allow_html=True)
+    # This card lives in a 50% column on the Comps scrollable layout,
+    # so 8 KPIs on one line clip. Split into 2 rows of 4.
+    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=135), unsafe_allow_html=True)
 
 
 def render_pe_score(ratios, config) -> None:
@@ -66,7 +68,7 @@ def render_pe_score(ratios, config) -> None:
             "value": f"{v:.0f}" if v == v else "n/a",
             "delta_color": signed_color(v - 50) if v == v else None,
         })
-    st.markdown(dense_kpi_row(items, min_cell_px=118), unsafe_allow_html=True)
+    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=135), unsafe_allow_html=True)
 
     chart_col, table_col = st.columns([1, 1])
     with chart_col:

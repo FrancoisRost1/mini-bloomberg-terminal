@@ -49,7 +49,7 @@ def render_phase3_recommendation(packet: dict[str, Any]) -> None:
                       "value_color": signed_color(val - 50) if val == val else None})
     # 7 cells with wide labels ("COMPOSITE", "CONFIDENCE", "VALUATION",
     # "MOMENTUM") clip on a single row. Split into two balanced rows.
-    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=125), unsafe_allow_html=True)
+    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=135), unsafe_allow_html=True)
     render_score_stacked_bar(rec)
     obs = f"Composite score {composite:.1f}." if composite == composite else "Composite unavailable."
     styled_card(

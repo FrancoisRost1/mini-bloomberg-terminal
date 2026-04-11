@@ -35,7 +35,7 @@ def mono_inline(text: str, color: str | None = None, weight: int = 500) -> str:
     )
 
 
-def dense_kpi_row(items: list[dict[str, Any]], min_cell_px: int = 110) -> str:
+def dense_kpi_row(items: list[dict[str, Any]], min_cell_px: int = 130) -> str:
     """Dense grid of KPI cells. Tighter than v1: 0.78rem values, 0.2rem padding.
 
     Every grid item is ``min-width: 0`` so it can shrink below its
@@ -81,7 +81,7 @@ def dense_kpi_row(items: list[dict[str, Any]], min_cell_px: int = 110) -> str:
     )
 
 
-def dense_kpi_rows(items: list[dict[str, Any]], rows: int = 2, min_cell_px: int = 118) -> str:
+def dense_kpi_rows(items: list[dict[str, Any]], rows: int = 2, min_cell_px: int = 130) -> str:
     """Split ``items`` across ``rows`` balanced dense KPI rows.
 
     When a single row would cram too many cells and clip labels, call
@@ -128,11 +128,18 @@ def section_bar(label: str, tape: str = "", source: str = "") -> str:
             f'font-weight:600;color:{TOKENS["text_secondary"]};">{tape}</span>'
         )
     right = (f'<span style="float:right;">{"".join(pieces)}</span>' if pieces else "")
+    # Bottom padding inside the header box + bottom margin on the box
+    # itself guarantee ~6px of clear space between the orange
+    # underline and whatever content renders immediately below.
+    # Without this, tight density_css + Streamlit's flexbox gap
+    # collapses to sub-pixel and the header visually clips into the
+    # next KPI strip or chart title.
     return (
         f'<div style="color:{accent};font-family:{TOKENS["font_mono"]};'
         f'font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.14em;'
-        f'border-bottom:2px solid {accent};padding:0.12rem 0 0.05rem 0;'
-        f'margin:0.08rem 0 0.1rem 0;text-shadow:0 0 1px rgba(255,138,42,0.25);">{label}{right}</div>'
+        f'border-bottom:2px solid {accent};padding:0.18rem 0 0.1rem 0;'
+        f'margin:0.3rem 0 0.3rem 0;text-shadow:0 0 1px rgba(255,138,42,0.25);'
+        f'overflow:hidden;">{label}{right}</div>'
     )
 
 

@@ -87,29 +87,33 @@ def render() -> None:
     st.markdown(section_bar("GREEKS", source="yfinance + FRED"), unsafe_allow_html=True)
     safe_render(lambda: render_greeks_kpis(price, greeks), label="greeks", source="local")
 
-    tab_p, tab_s, tab_iv, tab_strat, tab_chain = st.tabs(
-        ["PAYOFF", "SCENARIO", "IV SMILE", "STRATEGY", "FULL CHAIN"]
-    )
-    with tab_p:
+    # Flat scrollable layout. Every section is visible without clicks;
+    # the Bloomberg density goal is zero dead vertical space.
+    row1_l, row1_r = st.columns([1, 1])
+    with row1_l:
+        st.markdown(section_bar("PAYOFF", source="local"), unsafe_allow_html=True)
         safe_render(
             lambda: render_payoff_with_lines(spot, strike, price, opt_type, config),
             label="payoff", source="local",
         )
-    with tab_s:
+    with row1_r:
+        st.markdown(section_bar("SCENARIO (7D FWD)", source="local"), unsafe_allow_html=True)
         safe_render(lambda: render_scenario(greeks, spot, price), label="scenario", source="local")
-    with tab_iv:
+
+    row2_l, row2_r = st.columns([1, 1])
+    with row2_l:
         safe_render(
             lambda: render_iv_smile_moneyness(expiry_chain, spot, tau, rate, config),
             label="iv_smile", source="yfinance",
         )
-    with tab_strat:
+    with row2_r:
         strikes_sorted = sorted({float(s) for s in expiry_chain["strike"].dropna().tolist()})
         safe_render(
             lambda: render_strategy_lab(spot, tau, rate, sigma, strikes_sorted),
             label="strategy", source="local",
         )
-    with tab_chain:
-        safe_render(lambda: render_chain_table(expiry_chain, spot), label="chain", source="yfinance")
+
+    safe_render(lambda: render_chain_table(expiry_chain, spot), label="chain", source="yfinance")
 
 
 render()

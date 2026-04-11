@@ -106,7 +106,7 @@ def render_breadth(data_manager, config) -> None:
         {"label": "NET HL", "value": f"{nhl['net']:+d}",
          "value_color": signed_color(nhl["net"])},
     ]
-    st.markdown(dense_kpi_row(items, min_cell_px=118), unsafe_allow_html=True)
+    st.markdown(dense_kpi_row(items, min_cell_px=135), unsafe_allow_html=True)
     rows = [
         {
             "Sector":   t,

@@ -35,7 +35,7 @@ def render_greeks_kpis(price: float, greeks: dict[str, float]) -> None:
         {"label": "RHO / 1%", "value": f"${greeks['rho']:.2f}",
          "delta_color": signed_color(greeks["rho"])},
     ]
-    st.markdown(dense_kpi_row(items, min_cell_px=120), unsafe_allow_html=True)
+    st.markdown(dense_kpi_row(items, min_cell_px=135), unsafe_allow_html=True)
 
 
 def render_scenario(greeks: dict[str, float], spot: float, price: float) -> None:
