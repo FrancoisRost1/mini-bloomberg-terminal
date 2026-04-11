@@ -51,8 +51,12 @@ def render(
     _render_watchlist_actions(col_actions, watchlist)
 
     # Row 2: custom HTML/JS scrolling marquee (CSS animation, no rerun).
+    # Scroll speed scales with item count: ~4.5s per item so a 35-item
+    # tape reads at a comfortable pace (~160s full sweep) while a
+    # shorter tape after partial fetch failures is not dragged out.
     items = build_tape_items(data_manager, watchlist, config, _cache(config))
-    components.html(build_marquee_html(items), height=36)
+    scroll_seconds = max(90, int(len(items) * 4.5)) if items else 90
+    components.html(build_marquee_html(items, scroll_seconds=scroll_seconds), height=36)
 
     # Row 3: one-line status strip. Market status, NY clock, UTC clock,
     # data freshness tag. Fills the gap between the tape and the first
