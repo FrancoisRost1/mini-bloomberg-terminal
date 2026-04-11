@@ -21,6 +21,7 @@ from app.pages._portfolio_helpers import (  # noqa: E402
     render_drawdown_chart,
     render_risk_contributions,
 )
+from app.pages._portfolio_metrics import render_backtest_metrics  # noqa: E402
 from terminal.adapters.optimizer_adapter import run_optimizer  # noqa: E402
 from terminal.utils.density import dense_kpi_row, dense_kpi_rows, section_bar, signed_color  # noqa: E402
 from terminal.utils.error_handling import is_error  # noqa: E402
@@ -70,6 +71,11 @@ def render() -> None:
     with row2_l:
         _render_concentration(weights)
         render_efficient_frontier(returns, weights)
+        # Fill the dead zone under the efficient frontier. The metrics
+        # table reconciles directly against the cumulative return and
+        # drawdown charts in the right column so the user can read
+        # ann return / vol / Sharpe / max DD / Calmar at a glance.
+        render_backtest_metrics(returns, weights)
     with row2_r:
         render_backtest_chart(returns, weights)
         render_drawdown_chart(returns, weights)
