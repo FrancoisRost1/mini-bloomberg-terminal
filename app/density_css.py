@@ -125,9 +125,9 @@ h3 {{ margin-top: 0.1rem !important; margin-bottom: 0.05rem !important; }}
     font-size: 0.6rem !important; margin-bottom: 0 !important;
 }}
 
-/* Sidebar: 140px, flat, always visible. No rounded pills, no background fills. */
+/* Sidebar: 160px, flat, always visible. No rounded pills, no background fills. */
 section[data-testid="stSidebar"] {{
-    width: 140px !important; min-width: 140px !important; max-width: 140px !important;
+    width: 160px !important; min-width: 160px !important; max-width: 160px !important;
     background-color: #080808 !important;
     border-right: 1px solid rgba(255,255,255,0.06) !important;
     transform: none !important;

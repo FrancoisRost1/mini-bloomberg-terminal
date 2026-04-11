@@ -119,15 +119,20 @@ def render() -> None:
     with row1_r:
         safe_render(lambda: render_phase1_stats(packet), label="phase1_stats", source="FMP")
 
-    # Engines as a 2x2 grid instead of one-tab-at-a-time, so all four
-    # engine cards are visible without clicking.
-    safe_render(lambda: render_phase2_engines(packet), label="phase2_engines", source="FMP")
-
-    row2_l, row2_r = st.columns([1, 1])
-    with row2_l:
-        safe_render(lambda: render_phase3_recommendation(packet), label="phase3_recommendation", source="local")
-    with row2_r:
+    # Engine grid next to the LLM memo so the memo is not buried
+    # under three more sections. 55/45 split gives the 2x2 engine
+    # grid enough breathing room while the memo column still shows
+    # a full TLDR card and the expander trigger.
+    engines_col, memo_col = st.columns([55, 45])
+    with engines_col:
+        safe_render(lambda: render_phase2_engines(packet), label="phase2_engines", source="FMP")
+    with memo_col:
         safe_render(lambda: render_phase4_llm(packet, config), label="phase4_llm", source="anthropic")
+
+    # Deterministic rating stays below the engines as the conclusion
+    # of the pipeline. Full width so the composite score bar has
+    # room to read every sub-score segment.
+    safe_render(lambda: render_phase3_recommendation(packet), label="phase3_recommendation", source="local")
 
 
 render()
