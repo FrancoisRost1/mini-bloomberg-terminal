@@ -128,17 +128,19 @@ def section_bar(label: str, tape: str = "", source: str = "") -> str:
             f'font-weight:600;color:{TOKENS["text_secondary"]};">{tape}</span>'
         )
     right = (f'<span style="float:right;">{"".join(pieces)}</span>' if pieces else "")
-    # Bottom padding inside the header box + bottom margin on the box
-    # itself guarantee ~6px of clear space between the orange
-    # underline and whatever content renders immediately below.
-    # Without this, tight density_css + Streamlit's flexbox gap
-    # collapses to sub-pixel and the header visually clips into the
-    # next KPI strip or chart title.
+    # Explicit line-height and generous top padding keep the text
+    # off the top edge when the element container is clipped.
+    # Without the explicit line-height the default metrics of the
+    # mono font put the cap-height too close to the box top and
+    # the first letters of the label get shaved by overflow:hidden
+    # (which is still needed to keep the floated SRC badge from
+    # leaking into sibling containers).
     return (
         f'<div style="color:{accent};font-family:{TOKENS["font_mono"]};'
-        f'font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.14em;'
-        f'border-bottom:2px solid {accent};padding:0.18rem 0 0.1rem 0;'
-        f'margin:0.3rem 0 0.3rem 0;text-shadow:0 0 1px rgba(255,138,42,0.25);'
+        f'font-size:0.72rem;line-height:1.35;font-weight:800;'
+        f'text-transform:uppercase;letter-spacing:0.14em;'
+        f'border-bottom:2px solid {accent};padding:0.35rem 0 0.18rem 0;'
+        f'margin:0.35rem 0 0.3rem 0;text-shadow:0 0 1px rgba(255,138,42,0.25);'
         f'overflow:hidden;">{label}{right}</div>'
     )
 
