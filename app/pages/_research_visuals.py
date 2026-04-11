@@ -113,7 +113,15 @@ def render_score_stacked_bar(rec: dict[str, Any]) -> None:
 
 
 def render_memo_card(memo_result: dict[str, Any], rating: str, composite: float) -> None:
-    """One line TLDR + timestamp + collapsible expander with the full memo."""
+    """TLDR + timestamp + collapsible full memo, each as its own block.
+
+    Layout (top to bottom):
+      1. TLDR card with accent border and the deterministic rating.
+      2. Generation timestamp, muted small mono.
+      3. Native Streamlit expander for the full memo body.
+    Each section is a separate visual block with explicit bottom
+    margin so the three never run together as one continuous line.
+    """
     if memo_result.get("status") != "success" or not memo_result.get("memo"):
         return
     color_map = {"BUY": TOKENS["accent_success"], "HOLD": TOKENS["accent_warning"],
@@ -123,23 +131,41 @@ def render_memo_card(memo_result: dict[str, Any], rating: str, composite: float)
     mono = TOKENS["font_mono"]
     text_primary = TOKENS["text_primary"]
     text_muted = TOKENS["text_muted"]
+    bg_surface = TOKENS["bg_surface"]
+    border_subtle = TOKENS["border_subtle"]
+
+    # Block 1: TLDR card. Distinct bordered block with accent left stripe.
     tldr = (
-        f"<div style='font-family:{mono};font-size:0.78rem;"
-        f"color:{text_primary};margin:0.15rem 0 0.2rem 0;'>"
-        f"<span style='color:{accent};font-weight:700;'>TLDR.</span> "
-        f"Deterministic rating <span style='color:{accent};font-weight:700;'>{rating}</span> "
-        f"with composite {composite_str}. The narrative below was generated around the locked rating; "
+        f"<div style='font-family:{mono};font-size:0.76rem;"
+        f"color:{text_primary};line-height:1.5;"
+        f"background:{bg_surface};border:1px solid {border_subtle};"
+        f"border-left:3px solid {accent};border-radius:2px;"
+        f"padding:0.5rem 0.7rem;margin:0.1rem 0 0.45rem 0;'>"
+        f"<div style='color:{accent};font-weight:800;letter-spacing:0.08em;"
+        f"text-transform:uppercase;font-size:0.62rem;margin-bottom:0.25rem;'>"
+        f"TLDR</div>"
+        f"Deterministic rating "
+        f"<span style='color:{accent};font-weight:700;'>{rating}</span> "
+        f"with composite <span style='color:{accent};font-weight:700;'>{composite_str}</span>. "
+        f"The narrative below was generated around the locked rating; "
         f"the LLM is forbidden from overriding it."
         f"</div>"
     )
     st.markdown(tldr, unsafe_allow_html=True)
+
+    # Block 2: Generation timestamp, on its own line.
     ts = memo_result.get("generated_at") or "n/a"
     st.markdown(
         f"<div style='font-family:{mono};font-size:0.6rem;"
-        f"color:{text_muted};letter-spacing:0.06em;text-transform:uppercase;"
-        f"margin-bottom:0.25rem;'>GENERATED {ts} UTC</div>",
+        f"color:{text_muted};letter-spacing:0.08em;text-transform:uppercase;"
+        f"margin:0 0 0.45rem 0;padding:0.1rem 0.2rem;'>"
+        f"GENERATED {ts} UTC &nbsp;|&nbsp; memo body collapsed below"
+        f"</div>",
         unsafe_allow_html=True,
     )
+
+    # Block 3: Native expander. Streamlit inserts its own spacing, so
+    # the gap above comes from the timestamp div margin-bottom.
     with st.expander("Full memo", expanded=False):
         if memo_result.get("inconsistency"):
             st.warning(memo_result["inconsistency"])

@@ -16,7 +16,7 @@ import os
 
 from app.pages._research_visuals import render_memo_card
 from terminal.synthesis.llm_client import generate_memo, is_available as llm_is_available
-from terminal.utils.density import dense_kpi_row, dense_kpi_rows, section_bar, signed_color
+from terminal.utils.density import dense_kpi_rows, section_bar, signed_color
 from terminal.utils.error_handling import inline_status_line, is_error, status_pill
 
 
@@ -83,36 +83,6 @@ def render_lbo_engine(e: dict[str, Any]) -> None:
     ]
     # 6 cells split into 2 rows of 3 inside the 50% engine column.
     st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=130), unsafe_allow_html=True)
-
-
-def render_engine_grid(packet: dict[str, Any]) -> None:
-    """Render all four engine cards in a compact 2x2 grid.
-
-    Replaces the prior one-tab-at-a-time layout. Every engine KPI
-    strip is visible without clicks. Engines that failed render a
-    small ``engine unavailable`` pill in their cell instead of
-    leaving a hole.
-    """
-    st.markdown(section_bar("ENGINE RESULTS", source="FMP"), unsafe_allow_html=True)
-    engines = packet.get("engines") or {}
-    layout: list[tuple[str, str, Any]] = [
-        ("pe_scoring",      "PE SCORING",     render_pe_engine),
-        ("factor_exposure", "FACTOR EXPOSURE", render_factor_engine),
-        ("tsmom",           "TSMOM SIGNAL",    render_tsmom_engine),
-        ("lbo",             "LBO SNAPSHOT",    render_lbo_engine),
-    ]
-    row1_l, row1_r = st.columns([1, 1])
-    row2_l, row2_r = st.columns([1, 1])
-    slots = [row1_l, row1_r, row2_l, row2_r]
-    for slot, (key, label, renderer) in zip(slots, layout):
-        with slot:
-            engine = engines.get(key, {})
-            status = engine.get("status", "missing")
-            st.markdown(status_pill(label, status), unsafe_allow_html=True)
-            if engine.get("status") != "success":
-                st.markdown(inline_status_line("engine unavailable", source="FMP"), unsafe_allow_html=True)
-                continue
-            renderer(engine)
 
 
 def render_llm_memo(packet: dict[str, Any], config: dict[str, Any]) -> None:

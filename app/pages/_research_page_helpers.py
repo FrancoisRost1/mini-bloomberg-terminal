@@ -8,8 +8,8 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
+from app.pages._research_engine_grid import render_engine_grid as render_phase2_engines  # noqa: F401
 from app.pages._research_engine_renderers import (
-    render_engine_grid as render_phase2_engines,  # noqa: F401  re export
     render_llm_memo as render_phase4_llm,  # noqa: F401  re export
 )
 from app.pages._research_financials import (
