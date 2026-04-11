@@ -20,16 +20,21 @@ from terminal.utils.watchlist_io import WatchlistStore  # noqa: F401  imported f
 
 
 # Display label, fetch symbol, route ("index" / "stock" / "vix" / "macro").
+# Target is 11 items with no gaps. If any one of these fails, it is
+# dropped from the tape silently; the CSS marquee still animates on
+# whatever items did fetch so the tape never reads as sparse.
 TAPE_TICKERS: list[tuple[str, str, str]] = [
     ("SPY",     "SPY",      "index"),
     ("QQQ",     "QQQ",      "index"),
-    ("AAPL",    "AAPL",     "stock"),
     ("DJI",     "^DJI",     "index"),
-    ("VIX",     "VIXCLS",   "vix"),
+    ("AAPL",    "AAPL",     "stock"),
+    ("MSFT",    "MSFT",     "stock"),
+    ("NVDA",    "NVDA",     "stock"),
     ("EURUSD",  "EURUSD=X", "index"),
     ("BTCUSD",  "BTC-USD",  "index"),
     ("CL",      "CL=F",     "index"),
     ("GLD",     "GLD",      "index"),
+    ("VIX",     "VIXCLS",   "vix"),
 ]
 
 
@@ -42,11 +47,17 @@ def build_tape_items(
     items: list[dict[str, Any]] = []
     for label, symbol, route in TAPE_TICKERS:
         if route == "vix":
-            items.append(_vix_item(data_manager, config, cache))
+            item = _vix_item(data_manager, config, cache)
         elif route == "stock":
-            items.append(_stock_item(data_manager, cache, symbol, label))
+            item = _stock_item(data_manager, cache, symbol, label)
         else:
-            items.append(_index_item(data_manager, cache, symbol, label))
+            item = _index_item(data_manager, cache, symbol, label)
+        # Skip entries that have no price and no fallback. The marquee
+        # reads better with 9 live items than with 11 where two are
+        # visible as "n/a" holes.
+        if item.get("price") == "n/a" or item.get("price") is None:
+            continue
+        items.append(item)
     return items
 
 

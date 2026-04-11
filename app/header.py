@@ -20,6 +20,7 @@ import streamlit.components.v1 as components
 
 from style_inject import TOKENS  # noqa: F401  used by other helpers
 
+from app.header_status import render_status_bar
 from app.header_tape import build_tape_items
 from terminal.managers.data_manager import SharedDataManager
 from terminal.utils.error_handling import dev_mode_banner
@@ -52,6 +53,11 @@ def render(
     # Row 2: custom HTML/JS scrolling marquee (CSS animation, no rerun).
     items = build_tape_items(data_manager, watchlist, config, _cache(config))
     components.html(build_marquee_html(items), height=36)
+
+    # Row 3: one-line status strip. Market status, NY clock, UTC clock,
+    # data freshness tag. Fills the gap between the tape and the first
+    # page section so there is no dead vertical zone.
+    render_status_bar(data_manager)
 
 
 def _render_ticker_input(col) -> None:

@@ -91,19 +91,47 @@ def load_deals(project_root: Path | None, allow_synthetic: bool) -> tuple[pd.Dat
 _DISPLAY_COLS = ["year", "target", "acquirer", "sector", "deal_type", "ev_usd", "ev_ebitda"]
 
 
+def _sector_matches(deal_sector: str, requested: str) -> bool:
+    """Strict sector match with tolerance for common trailing words.
+
+    FMP reports "Consumer Cyclical" where the ma-database calls it
+    "Consumer". To avoid cross-sector leakage (TSLA showing Energy
+    and Healthcare deals), the match must be either an exact equal
+    after lowercase+strip OR the tokens of one side must be a strict
+    subset of the other's tokens. No substring-anywhere match, no
+    fuzzy fallback.
+    """
+    if not deal_sector or not requested:
+        return False
+    a = str(deal_sector).strip().lower()
+    b = str(requested).strip().lower()
+    if a == b:
+        return True
+    a_tokens = set(a.replace("&", "and").split())
+    b_tokens = set(b.replace("&", "and").split())
+    if not a_tokens or not b_tokens:
+        return False
+    return a_tokens.issubset(b_tokens) or b_tokens.issubset(a_tokens)
+
+
 def query_sector_comps(deals: pd.DataFrame, sector: str, max_rows: int = 10) -> pd.DataFrame:
     """Return the most recent deals in the given sector, sorted by year.
 
     Only the small projection of columns the terminal UI actually
     renders is returned, so the page stays focused (year, target,
     acquirer, sector, deal_type, EV $, EV/EBITDA).
+
+    If ``sector`` is provided and no deals match, the result is empty
+    so the UI can show an explicit "no deals in sector X" state.
+    Prior to v4 the adapter silently fell back to the full deal list,
+    which leaked deals from other sectors into the comps table and
+    masked the real data gap.
     """
     if deals.empty:
         return deals
     if sector:
-        filtered = deals[deals["sector"].str.lower() == sector.lower()]
-        if filtered.empty:
-            filtered = deals
+        mask = deals["sector"].apply(lambda s: _sector_matches(s, sector))
+        filtered = deals[mask]
     else:
         filtered = deals
     filtered = filtered.sort_values("year", ascending=False).head(max_rows).reset_index(drop=True)

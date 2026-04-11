@@ -8,14 +8,9 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-from style_inject import TOKENS
-
 from app.pages._research_engine_renderers import (
-    render_factor_engine,
-    render_lbo_engine,
+    render_engine_grid as render_phase2_engines,  # noqa: F401  re export
     render_llm_memo as render_phase4_llm,  # noqa: F401  re export
-    render_pe_engine,
-    render_tsmom_engine,
 )
 from app.pages._research_financials import (
     render_52w_range_bar,
@@ -23,11 +18,10 @@ from app.pages._research_financials import (
 )
 from app.pages._research_visuals import (
     render_phase3_recommendation as render_phase3_recommendation,  # noqa: F401  re export
-    render_score_stacked_bar as _render_score_stacked_bar,  # noqa: F401
 )
 from terminal.utils.chart_helpers import line_chart
-from terminal.utils.density import dense_kpi_row, dense_kpi_rows, period_returns_tape, section_bar, signed_color
-from terminal.utils.error_handling import inline_status_line, is_error, status_pill
+from terminal.utils.density import dense_kpi_rows, period_returns_tape, section_bar, signed_color
+from terminal.utils.error_handling import inline_status_line, is_error
 from terminal.utils.formatting import fmt_money, fmt_pct, fmt_ratio, fmt_ratio_with_note
 from terminal.utils.skeletons import chart_skeleton
 from terminal.utils.tv_chart import build_tv_chart_html
@@ -143,24 +137,5 @@ def render_phase1_stats(packet: dict[str, Any]) -> None:
     render_financials_table(fundamentals)
 
 
-def render_phase2_engines(packet: dict[str, Any]) -> None:
-    st.markdown(section_bar("ENGINE RESULTS", source="FMP"), unsafe_allow_html=True)
-    engines = packet.get("engines") or {}
-    tabs = st.tabs(["PE SCORING", "FACTOR EXPOSURE", "TSMOM SIGNAL", "LBO SNAPSHOT"])
-    renderers = [
-        ("pe_scoring", render_pe_engine),
-        ("factor_exposure", render_factor_engine),
-        ("tsmom", render_tsmom_engine),
-        ("lbo", render_lbo_engine),
-    ]
-    for tab, (key, renderer) in zip(tabs, renderers):
-        with tab:
-            engine = engines.get(key, {})
-            status = engine.get("status", "missing")
-            st.markdown(status_pill(key.upper(), status), unsafe_allow_html=True)
-            if engine.get("status") != "success":
-                st.markdown(inline_status_line("OFF", source="FMP"), unsafe_allow_html=True)
-                continue
-            renderer(engine)
 
 

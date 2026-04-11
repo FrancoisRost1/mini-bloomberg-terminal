@@ -38,6 +38,10 @@ def render_valuation_card(fundamentals, config) -> None:
 
 
 def render_pe_score(ratios, config) -> None:
+    """PE Screener composite. KPI strip on top, then chart on the left
+    and per-metric table on the right so the user can compare the
+    scoring bands against the per-metric scores at a glance.
+    """
     st.markdown(section_bar("PE TARGET SCREENER SCORE"), unsafe_allow_html=True)
     result = score_single_ticker(ratios, config["comps"]["pe_scoring_bands"])
     score = result["pe_score"]
@@ -63,23 +67,27 @@ def render_pe_score(ratios, config) -> None:
             "delta_color": signed_color(v - 50) if v == v else None,
         })
     st.markdown(dense_kpi_row(items, min_cell_px=118), unsafe_allow_html=True)
-    render_pe_metric_bars(ratios, config["comps"]["pe_scoring_bands"])
-    per_metric = {k: v for k, v in result["per_metric_scores"].items() if v == v}
-    if per_metric:
-        df = pd.DataFrame(
-            [(k.replace("_", " ").title(), round(v - 50, 1)) for k, v in per_metric.items()],
-            columns=["Metric", "Score (vs 50)"],
+
+    chart_col, table_col = st.columns([1, 1])
+    with chart_col:
+        render_pe_metric_bars(ratios, config["comps"]["pe_scoring_bands"])
+    with table_col:
+        per_metric = {k: v for k, v in result["per_metric_scores"].items() if v == v}
+        if per_metric:
+            df = pd.DataFrame(
+                [(k.replace("_", " ").title(), round(v - 50, 1)) for k, v in per_metric.items()],
+                columns=["Metric", "Score (vs 50)"],
+            )
+            styler = colored_dataframe(df, ["Score (vs 50)"]).format({"Score (vs 50)": "{:.1f}"})
+            st.dataframe(styler, use_container_width=True, hide_index=True)
+        styled_card(
+            interpretation_callout_html(
+                observation=f"{len(result.get('red_flags', []))} red flag(s) detected.",
+                interpretation="Score blends EBITDA margin, FCF conversion, leverage, ROE, and valuation bands.",
+                implication="Use this as a screening signal, not a buy sell trigger.",
+            ),
+            accent_color=color,
         )
-        styler = colored_dataframe(df, ["Score (vs 50)"]).format({"Score (vs 50)": "{:.1f}"})
-        st.dataframe(styler, use_container_width=True, hide_index=True)
-    styled_card(
-        interpretation_callout_html(
-            observation=f"{len(result.get('red_flags', []))} red flag(s) detected.",
-            interpretation="Score blends EBITDA margin, FCF conversion, leverage, ROE, and valuation bands.",
-            implication="Use this as a screening signal, not a buy sell trigger.",
-        ),
-        accent_color=color,
-    )
 
 
 def render_ma_comps(sector, config) -> None:
@@ -100,7 +108,12 @@ def render_ma_comps(sector, config) -> None:
         st.markdown(status_pill("SYNTHETIC DEMO DATA. NOT REAL DEALS", "failed"), unsafe_allow_html=True)
     table = comps["comps_table"]
     if table.empty:
-        st.caption(f"No M&A deals in database for sector '{sector}'.")
+        st.caption(
+            f"No M&A deals in sector {sector!r}. "
+            "Cross-sector deals are intentionally not shown; the M&A comps "
+            "pane only lists transactions whose sector label matches the "
+            "active ticker."
+        )
         return
     display = table.copy()
     if "ev_usd" in display.columns:

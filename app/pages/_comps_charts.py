@@ -125,24 +125,48 @@ def render_ev_growth_scatter(
     median_x = float(pd.Series(xs).median())
     median_y = float(pd.Series(ys).median())
 
+    # Outlier handling. A single extreme EV/EBITDA (TSLA at 110x, early
+    # cycle growth story at 85x) flattens every peer into an invisible
+    # cluster at the bottom of the chart. Cap the axis at 3x the peer
+    # median (clamped to a minimum of 25x so normal sectors aren't
+    # over-compressed) and draw outliers at the cap with an "off
+    # scale" annotation on the marker itself.
+    axis_cap = max(25.0, median_y * 3.0)
+    plotted_ys: list[float] = []
+    off_scale_flags: list[bool] = []
+    annotations: list[str] = []
+    for raw_y, lbl in zip(ys, labels):
+        if raw_y > axis_cap:
+            plotted_ys.append(axis_cap)
+            off_scale_flags.append(True)
+            annotations.append(f"{lbl} ↑ off scale at {raw_y:.1f}x")
+        else:
+            plotted_ys.append(raw_y)
+            off_scale_flags.append(False)
+            annotations.append(lbl)
+
     fig = go.Figure()
     colors: list[str] = []
     sizes: list[int] = []
-    for lbl in labels:
+    symbols: list[str] = []
+    for lbl, off in zip(labels, off_scale_flags):
         if lbl.upper() == ticker.upper():
             colors.append(TOKENS["accent_primary"])
             sizes.append(20)
         else:
             colors.append(TOKENS["accent_info"])
             sizes.append(13)
+        symbols.append("triangle-up" if off else "circle")
     fig.add_trace(go.Scatter(
-        x=xs, y=ys, mode="markers+text",
-        marker={"color": colors, "size": sizes, "line": {"color": "#080808", "width": 1}},
-        text=labels, textposition="top center",
+        x=xs, y=plotted_ys, mode="markers+text",
+        marker={"color": colors, "size": sizes, "symbol": symbols,
+                "line": {"color": "#080808", "width": 1}},
+        text=annotations, textposition="top center",
         textfont={"family": "JetBrains Mono, monospace", "size": 11,
                   "color": TOKENS["text_primary"]},
         hovertemplate="<b>%{text}</b><br>Growth %{x:.1f}%<br>EV/EBITDA %{y:.1f}x<extra></extra>",
         name="peers",
+        cliponaxis=False,
     ))
     fig.add_vline(
         x=median_x,
@@ -157,9 +181,11 @@ def render_ev_growth_scatter(
         annotation_position="top left",
     )
     fig.update_xaxes(title_text="Revenue growth (%)", ticksuffix="%")
-    fig.update_yaxes(title_text="EV / EBITDA")
+    fig.update_yaxes(title_text="EV / EBITDA", range=[0, axis_cap * 1.1])
+    off_count = sum(off_scale_flags)
+    title_suffix = f" | {off_count} off-scale at {axis_cap:.0f}x cap" if off_count else ""
     fig.update_layout(
-        title={"text": f"Valuation vs Growth. {len(labels)} sector peers, dashed lines = peer median"},
+        title={"text": f"Valuation vs Growth. {len(labels)} sector peers, dashed = median{title_suffix}"},
         height=SECONDARY_HEIGHT, showlegend=False,
     )
     apply_plotly_theme(fig)

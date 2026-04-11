@@ -46,7 +46,7 @@ def render_iv_smile_moneyness(chain_df: pd.DataFrame, spot: float, tau: float, r
                   annotation_text="ATM", annotation_position="top")
     fig.update_xaxes(title_text="Moneyness K/S - 1 (%)", ticksuffix="%")
     fig.update_yaxes(title_text="Implied volatility (%)", ticksuffix="%")
-    fig.update_layout(title={"text": "IV Smile. selected expiry"}, height=300,
+    fig.update_layout(title={"text": "IV Smile. selected expiry"}, height=260,
                       legend={"orientation": "h", "y": 1.1, "x": 0})
     apply_plotly_theme(fig)
     st.plotly_chart(fig, use_container_width=True)

@@ -75,13 +75,44 @@ def render_efficient_frontier(returns: pd.DataFrame, weights: dict[str, dict[str
     fig.update_xaxes(title_text="Annualized volatility (%)", ticksuffix="%")
     fig.update_yaxes(title_text="Annualized return (%)", ticksuffix="%")
     fig.update_layout(title={"text": "Efficient Frontier. random long only sketch + chosen portfolios"},
-                      height=320, showlegend=False)
+                      height=280, showlegend=False)
+    apply_plotly_theme(fig)
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def render_allocation_donut(weight_map: dict[str, float], method: str) -> None:
+    """Single compact donut for one optimizer method.
+
+    Meant to be called inline next to the weight table in the method
+    pane so there is no dedicated full-width ALLOCATIONS row eating
+    vertical space.
+    """
+    wmap = {k: float(v) for k, v in weight_map.items() if v and v > 1e-4}
+    if not wmap:
+        st.caption(f"{method.upper()} | empty allocation")
+        return
+    labels = list(wmap.keys())
+    values = list(wmap.values())
+    fig = go.Figure(go.Pie(
+        labels=labels, values=values, hole=0.65, sort=False,
+        textinfo="label+percent",
+        textfont={"family": "JetBrains Mono, monospace", "size": 9},
+        marker={"line": {"color": "#080808", "width": 1}},
+    ))
+    fig.update_layout(
+        title={"text": method.upper().replace("_", " ")},
+        height=220, width=220, showlegend=False,
+        margin={"l": 2, "r": 2, "t": 26, "b": 2},
+    )
     apply_plotly_theme(fig)
     st.plotly_chart(fig, use_container_width=True)
 
 
 def render_allocation_donuts(weights: dict[str, dict[str, float]]) -> None:
-    """Side by side donut charts, one per optimizer method."""
+    """Kept for backward compat. The inline layout is preferred but
+    the full row variant is still used when the page wants one wide
+    donut row instead of per-pane donuts.
+    """
     st.markdown(section_bar("ALLOCATIONS"), unsafe_allow_html=True)
     if not weights:
         st.caption("DATA OFF | no weights produced")
@@ -89,22 +120,5 @@ def render_allocation_donuts(weights: dict[str, dict[str, float]]) -> None:
     method_keys = list(weights.keys())
     cols = st.columns(max(1, len(method_keys)))
     for col, method in zip(cols, method_keys):
-        wmap = {k: float(v) for k, v in weights[method].items() if v and v > 1e-4}
-        if not wmap:
-            with col:
-                st.caption(f"{method.upper()} | empty allocation")
-            continue
-        labels = list(wmap.keys())
-        values = list(wmap.values())
-        fig = go.Figure(go.Pie(
-            labels=labels, values=values, hole=0.65, sort=False,
-            textinfo="label+percent",
-            textfont={"family": "JetBrains Mono, monospace", "size": 9},
-            marker={"line": {"color": "#080808", "width": 1}},
-        ))
-        fig.update_layout(title={"text": method.upper().replace("_", " ")},
-                          height=260, showlegend=False,
-                          margin={"l": 4, "r": 4, "t": 32, "b": 4})
-        apply_plotly_theme(fig)
         with col:
-            st.plotly_chart(fig, use_container_width=True)
+            render_allocation_donut(weights[method], method)

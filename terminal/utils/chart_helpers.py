@@ -25,8 +25,8 @@ import plotly.graph_objects as go
 from style_inject import TOKENS, apply_plotly_theme
 
 
-MAIN_HEIGHT = 340
-SECONDARY_HEIGHT = 260
+MAIN_HEIGHT = 280
+SECONDARY_HEIGHT = 240
 
 
 def line_chart(

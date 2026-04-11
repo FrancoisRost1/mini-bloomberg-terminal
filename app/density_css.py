@@ -42,9 +42,22 @@ section[data-testid="stMain"] a[data-testid="stPageLink-NavLink"] {{
 .stApp {{ background-color: #080808 !important; }}
 
 /* Vertical block stacking: collapse all default gaps */
-[data-testid="stVerticalBlock"] {{ gap: 0.12rem !important; }}
-[data-testid="stHorizontalBlock"] {{ gap: 0.25rem !important; }}
+[data-testid="stVerticalBlock"] {{ gap: 0.08rem !important; }}
+[data-testid="stHorizontalBlock"] {{ gap: 0.2rem !important; }}
 [data-testid="element-container"] {{ margin-bottom: 0 !important; }}
+
+/* Any block wrapped in a .stMarkdown with trailing margin gets zeroed.
+   Section bars and inline HTML strips must not produce whitespace below. */
+.stMarkdown {{ margin-bottom: 0 !important; }}
+.stMarkdown > div:last-child {{ margin-bottom: 0 !important; }}
+/* Explicit element containers on plotly, dataframe, expander must all
+   collapse to zero trailing gap. Bloomberg target: content touches
+   content with a 2-4px breathing row. */
+div[data-testid="element-container"]:has(.stPlotlyChart),
+div[data-testid="element-container"]:has(.stDataFrame),
+div[data-testid="element-container"]:has([data-testid="stExpander"]) {{
+    margin-top: 0 !important; margin-bottom: 0.05rem !important;
+}}
 
 /* Section dividers */
 hr {{ margin: 0.18rem 0 !important; border-color: {TOKENS["border_subtle"]} !important; }}

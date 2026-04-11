@@ -25,6 +25,8 @@ from ..config_loader import config_hash
 from ..data.cache import DiskCache
 from ..data.provider_registry import ProviderRegistry
 from ..data.schemas import Fundamentals, MacroData, OptionsChain, PriceData, ProviderError
+from ..utils.last_good_cache import LastGoodCache
+from ._macro_fallback import backfill_from_last_good, persist_last_good
 
 
 class SharedDataManager:
@@ -33,9 +35,17 @@ class SharedDataManager:
     def __init__(self, config: dict[str, Any]):
         self.cfg = config
         self.registry = ProviderRegistry(config)
-        cache_dir = Path(config["_meta"]["project_root"]) / "data" / "cache"
+        project_root = Path(config["_meta"]["project_root"])
+        cache_dir = project_root / "data" / "cache"
         self.cache = DiskCache(cache_dir, config_hash(config))
         self.ttls = config["data"]["cache_ttl"]
+        # Tiny cross-session JSON cache for the last successful FRED
+        # observation per series. When FRED returns empty (rate limit,
+        # network blip, API key glitch) we serve the stored value so
+        # the page never collapses to n/a. MacroData.stale records
+        # which ids were served from the fallback so the UI can
+        # annotate them with a STALE marker.
+        self._macro_last_good = LastGoodCache(project_root / "data" / "macro_last_good.json")
 
     def get_stock_prices(self, ticker: str, period: str = "1y") -> PriceData | ProviderError:
         return self._fetch_prices("stock", self.registry.single_stock_provider(), ticker, period)
@@ -85,6 +95,8 @@ class SharedDataManager:
             data = self.registry.macro().get_macro(series)
         except Exception as exc:
             return ProviderError("fred", "-", "macro", str(exc))
+        persist_last_good(self._macro_last_good, data, series)
+        backfill_from_last_good(self._macro_last_good, data, series)
         self.cache.set("macro", key, data, float(self.ttls["macro"]))
         return data
 

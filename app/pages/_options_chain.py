@@ -165,6 +165,6 @@ def render_payoff_with_lines(spot: float, strike: float, premium: float, opt_typ
                   annotation_text=f"BE {breakeven:,.2f}", annotation_position="bottom")
     fig.update_xaxes(title_text="Spot at expiry ($)")
     fig.update_yaxes(title_text="P&L ($)")
-    fig.update_layout(title={"text": f"Expiration Payoff. {opt_type.upper()} K {strike:,.2f}"}, height=300)
+    fig.update_layout(title={"text": f"Expiration Payoff. {opt_type.upper()} K {strike:,.2f}"}, height=260)
     apply_plotly_theme(fig)
     st.plotly_chart(fig, use_container_width=True)

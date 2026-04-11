@@ -69,12 +69,20 @@ class MacroData:
     series: dict[str, pd.Series]
     provider: str
     as_of: datetime
+    # Series ids that were back-filled from LastGoodCache instead of
+    # arriving from the live provider on this fetch. The UI annotates
+    # these with a STALE marker so it is always clear which numbers
+    # are fresh and which are falling through from a cached snapshot.
+    stale: set[str] = field(default_factory=set)
 
     def latest(self, series_id: str) -> float:
         s = self.series.get(series_id)
         if s is None or s.empty:
             return float("nan")
         return float(s.dropna().iloc[-1])
+
+    def is_stale(self, series_id: str) -> bool:
+        return series_id in (self.stale or set())
 
 
 @dataclass

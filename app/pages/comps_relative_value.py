@@ -46,28 +46,33 @@ def render() -> None:
     ratios = fundamentals.key_ratios if fund_ok else {}
     sector = fundamentals.sector if fund_ok else ""
 
-    tab_peers, tab_val, tab_hist, tab_pe, tab_ma = st.tabs(
-        ["PEER FUNDAMENTALS", "VALUATION METRICS", "HISTORICAL RANGE", "PE SCORE", "M&A COMPS"]
-    )
-    with tab_peers:
-        render_peer_fundamentals(data_manager, ticker, sector)
-    with tab_val:
+    # Row 1: peer fundamentals table (full width) with sector median.
+    render_peer_fundamentals(data_manager, ticker, sector)
+
+    # Row 2: valuation scatter (left) | historical range (right).
+    row2_l, row2_r = st.columns([1, 1])
+    with row2_l:
         if fund_ok:
             render_valuation_card(fundamentals, config)
             render_ev_growth_scatter(ticker, data_manager=data_manager, sector=sector)
         else:
             st.markdown(inline_status_line("OFF", source="FMP"), unsafe_allow_html=True)
-    with tab_hist:
+    with row2_r:
         prices = data_manager.get_stock_prices(ticker, period="5y")
         close = prices.prices["close"] if not is_error(prices) and not prices.is_empty() else pd.Series(dtype=float)
         render_historical_valuation(fundamentals if fund_ok else None, close, ratios.get("ev_ebitda"))
-    with tab_pe:
-        if fund_ok:
-            render_pe_score(ratios, config)
-        else:
-            st.markdown(inline_status_line("OFF", source="FMP"), unsafe_allow_html=True)
-    with tab_ma:
-        render_ma_comps(sector or "Technology", config)
+
+    # Row 3: PE score bands + PE table live in render_pe_score already
+    # (the chart + the per-metric table both render there). Place the
+    # full PE score block in its own row so the chart and table stay
+    # side by side without fighting row 2 for width.
+    if fund_ok:
+        render_pe_score(ratios, config)
+    else:
+        st.markdown(inline_status_line("OFF", source="FMP"), unsafe_allow_html=True)
+
+    # Row 4: M&A comps table (full width).
+    render_ma_comps(sector or "Technology", config)
 
 
 render()

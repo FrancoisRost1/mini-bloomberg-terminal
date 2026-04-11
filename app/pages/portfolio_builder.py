@@ -14,7 +14,7 @@ import streamlit as st  # noqa: E402
 
 from style_inject import styled_header  # noqa: E402
 
-from app.pages._portfolio_alloc import render_allocation_donuts, render_efficient_frontier  # noqa: E402
+from app.pages._portfolio_alloc import render_allocation_donut, render_efficient_frontier  # noqa: E402
 from app.pages._portfolio_helpers import (  # noqa: E402
     render_backtest_chart,
     render_correlation_heatmap,
@@ -23,7 +23,7 @@ from app.pages._portfolio_helpers import (  # noqa: E402
 )
 from terminal.adapters.optimizer_adapter import run_optimizer  # noqa: E402
 from terminal.utils.density import dense_kpi_row, section_bar, signed_color  # noqa: E402
-from terminal.utils.error_handling import degraded_card, is_error, status_pill  # noqa: E402
+from terminal.utils.error_handling import is_error  # noqa: E402
 from terminal.utils.formatting import fmt_pct, fmt_ratio  # noqa: E402
 from terminal.utils.skeletons import chart_skeleton, kpi_skeleton  # noqa: E402
 
@@ -31,9 +31,9 @@ from terminal.utils.skeletons import chart_skeleton, kpi_skeleton  # noqa: E402
 def render() -> None:
     config = st.session_state["_config"]
     data_manager = st.session_state["_data_manager"]
-    styled_header("Portfolio Builder", "MV and HRP | Concentration | Robustness deferred to v2")
-    st.sidebar.markdown("### Portfolio limitations")
-    st.sidebar.caption("v1 implements MV and HRP only. Ledoit Wolf covariance by default. Phase 3 deferred.")
+    styled_header("Portfolio Builder", "MV and HRP | Concentration | Risk decomposition")
+    st.sidebar.markdown("### Portfolio")
+    st.sidebar.caption("MV and HRP optimizers with Ledoit Wolf covariance. Backtest is no-rebalance, no-TC.")
 
     tickers = _ticker_input(config)
     if len(tickers) < int(config["portfolio"]["optimizer"]["min_assets"]):
@@ -66,8 +66,6 @@ def render() -> None:
         with row1_r:
             _render_method_pane(methods[1], weights[methods[1]], returns)
 
-    render_allocation_donuts(weights)
-
     row2_l, row2_r = st.columns([1, 1])
     with row2_l:
         _render_concentration(weights)
@@ -81,7 +79,6 @@ def render() -> None:
         render_risk_contributions(returns, weights, cov)
     with row3_r:
         render_correlation_heatmap(returns)
-    _render_validate_pane()
 
 
 def _ticker_input(config) -> list[str]:
@@ -131,8 +128,15 @@ def _render_method_pane(method: str, w: dict[str, float], returns: pd.DataFrame)
     rows = [{"Asset": a, "Weight": f"{wt * 100:.1f}%",
              "60D Trend": (1 + returns[a]).cumprod().tail(60).tolist() if a in returns.columns else []}
             for a, wt in sorted(w.items(), key=lambda kv: -kv[1])]
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True,
-                 column_config={"60D Trend": st.column_config.LineChartColumn("60D", width="small")})
+    # Inline layout: weight table on the left, compact donut on the
+    # right. Previously the donut lived in its own full-width row,
+    # which ate ~260px of vertical space. This wastes nothing.
+    table_col, donut_col = st.columns([3, 2])
+    with table_col:
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True,
+                     column_config={"60D Trend": st.column_config.LineChartColumn("60D", width="small")})
+    with donut_col:
+        render_allocation_donut(w, method)
 
 
 def _render_concentration(weights: dict[str, dict[str, float]]) -> None:
@@ -145,12 +149,6 @@ def _render_concentration(weights: dict[str, dict[str, float]]) -> None:
         items.append({"label": f"{method.upper()} EFF N", "value": f"{eff_n:.1f}"})
         items.append({"label": f"{method.upper()} TOP", "value": fmt_pct(max(w.values()) if w else 0)})
     st.markdown(dense_kpi_row(items, min_cell_px=120), unsafe_allow_html=True)
-
-
-def _render_validate_pane() -> None:
-    st.markdown(section_bar("PHASE 3. VALIDATE"), unsafe_allow_html=True)
-    st.markdown(status_pill("DEFERRED TO v2", "missing"), unsafe_allow_html=True)
-    st.caption("Robustness needs a real CSCV parameter grid. Adapter stays standalone for v2.")
 
 
 render()

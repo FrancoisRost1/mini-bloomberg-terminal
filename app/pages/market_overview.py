@@ -88,7 +88,15 @@ def _render_macro_snapshot(data_manager, config) -> None:
     if not is_error(macro):
         for key, label in [(vix_id, "VIX"), (hy_id, "HY OAS"), ("FEDFUNDS", "FED FUNDS")]:
             v = macro.latest(key)
-            items.append({"label": label, "value": f"{v:.2f}" if v == v else "n/a"})
+            stale = macro.is_stale(key) if hasattr(macro, "is_stale") else False
+            if v == v:
+                value = f"{v:.2f}"
+                item = {"label": label, "value": value}
+                if stale:
+                    item["delta"] = "STALE"
+                items.append(item)
+            else:
+                items.append({"label": label, "value": "n/a"})
     for ticker, label in [("UUP", "DXY")]:
         data = data_manager.get_index_prices(ticker, period="1mo")
         if is_error(data) or data.is_empty():

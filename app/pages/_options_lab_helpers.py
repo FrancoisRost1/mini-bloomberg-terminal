@@ -56,7 +56,7 @@ def render_scenario(greeks: dict[str, float], spot: float, price: float) -> None
             title="Greeks Scenario (7d fwd)",
             y_unit="P&L ($)", x_unit="Spot ($)",
         )
-        fig.update_layout(height=240, margin={"l": 36, "r": 10, "t": 28, "b": 28})
+        fig.update_layout(height=260, margin={"l": 36, "r": 10, "t": 28, "b": 28})
         st.plotly_chart(fig, use_container_width=True)
     with table_col:
         pct_levels = [-0.2, -0.1, -0.05, 0.0, 0.05, 0.1, 0.2]

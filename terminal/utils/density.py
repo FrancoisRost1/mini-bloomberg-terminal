@@ -131,8 +131,8 @@ def section_bar(label: str, tape: str = "", source: str = "") -> str:
     return (
         f'<div style="color:{accent};font-family:{TOKENS["font_mono"]};'
         f'font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.14em;'
-        f'border-bottom:2px solid {accent};padding:0.18rem 0 0.08rem 0;'
-        f'margin:0.2rem 0 0.18rem 0;text-shadow:0 0 1px rgba(255,138,42,0.25);">{label}{right}</div>'
+        f'border-bottom:2px solid {accent};padding:0.12rem 0 0.05rem 0;'
+        f'margin:0.08rem 0 0.1rem 0;text-shadow:0 0 1px rgba(255,138,42,0.25);">{label}{right}</div>'
     )
 
 

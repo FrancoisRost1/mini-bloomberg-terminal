@@ -129,7 +129,7 @@ def _render_combined_chart(grid: np.ndarray, pnl: np.ndarray, spot: float, legs:
     legs_label = ", ".join(f"{leg['qty']:+d} {leg['type'].upper()} {leg['strike']:,.0f}" for leg in legs)
     fig.update_xaxes(title_text="Spot at expiry ($)")
     fig.update_yaxes(title_text="P&L ($)")
-    fig.update_layout(title={"text": f"{preset}. {legs_label}"}, height=320)
+    fig.update_layout(title={"text": f"{preset}. {legs_label}"}, height=280)
     apply_plotly_theme(fig)
     st.plotly_chart(fig, use_container_width=True)
 
