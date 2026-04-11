@@ -84,26 +84,27 @@ def render_regime(data_manager, config) -> None:
             if _is_num(sigs["hy_spread"]) else 0.0
         ),
     }
-    chart_col, table_col = st.columns([2, 3])
-    with chart_col:
-        st.plotly_chart(
-            bar_chart(
-                raw_signals_pct,
-                title="Regime Signal Decomposition (raw vs stress thresholds)",
-                y_unit="% deviation",
-                color_by_sign=True,
-            ),
-            use_container_width=True,
-        )
-    with table_col:
-        rows = [
-            ("TREND",    f"{sigs['trend_return_pct'] * 100:+.2f}%" if _is_num(sigs["trend_return_pct"]) else "n/a", regime["scores"]["trend"]),
-            ("VOL",      f"{sigs['annualized_vol'] * 100:.2f}%"    if _is_num(sigs["annualized_vol"])    else "n/a", regime["scores"]["vol_stress"]),
-            ("DRAWDOWN", f"{sigs['drawdown_pct'] * 100:+.2f}%"     if _is_num(sigs["drawdown_pct"])      else "n/a", regime["scores"]["drawdown"]),
-            ("CREDIT",   f"{sigs['hy_spread']:.2f}%"               if _is_num(sigs["hy_spread"])         else "n/a", regime["scores"]["credit"]),
-        ]
-        scores_df = pd.DataFrame(rows, columns=["Signal", "Raw", "Score"])
-        st.dataframe(colored_dataframe(scores_df, ["Score"]), use_container_width=True, hide_index=True)
+    # Single vertical flow (no nested columns). Placing the chart +
+    # table + callout + calendar all in one column context guarantees
+    # they stay inside the parent row1_r column, so there is no
+    # dead space created by a nested columns block closing early.
+    st.plotly_chart(
+        bar_chart(
+            raw_signals_pct,
+            title="Regime Signal Decomposition (raw vs stress thresholds)",
+            y_unit="% deviation",
+            color_by_sign=True,
+        ),
+        use_container_width=True,
+    )
+    rows = [
+        ("TREND",    f"{sigs['trend_return_pct'] * 100:+.2f}%" if _is_num(sigs["trend_return_pct"]) else "n/a", regime["scores"]["trend"]),
+        ("VOL",      f"{sigs['annualized_vol'] * 100:.2f}%"    if _is_num(sigs["annualized_vol"])    else "n/a", regime["scores"]["vol_stress"]),
+        ("DRAWDOWN", f"{sigs['drawdown_pct'] * 100:+.2f}%"     if _is_num(sigs["drawdown_pct"])      else "n/a", regime["scores"]["drawdown"]),
+        ("CREDIT",   f"{sigs['hy_spread']:.2f}%"               if _is_num(sigs["hy_spread"])         else "n/a", regime["scores"]["credit"]),
+    ]
+    scores_df = pd.DataFrame(rows, columns=["Signal", "Raw", "Score"])
+    st.dataframe(colored_dataframe(scores_df, ["Score"]), use_container_width=True, hide_index=True)
     hy_text = f"HY {sigs['hy_spread']:.2f}%" if _is_num(sigs["hy_spread"]) else "HY n/a"
     styled_card(
         interpretation_callout_html(
