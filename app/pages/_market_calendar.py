@@ -39,9 +39,9 @@ def render_event_calendar_strip() -> None:
     )
     st.markdown(
         f'<div style="font-family:{mono};font-size:0.64rem;font-weight:600;'
-        f'letter-spacing:0.06em;color:{TOKENS["text_secondary"]};'
+        f'letter-spacing:0.06em;color:{TOKENS["text_secondary"]};line-height:1.6;'
         f'background:#080808;border:1px solid {border};border-left:2px solid {accent};'
-        f'padding:0.22rem 0.5rem;margin:0.2rem 0 0.1rem 0;'
+        f'padding:0.35rem 0.55rem;margin:0.3rem 0 0.15rem 0;'
         f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
         f'<span style="color:{accent};font-weight:800;text-transform:uppercase;'
         f'letter-spacing:0.1em;margin-right:0.7rem;">CALENDAR</span>'

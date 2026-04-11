@@ -91,9 +91,14 @@ def render_52w_range_bar(close: pd.Series) -> None:
     border = TOKENS["border_default"]
     muted = TOKENS["text_muted"]
     text = TOKENS["text_primary"]
+    # Wrap the bar in a padded container so the top edge never
+    # touches the section_bar underline above it and the bottom
+    # never touches the financials table below.
     bar = (
+        f'<div style="padding:0.45rem 0.1rem 0.55rem 0.1rem;">'
         f'<div style="display:flex;align-items:center;gap:0.6rem;'
-        f'font-family:{TOKENS["font_mono"]};font-size:0.7rem;color:{text};margin:0.15rem 0;">'
+        f'font-family:{TOKENS["font_mono"]};font-size:0.7rem;color:{text};'
+        f'line-height:1.4;">'
         f'<span style="color:{muted};">52W LOW</span>'
         f'<span>{lo:,.2f}</span>'
         f'<div style="flex:1;position:relative;height:10px;background:{bg};'
@@ -107,6 +112,6 @@ def render_52w_range_bar(close: pd.Series) -> None:
         f'<span style="color:{muted};">52W HIGH</span>'
         f'<span style="color:{accent};font-weight:700;margin-left:0.6rem;">'
         f'LAST {last:,.2f} ({pct * 100:.0f}%)</span>'
-        f'</div>'
+        f'</div></div>'
     )
     st.markdown(bar, unsafe_allow_html=True)

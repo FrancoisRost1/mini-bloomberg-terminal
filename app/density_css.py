@@ -125,9 +125,13 @@ h3 {{ margin-top: 0.1rem !important; margin-bottom: 0.05rem !important; }}
     font-size: 0.6rem !important; margin-bottom: 0 !important;
 }}
 
-/* Sidebar: 160px, flat, always visible. No rounded pills, no background fills. */
+/* Sidebar: 190px, flat, always visible. Wider than 160 so section
+   group headers (MARKET, RESEARCH, ANALYTICS, PORTFOLIO) stop
+   clipping into "RESEA..." / "ANALY..." / "PORTF..." and there is
+   room for both the label and the expand indicator without
+   crowding. */
 section[data-testid="stSidebar"] {{
-    width: 160px !important; min-width: 160px !important; max-width: 160px !important;
+    width: 190px !important; min-width: 190px !important; max-width: 190px !important;
     background-color: #080808 !important;
     border-right: 1px solid rgba(255,255,255,0.06) !important;
     transform: none !important;
@@ -135,6 +139,30 @@ section[data-testid="stSidebar"] {{
 }}
 section[data-testid="stSidebar"] > div {{ padding-top: 0.3rem !important; background-color: #080808 !important; }}
 section[data-testid="stSidebar"] .block-container {{ padding: 0.25rem 0.3rem !important; }}
+
+/* Streamlit injects a Material Symbols icon ("expand_more") next to
+   each sidebar navigation section group header. Two defenses so the
+   raw icon name never leaks to the user:
+   1. Force the span to use the Material Symbols font (loaded via
+      the Google Fonts link at the top of inject_density).
+   2. Hide every icon container + expand button inside the sidebar
+      nav. The user cannot collapse nav groups anyway because we
+      have disabled the sidebar collapse button globally. */
+section[data-testid="stSidebarNav"] span.material-icons,
+section[data-testid="stSidebarNav"] span.material-symbols-outlined,
+section[data-testid="stSidebarNav"] span[data-testid="stIconMaterial"],
+section[data-testid="stSidebarNav"] i.material-icons,
+section[data-testid="stSidebarNav"] i.material-symbols-outlined,
+section[data-testid="stSidebarNav"] button[kind="headerNoPadding"],
+section[data-testid="stSidebarNav"] button[title*="expand" i] {{
+    font-size: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    display: none !important;
+}}
+section[data-testid="stSidebarNav"] span {{
+    font-family: {TOKENS["font_mono"]}, "Material Symbols Outlined", "Material Icons" !important;
+}}
 
 /* Kill the sidebar collapse / expand toggles. The sidebar is a
    fixed terminal style rail; the user never needs to hide it. */
@@ -241,5 +269,16 @@ h1 {{ margin-top: 0 !important; margin-bottom: 0.2rem !important; font-size: 1.1
 """
 
 
+_MATERIAL_FONT_LINK = (
+    '<link href="https://fonts.googleapis.com/css2?'
+    'family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&'
+    'family=Material+Icons" rel="stylesheet">'
+)
+
+
 def inject_density() -> None:
+    # Preload the Material Symbols font so Streamlit's sidebar nav
+    # collapse indicators render as an icon. Without this link the
+    # browser paints the raw icon name ("expand_more") as text.
+    st.markdown(_MATERIAL_FONT_LINK, unsafe_allow_html=True)
     st.markdown(DENSITY_CSS, unsafe_allow_html=True)

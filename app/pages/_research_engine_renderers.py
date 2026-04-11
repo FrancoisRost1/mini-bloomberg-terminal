@@ -33,9 +33,12 @@ def render_pe_engine(e: dict[str, Any]) -> None:
             "value": f"{v:.0f}" if v == v else "n/a",
             "value_color": signed_color(v - 50) if v == v else None,
         })
-    # Lives in a 50% column, so cap the row count. 10 items split
-    # into 3 rows reads comfortably at 130px min cell width.
-    st.markdown(dense_kpi_rows(items, rows=3, min_cell_px=130), unsafe_allow_html=True)
+    # Lives in a 50% column. 10 items in 3 rows forced the engine
+    # grid row-2 to start way below the tallest row-1 cell and
+    # created bleed between cells. 2 rows at 140px fits the column
+    # without clipping labels, and keeps both engine cells on row 1
+    # roughly the same height.
+    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=140), unsafe_allow_html=True)
     if e.get("red_flags"):
         st.caption("Flags: " + ", ".join(e["red_flags"]))
 

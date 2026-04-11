@@ -190,3 +190,28 @@ def render_ev_growth_scatter(
     )
     apply_plotly_theme(fig)
     st.plotly_chart(fig, use_container_width=True)
+
+    # Small inline readout so the bottom of the left column matches
+    # the depth of the historical range on the right and there is
+    # no empty band before the next row starts. Numbers are drawn
+    # from the same scatter data so the caption always reconciles.
+    above = [lbl for lbl, y in zip(labels, ys) if y > median_y]
+    below = [lbl for lbl, y in zip(labels, ys) if y <= median_y]
+    active_y = next((y for lbl, y in zip(labels, ys) if lbl.upper() == ticker.upper()), median_y)
+    direction = "rich" if active_y > median_y else "cheap"
+    mono = "JetBrains Mono, monospace"
+    st.markdown(
+        f'<div style="font-family:{mono};font-size:0.66rem;'
+        f'color:{TOKENS["text_secondary"]};line-height:1.55;'
+        f'padding:0.4rem 0.55rem;margin:0.15rem 0 0.1rem 0;'
+        f'border:1px solid {TOKENS["border_subtle"]};'
+        f'border-left:2px solid {TOKENS["accent_primary"]};">'
+        f'<span style="color:{TOKENS["accent_primary"]};font-weight:800;'
+        f'text-transform:uppercase;letter-spacing:0.08em;">READ</span>'
+        f'<span style="margin-left:0.6rem;">{ticker.upper()} trades at '
+        f'{active_y:.1f}x on {len(labels)} peers, {direction} vs the '
+        f'{median_y:.1f}x median. '
+        f'{len(above)} peer(s) above median, {len(below)} at or below.</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )

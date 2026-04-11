@@ -55,29 +55,34 @@ def dense_kpi_row(items: list[dict[str, Any]], min_cell_px: int = 130) -> str:
         value_color = item.get("value_color") or TOKENS["text_primary"]
         delta_html = (
             f'<div title="{delta}" style="color:{delta_color};font-family:{TOKENS["font_mono"]};'
-            f'font-size:0.6rem;font-weight:500;line-height:1;margin-top:0.08rem;'
+            f'font-size:0.6rem;font-weight:500;line-height:1.2;margin-top:0.12rem;'
             f'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{delta}</div>'
             if delta else ""
         )
+        # Explicit line-height 1.3 on the value + 0.4rem top/0.4rem
+        # bottom padding so long mono values ("$+1.63", "0.1156")
+        # are never shaved at the top or bottom edge by the cell
+        # container's overflow:hidden. Label line-height bumped from
+        # 1 to 1.2 for the same reason.
         cells.append(
             f'<div style="background:{TOKENS["bg_surface"]};'
             f'border:1px solid {TOKENS["border_subtle"]};'
             f'border-left:2px solid {TOKENS["accent_primary"]};'
-            f'border-radius:{TOKENS["radius_sm"]};padding:0.25rem 0.45rem;'
+            f'border-radius:{TOKENS["radius_sm"]};padding:0.4rem 0.5rem;'
             f'min-width:0;overflow:hidden;">'
             f'<div title="{label}" style="color:{TOKENS["text_muted"]};font-family:{TOKENS["font_body"]};'
-            f'font-size:0.52rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;'
-            f'line-height:1;margin-bottom:0.15rem;overflow:hidden;text-overflow:ellipsis;'
+            f'font-size:0.54rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;'
+            f'line-height:1.2;margin-bottom:0.22rem;overflow:hidden;text-overflow:ellipsis;'
             f'white-space:nowrap;">{label}</div>'
             f'<div title="{value}" style="color:{value_color};font-family:{TOKENS["font_mono"]};'
-            f'font-size:0.8rem;font-weight:600;line-height:1.05;'
+            f'font-size:0.8rem;font-weight:600;line-height:1.3;'
             f'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{value}</div>'
             f'{delta_html}</div>'
         )
     return (
         f'<div style="display:grid;'
         f'grid-template-columns:repeat(auto-fit,minmax({min_cell_px}px,1fr));'
-        f'gap:0.3rem;margin-bottom:0.4rem;align-items:stretch;">{"".join(cells)}</div>'
+        f'gap:0.35rem;margin-bottom:0.5rem;align-items:stretch;">{"".join(cells)}</div>'
     )
 
 
@@ -128,19 +133,17 @@ def section_bar(label: str, tape: str = "", source: str = "") -> str:
             f'font-weight:600;color:{TOKENS["text_secondary"]};">{tape}</span>'
         )
     right = (f'<span style="float:right;">{"".join(pieces)}</span>' if pieces else "")
-    # Explicit line-height and generous top padding keep the text
-    # off the top edge when the element container is clipped.
-    # Without the explicit line-height the default metrics of the
-    # mono font put the cap-height too close to the box top and
-    # the first letters of the label get shaved by overflow:hidden
-    # (which is still needed to keep the floated SRC badge from
-    # leaking into sibling containers).
+    # Generous vertical padding + explicit line-height so the
+    # header text never touches the top or bottom of the box
+    # regardless of which element container wraps it. The orange
+    # underline sits inside the box via padding-bottom so the
+    # label can breathe above it.
     return (
         f'<div style="color:{accent};font-family:{TOKENS["font_mono"]};'
-        f'font-size:0.72rem;line-height:1.35;font-weight:800;'
+        f'font-size:0.72rem;line-height:1.5;font-weight:800;'
         f'text-transform:uppercase;letter-spacing:0.14em;'
-        f'border-bottom:2px solid {accent};padding:0.35rem 0 0.18rem 0;'
-        f'margin:0.35rem 0 0.3rem 0;text-shadow:0 0 1px rgba(255,138,42,0.25);'
+        f'border-bottom:2px solid {accent};padding:0.55rem 0 0.25rem 0;'
+        f'margin:0.55rem 0 0.4rem 0;text-shadow:0 0 1px rgba(255,138,42,0.25);'
         f'overflow:hidden;">{label}{right}</div>'
     )
 

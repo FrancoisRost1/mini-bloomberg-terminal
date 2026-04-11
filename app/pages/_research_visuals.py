@@ -102,11 +102,14 @@ def render_score_stacked_bar(rec: dict[str, Any]) -> None:
     )
     fig.update_xaxes(title_text="Weighted score (0 to 100)", range=[0, 105])
     fig.update_yaxes(title_text="", showticklabels=False)
+    # Height bumped from 140 -> 180 and the legend is pushed well
+    # above the chart title so it never overlaps the KPI row
+    # rendered above the bar. Top margin grows accordingly.
     fig.update_layout(
-        title={"text": "Composite Score Decomposition"},
-        height=140, barmode="stack", showlegend=True,
-        legend={"orientation": "h", "y": 1.5, "x": 0},
-        margin={"l": 4, "r": 8, "t": 36, "b": 24},
+        title={"text": "Composite Score Decomposition", "y": 0.92},
+        height=180, barmode="stack", showlegend=True,
+        legend={"orientation": "h", "y": 1.35, "x": 0, "xanchor": "left"},
+        margin={"l": 8, "r": 12, "t": 72, "b": 32},
     )
     apply_plotly_theme(fig)
     st.plotly_chart(fig, use_container_width=True)
@@ -134,40 +137,48 @@ def render_memo_card(memo_result: dict[str, Any], rating: str, composite: float)
     bg_surface = TOKENS["bg_surface"]
     border_subtle = TOKENS["border_subtle"]
 
-    # Block 1: TLDR card. Distinct bordered block with accent left stripe.
+    # Block 1: TLDR card with clear separation from the section bar
+    # above and from the timestamp below. Explicit vertical margin
+    # on both ends prevents any collapse into neighbouring elements.
     tldr = (
         f"<div style='font-family:{mono};font-size:0.76rem;"
         f"color:{text_primary};line-height:1.55;"
         f"background:{bg_surface};border:1px solid {border_subtle};"
         f"border-left:3px solid {accent};border-radius:2px;"
-        f"padding:0.6rem 0.8rem;margin:0.15rem 0 0.8rem 0;'>"
-        f"<div style='color:{accent};font-weight:800;letter-spacing:0.1em;"
-        f"text-transform:uppercase;font-size:0.62rem;margin-bottom:0.35rem;'>"
-        f"TLDR</div>"
+        f"padding:0.75rem 0.9rem 0.75rem 0.9rem;"
+        f"margin:0.6rem 0 0.9rem 0;'>"
+        f"<div style='color:{accent};font-weight:800;letter-spacing:0.12em;"
+        f"text-transform:uppercase;font-size:0.64rem;line-height:1.4;"
+        f"margin-bottom:0.5rem;'>"
+        f"TLDR"
+        f"</div>"
+        f"<div style='line-height:1.6;'>"
         f"Deterministic rating "
         f"<span style='color:{accent};font-weight:700;'>{rating}</span> "
         f"with composite <span style='color:{accent};font-weight:700;'>{composite_str}</span>. "
         f"The narrative below was generated around the locked rating; "
         f"the LLM is forbidden from overriding it."
         f"</div>"
+        f"</div>"
     )
     st.markdown(tldr, unsafe_allow_html=True)
 
-    # Block 2: Generation timestamp, on its own line, padded so it
-    # does not touch either the TLDR card above or the expander below.
+    # Block 2: Generation timestamp, on its own line.
     ts = memo_result.get("generated_at") or "n/a"
     st.markdown(
         f"<div style='font-family:{mono};font-size:0.6rem;"
         f"color:{text_muted};letter-spacing:0.1em;text-transform:uppercase;"
-        f"margin:0.2rem 0 0.7rem 0;padding:0.15rem 0.3rem;'>"
+        f"margin:0.5rem 0 1rem 0;padding:0.2rem 0.3rem;line-height:1.5;'>"
         f"Generated {ts} UTC"
         f"</div>",
         unsafe_allow_html=True,
     )
 
-    # Block 3: Native Streamlit expander. Label uses a leading
-    # chevron so the "expand more" affordance reads as an arrow.
-    with st.expander("\u25B6  Memo", expanded=False):
+    # Block 3: Native Streamlit expander. Streamlit ships its own
+    # rotating chevron next to the label; a custom Unicode arrow
+    # collided with the Material Symbols font and rendered as the
+    # raw text "arrow_right" beside the label. Plain label only.
+    with st.expander("Full investment memo", expanded=False):
         if memo_result.get("inconsistency"):
             st.warning(memo_result["inconsistency"])
         st.markdown(memo_result["memo"])
