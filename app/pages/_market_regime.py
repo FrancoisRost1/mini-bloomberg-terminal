@@ -121,3 +121,47 @@ def render_regime(data_manager, config) -> None:
         ),
         accent_color=accent,
     )
+
+    # Fills the vertical gap between the regime callout and the
+    # RATES AND VOLATILITY row on the next page row. Static strip for
+    # v1; a live connector lands in v2.
+    _render_event_calendar_strip()
+
+
+def _render_event_calendar_strip() -> None:
+    """Compact one-line economic calendar strip.
+
+    Static for v1. The dates cycle quarterly; anything sooner than
+    the latest build is stale and the user should fall back to their
+    primary calendar. Keeping it inline mono so it reads as a
+    Bloomberg tape rather than a news widget.
+    """
+    events = [
+        ("FOMC",   "Jun 17"),
+        ("CPI",    "May 13"),
+        ("NFP",    "May 02"),
+        ("ECB",    "Jun 05"),
+        ("BOE",    "Jun 19"),
+        ("GDP Q1", "May 29"),
+        ("PCE",    "May 30"),
+    ]
+    mono = TOKENS["font_mono"]
+    muted = TOKENS["text_muted"]
+    accent = "#FF8A2A"
+    border = TOKENS["border_subtle"]
+    cells = "".join(
+        f'<span style="color:{muted};margin-right:0.35rem;">{lbl}</span>'
+        f'<span style="color:{TOKENS["text_primary"]};margin-right:0.9rem;">{date}</span>'
+        for lbl, date in events
+    )
+    st.markdown(
+        f'<div style="font-family:{mono};font-size:0.64rem;font-weight:600;'
+        f'letter-spacing:0.06em;color:{TOKENS["text_secondary"]};'
+        f'background:#080808;border:1px solid {border};border-left:2px solid {accent};'
+        f'padding:0.22rem 0.5rem;margin:0.2rem 0 0.1rem 0;'
+        f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+        f'<span style="color:{accent};font-weight:800;text-transform:uppercase;'
+        f'letter-spacing:0.1em;margin-right:0.7rem;">CALENDAR</span>'
+        f'{cells}</div>',
+        unsafe_allow_html=True,
+    )
