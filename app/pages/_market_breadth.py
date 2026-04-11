@@ -19,7 +19,7 @@ from style_inject import TOKENS
 from terminal.engines.breadth_engine import compute_breadth
 from terminal.utils.density import (
     colored_dataframe,
-    dense_kpi_row,
+    dense_kpi_rows,
     section_bar,
     signed_color,
 )
@@ -106,7 +106,10 @@ def render_breadth(data_manager, config) -> None:
         {"label": "NET HL", "value": f"{nhl['net']:+d}",
          "value_color": signed_color(nhl["net"])},
     ]
-    st.markdown(dense_kpi_row(items, min_cell_px=135), unsafe_allow_html=True)
+    # 5 KPIs in a 60% page column clip at 135px because "% ABOVE 200D"
+    # and "ADV / DECL" are wide labels. Split into 2 rows at 160px so
+    # nothing touches the neighbouring cell.
+    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=160), unsafe_allow_html=True)
     rows = [
         {
             "Sector":   t,

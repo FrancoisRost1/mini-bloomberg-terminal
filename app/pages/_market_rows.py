@@ -8,9 +8,10 @@ yfinance only; FRED and FMP are not touched here.
 
 from __future__ import annotations
 
+import pandas as pd
 import streamlit as st
 
-from terminal.utils.density import dense_kpi_row, section_bar, signed_color
+from terminal.utils.density import colored_dataframe, dense_kpi_row, section_bar, signed_color
 from terminal.utils.error_handling import is_error
 
 
@@ -75,44 +76,65 @@ def render_commodities_row(data_manager) -> None:
     st.markdown(dense_kpi_row(items, min_cell_px=130), unsafe_allow_html=True)
 
 
-def render_gainers_losers(data_manager, config) -> None:
-    """Top 3 gainers and losers from the sector ETF universe by 1D return.
+# Broader mover universe: 11 sector ETFs from config + 11 mega caps +
+# 4 flagship ETFs so the Top Movers table fills the right column to
+# the same depth as the Market Breadth table on the left (11 rows).
+_MOVER_MEGA_CAPS: list[str] = [
+    "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL",
+    "META", "TSLA", "JPM", "V", "JNJ", "WMT",
+]
+_MOVER_FLAGSHIP_ETFS: list[str] = ["SPY", "QQQ", "IWM", "DIA", "TLT", "HYG", "GLD"]
 
-    Reuses ``config.market.breadth.universe`` so the source list stays
-    config driven and the same 11 ETFs that drive the heatmap drive
-    this row.
+
+def render_gainers_losers(data_manager, config) -> None:
+    """Broad 1D movers table across sector ETFs, mega caps, and ETFs.
+
+    Replaces the prior 3 gainers / 3 losers KPI strip. The table
+    pulls every ticker in ``config.market.breadth.universe`` plus a
+    fixed list of mega caps and flagship ETFs, sorts by 1D change,
+    and renders the full sorted list. Reads like a real market
+    movers board, not a highlight reel, and fills the right column
+    to match the depth of the left column breadth table.
     """
-    universe = config["market"]["breadth"]["universe"]
-    rows: list[tuple[str, float, float]] = []
-    for ticker in universe:
-        data = data_manager.get_index_prices(ticker, period="1mo")
+    st.markdown(section_bar("TOP MOVERS (1D, SORTED)", source="yfinance"), unsafe_allow_html=True)
+    sector_etfs = list(config["market"]["breadth"]["universe"])
+    tickers: list[str] = sector_etfs + _MOVER_FLAGSHIP_ETFS + _MOVER_MEGA_CAPS
+    seen: set[str] = set()
+    unique_tickers: list[str] = []
+    for t in tickers:
+        if t in seen:
+            continue
+        seen.add(t)
+        unique_tickers.append(t)
+
+    rows: list[dict] = []
+    for ticker in unique_tickers:
+        data = data_manager.get_any_prices(ticker, period="1mo")
         if is_error(data) or data.is_empty() or len(data.prices) < 2:
             continue
         closes = data.prices["close"]
         last = float(closes.iloc[-1])
         prev = float(closes.iloc[-2])
-        if prev == 0:
+        week_prev = float(closes.iloc[-6]) if len(closes) >= 6 else prev
+        if prev == 0 or week_prev == 0:
             continue
-        rows.append((ticker, last, (last / prev) - 1.0))
-    rows.sort(key=lambda r: r[2], reverse=True)
-    gainers = rows[:3]
-    losers = list(reversed(rows[-3:])) if len(rows) >= 3 else []
+        chg_1d = (last / prev) - 1.0
+        chg_5d = (last / week_prev) - 1.0
+        rows.append({
+            "Ticker":   ticker,
+            "Last":     f"{last:,.2f}",
+            "1D %":     f"{chg_1d * 100:+.2f}%",
+            "5D %":     f"{chg_5d * 100:+.2f}%",
+            "_chg_1d":  chg_1d,
+        })
 
-    st.markdown(section_bar("TOP MOVERS (SECTOR ETF, 1D)", source="yfinance"), unsafe_allow_html=True)
-    items: list[dict] = []
-    for tkr, px, chg in gainers:
-        items.append({
-            "label": f"GAIN {tkr}", "value": f"{px:,.2f}",
-            "delta": f"+{chg * 100:.2f}%", "delta_color": signed_color(chg),
-            "value_color": signed_color(chg),
-        })
-    for tkr, px, chg in losers:
-        items.append({
-            "label": f"LOSS {tkr}", "value": f"{px:,.2f}",
-            "delta": f"{chg * 100:+.2f}%", "delta_color": signed_color(chg),
-            "value_color": signed_color(chg),
-        })
-    if not items:
-        st.caption("DATA OFF | no sector ETF data available")
+    if not rows:
+        st.caption("DATA OFF | no mover data available")
         return
-    st.markdown(dense_kpi_row(items, min_cell_px=130), unsafe_allow_html=True)
+
+    rows.sort(key=lambda r: r["_chg_1d"], reverse=True)
+    df = pd.DataFrame(rows).drop(columns=["_chg_1d"])
+    st.dataframe(
+        colored_dataframe(df, ["1D %", "5D %"]),
+        use_container_width=True, hide_index=True,
+    )

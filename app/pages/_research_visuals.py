@@ -137,12 +137,12 @@ def render_memo_card(memo_result: dict[str, Any], rating: str, composite: float)
     # Block 1: TLDR card. Distinct bordered block with accent left stripe.
     tldr = (
         f"<div style='font-family:{mono};font-size:0.76rem;"
-        f"color:{text_primary};line-height:1.5;"
+        f"color:{text_primary};line-height:1.55;"
         f"background:{bg_surface};border:1px solid {border_subtle};"
         f"border-left:3px solid {accent};border-radius:2px;"
-        f"padding:0.5rem 0.7rem;margin:0.1rem 0 0.45rem 0;'>"
-        f"<div style='color:{accent};font-weight:800;letter-spacing:0.08em;"
-        f"text-transform:uppercase;font-size:0.62rem;margin-bottom:0.25rem;'>"
+        f"padding:0.6rem 0.8rem;margin:0.15rem 0 0.8rem 0;'>"
+        f"<div style='color:{accent};font-weight:800;letter-spacing:0.1em;"
+        f"text-transform:uppercase;font-size:0.62rem;margin-bottom:0.35rem;'>"
         f"TLDR</div>"
         f"Deterministic rating "
         f"<span style='color:{accent};font-weight:700;'>{rating}</span> "
@@ -153,20 +153,21 @@ def render_memo_card(memo_result: dict[str, Any], rating: str, composite: float)
     )
     st.markdown(tldr, unsafe_allow_html=True)
 
-    # Block 2: Generation timestamp, on its own line.
+    # Block 2: Generation timestamp, on its own line, padded so it
+    # does not touch either the TLDR card above or the expander below.
     ts = memo_result.get("generated_at") or "n/a"
     st.markdown(
         f"<div style='font-family:{mono};font-size:0.6rem;"
-        f"color:{text_muted};letter-spacing:0.08em;text-transform:uppercase;"
-        f"margin:0 0 0.45rem 0;padding:0.1rem 0.2rem;'>"
+        f"color:{text_muted};letter-spacing:0.1em;text-transform:uppercase;"
+        f"margin:0.2rem 0 0.7rem 0;padding:0.15rem 0.3rem;'>"
         f"Generated {ts} UTC"
         f"</div>",
         unsafe_allow_html=True,
     )
 
-    # Block 3: Native Streamlit expander. The label is a clean
-    # finance-tone string, not marketing copy.
-    with st.expander("Full investment memo", expanded=False):
+    # Block 3: Native Streamlit expander. Label uses a leading
+    # chevron so the "expand more" affordance reads as an arrow.
+    with st.expander("\u25B6  Memo", expanded=False):
         if memo_result.get("inconsistency"):
             st.warning(memo_result["inconsistency"])
         st.markdown(memo_result["memo"])

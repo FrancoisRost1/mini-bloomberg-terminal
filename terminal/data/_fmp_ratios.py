@@ -50,6 +50,36 @@ def derive_dividend_yield(profile: dict, quote: dict, cashflow: pd.DataFrame, pr
     return float("nan")
 
 
+def _resolve_net_debt(balance: pd.DataFrame) -> float:
+    """Return net debt (total debt - cash) from the latest balance sheet.
+
+    Cascades through several debt column names so peers reported
+    under FMP's split long/short debt schema still resolve. Returns
+    0.0 when no debt column is populated, which lets callers compute
+    an equity-only EV proxy rather than dropping the ratio entirely.
+    """
+    if balance is None or balance.empty:
+        return 0.0
+    debt_latest = float("nan")
+    if "totalDebt" in balance.columns:
+        s = balance["totalDebt"].dropna()
+        if not s.empty and s.iloc[-1] != 0:
+            debt_latest = float(s.iloc[-1])
+    if debt_latest != debt_latest:
+        ltd = balance.get("longTermDebt", pd.Series(dtype=float)).dropna()
+        std = balance.get("shortTermDebt", pd.Series(dtype=float)).dropna()
+        if not ltd.empty and not std.empty:
+            debt_latest = float(ltd.iloc[-1]) + float(std.iloc[-1])
+        elif not ltd.empty:
+            debt_latest = float(ltd.iloc[-1])
+    if debt_latest != debt_latest:
+        debt_latest = 0.0
+    cash_col = "cashAndCashEquivalents" if "cashAndCashEquivalents" in balance.columns else "cashAndShortTermInvestments"
+    cash_series = balance.get(cash_col, pd.Series(dtype=float)).dropna()
+    cash = float(cash_series.iloc[-1]) if not cash_series.empty else 0.0
+    return debt_latest - cash
+
+
 def _resolve_ebitda(income: pd.DataFrame) -> float:
     """Direct ebitda field, falling back to operatingIncome + D&A."""
     if "ebitda" in income.columns:
@@ -133,14 +163,20 @@ def compute_ratios(
     if revenue == revenue and revenue > 0 and ebitda == ebitda:
         ratios["ebitda_margin"] = float(ebitda / revenue)
     market_cap = safe_float(_first(profile, "mktCap", "marketCap"))
-    if market_cap == market_cap and ebitda == ebitda and ebitda > 0 and not balance.empty:
-        debt = balance.get("totalDebt", pd.Series(dtype=float)).dropna()
-        cash_col = "cashAndCashEquivalents" if "cashAndCashEquivalents" in balance.columns else "cashAndShortTermInvestments"
-        cash = balance.get(cash_col, pd.Series(dtype=float)).dropna()
-        if not debt.empty:
-            net_debt = float(debt.iloc[-1]) - (float(cash.iloc[-1]) if not cash.empty else 0.0)
-            ratios["ev_ebitda"] = float((market_cap + net_debt) / ebitda)
-            ratios["net_debt_ebitda"] = float(net_debt / ebitda)
+    if market_cap == market_cap and ebitda == ebitda and ebitda > 0:
+        # Resolve net debt with a cascade so peers whose balance
+        # sheet uses a different debt column name still get an
+        # EV/EBITDA reading. Prior behaviour set the field only when
+        # ``totalDebt`` was populated, which produced peer tables
+        # full of n/a on tickers where FMP reports long / short
+        # term debt separately. Fallbacks:
+        #   1. totalDebt
+        #   2. longTermDebt + shortTermDebt (sum)
+        #   3. longTermDebt alone
+        #   4. net_debt = 0 (pure-equity ev proxy)
+        net_debt = _resolve_net_debt(balance)
+        ratios["ev_ebitda"] = float((market_cap + net_debt) / ebitda)
+        ratios["net_debt_ebitda"] = float(net_debt / ebitda)
     if not balance.empty and not income.empty:
         equity = balance.get("totalStockholdersEquity", pd.Series(dtype=float)).dropna()
         ni = income.get("netIncome", pd.Series(dtype=float)).dropna()

@@ -44,10 +44,10 @@ def render_valuation_card(fundamentals, config) -> None:
         raw_label = m["label"].strip().lower()
         short = _SHORT_LABELS.get(raw_label, m["label"].upper())
         items.append({"label": short, "value": format_metric(value, fmt)})
-    # This card lives in a 50% column on the Comps scrollable layout,
-    # so 8 KPIs on one line clip. Split into 2 rows of 4 at 145px min
-    # cell width with shortened labels so nothing touches.
-    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=145), unsafe_allow_html=True)
+    # This card lives in a 50% column on the Comps scrollable layout.
+    # 8 KPIs in 2 rows of 4 at 160px so labels like "EBITDA MGN" and
+    # "ND/EBITDA" have room to breathe on either side.
+    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=160), unsafe_allow_html=True)
 
 
 def render_pe_score(ratios, config) -> None:
@@ -79,7 +79,10 @@ def render_pe_score(ratios, config) -> None:
             "value": f"{v:.0f}" if v == v else "n/a",
             "delta_color": signed_color(v - 50) if v == v else None,
         })
-    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=135), unsafe_allow_html=True)
+    # 10 items (3 summary + 7 per-metric) in a full-width strip were
+    # clipping "REVENUE GROWTH" and "NET DEBT EBITDA". Split into 3
+    # rows at 150px so every label renders in full.
+    st.markdown(dense_kpi_rows(items, rows=3, min_cell_px=150), unsafe_allow_html=True)
 
     chart_col, table_col = st.columns([1, 1])
     with chart_col:
