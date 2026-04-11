@@ -3,12 +3,12 @@
 Dense grid layout: most of the dashboard fits above the fold on a
 1400px+ viewport.
 
-  Row 1 : Global indices (60%)        | Regime classifier (40%)
-  Row 2 : Cross asset performance     (full width)
-  Row 3 : Rates table (50%)           | Yield curve (50%)
-  Row 4 : FX (33%) | Commodities (33%)| Macro snapshot (33%)
-  Row 5 : Sector heatmap              (full width)
-  Row 6 : Breadth table (60%)         | Gainers/losers (40%)
+  Row 1 : Left  = Global indices + Cross asset chart stacked
+          Right = Regime classifier (KPIs + decomp + callout + calendar)
+  Row 2 : Rates table (50%)           | Yield curve (50%)
+  Row 3 : FX (33%) | Commodities (33%)| Macro snapshot (33%)
+  Row 4 : Sector heatmap              (full width)
+  Row 5 : Breadth table (60%)         | Gainers/losers (40%)
 """
 
 from __future__ import annotations
@@ -47,25 +47,24 @@ def render() -> None:
     data_manager = st.session_state["_data_manager"]
     styled_header("Market Overview", "Cross asset regime context")
 
-    # Row 1: indices | regime
+    # Row 1: indices + cross asset stacked (left) | regime (right).
+    # The regime pane is structurally tall (KPIs + decomposition
+    # chart/table + callout + calendar), so the left column stacks
+    # the global indices table on top of the cross asset 1Y chart
+    # to match that height instead of leaving a dead zone below the
+    # indices table.
     row1_l, row1_r = st.columns([6, 4])
     with row1_l:
         render_indices_strip(data_manager, config)
+        render_cross_asset_chart(data_manager)
     with row1_r:
         render_regime(data_manager, config)
 
-    # Row 2: cross asset performance (full width). Fills the dead
-    # band between the tall regime column and the rates row with a
-    # classic risk asset leaderboard: SPY, TLT, GLD, DBC, UUP rebased
-    # to 100 over the trailing year. Not duplicated anywhere else on
-    # the page.
-    render_cross_asset_chart(data_manager)
-
-    # Row 3: rates | yield curve
-    row3_l, row3_r = st.columns([1, 1])
-    with row3_l:
+    # Row 2: rates | yield curve
+    row2_l, row2_r = st.columns([1, 1])
+    with row2_l:
         render_rates_and_vol(data_manager, config)
-    with row3_r:
+    with row2_r:
         render_yield_curve(data_manager)
 
     # Row 3: FX | commodities | macro

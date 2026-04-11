@@ -14,6 +14,7 @@ import streamlit as st
 
 from style_inject import TOKENS, styled_card
 
+from app.pages._market_calendar import render_event_calendar_strip
 from terminal.adapters.regime_adapter import run_regime
 from terminal.utils.chart_helpers import bar_chart, interpretation_callout_html
 from terminal.utils.density import (
@@ -28,6 +29,31 @@ from terminal.utils.error_handling import degraded_card, is_error
 
 def _is_num(v: float) -> bool:
     return v == v  # nan-safe truthiness
+
+
+def _fmt_raw_pct(value: float, signed: bool = True) -> str:
+    """Format a raw signal value as a percentage string."""
+    if value is None or not _is_num(value):
+        return "n/a"
+    if signed:
+        return f"{value * 100:+.2f}%"
+    return f"{value * 100:.2f}%"
+
+
+def _thr_ratio(value: float, threshold: float) -> str:
+    """Signal strength as a signed ratio vs its stress threshold.
+
+    Returns the value divided by the threshold, signed. 1.00x means
+    the signal is exactly at the stress threshold; below 1 means
+    below stress; above 1 means the threshold is breached. For
+    downside signals (drawdown below a negative threshold) the ratio
+    is reported as a positive number when the signal is benign and
+    > 1 when stressed so the column reads consistently.
+    """
+    if value is None or not _is_num(value) or threshold == 0:
+        return "n/a"
+    ratio = float(value) / float(threshold)
+    return f"{ratio:+.2f}x"
 
 
 def render_regime(data_manager, config) -> None:
@@ -84,27 +110,34 @@ def render_regime(data_manager, config) -> None:
             if _is_num(sigs["hy_spread"]) else 0.0
         ),
     }
-    # Single vertical flow (no nested columns). Placing the chart +
-    # table + callout + calendar all in one column context guarantees
-    # they stay inside the parent row1_r column, so there is no
-    # dead space created by a nested columns block closing early.
-    st.plotly_chart(
-        bar_chart(
-            raw_signals_pct,
-            title="Regime Signal Decomposition (raw vs stress thresholds)",
-            y_unit="% deviation",
-            color_by_sign=True,
-        ),
-        use_container_width=True,
-    )
-    rows = [
-        ("TREND",    f"{sigs['trend_return_pct'] * 100:+.2f}%" if _is_num(sigs["trend_return_pct"]) else "n/a", regime["scores"]["trend"]),
-        ("VOL",      f"{sigs['annualized_vol'] * 100:.2f}%"    if _is_num(sigs["annualized_vol"])    else "n/a", regime["scores"]["vol_stress"]),
-        ("DRAWDOWN", f"{sigs['drawdown_pct'] * 100:+.2f}%"     if _is_num(sigs["drawdown_pct"])      else "n/a", regime["scores"]["drawdown"]),
-        ("CREDIT",   f"{sigs['hy_spread']:.2f}%"               if _is_num(sigs["hy_spread"])         else "n/a", regime["scores"]["credit"]),
-    ]
-    scores_df = pd.DataFrame(rows, columns=["Signal", "Raw", "Score"])
-    st.dataframe(colored_dataframe(scores_df, ["Score"]), use_container_width=True, hide_index=True)
+    # Chart and table side by side (nested columns). Every cell in the
+    # table expresses its signal as a ratio vs the stress threshold so
+    # the column is never just a wall of 0s in the NEUTRAL regime.
+    chart_col, table_col = st.columns([2, 3])
+    with chart_col:
+        st.plotly_chart(
+            bar_chart(
+                raw_signals_pct,
+                title="Regime Signal Decomposition (raw vs stress thresholds)",
+                y_unit="% deviation",
+                color_by_sign=True,
+            ),
+            use_container_width=True,
+        )
+    with table_col:
+        rows = [
+            ("TREND",    _fmt_raw_pct(sigs["trend_return_pct"]),
+             _thr_ratio(sigs["trend_return_pct"], trend_cfg["trend_score_threshold"])),
+            ("VOL",      _fmt_raw_pct(sigs["annualized_vol"], signed=False),
+             _thr_ratio(sigs["annualized_vol"], trend_cfg["vol_stress_threshold"])),
+            ("DRAWDOWN", _fmt_raw_pct(sigs["drawdown_pct"]),
+             _thr_ratio(sigs["drawdown_pct"], trend_cfg["drawdown_threshold"])),
+            ("CREDIT",   _fmt_raw_pct(sigs["hy_spread"] / 100.0) if _is_num(sigs["hy_spread"]) else "n/a",
+             _thr_ratio(sigs["hy_spread"], trend_cfg["credit_spread_threshold"])),
+        ]
+        scores_df = pd.DataFrame(rows, columns=["Signal", "Raw", "vs Thr"])
+        st.dataframe(colored_dataframe(scores_df, ["vs Thr"]),
+                     use_container_width=True, hide_index=True)
     hy_text = f"HY {sigs['hy_spread']:.2f}%" if _is_num(sigs["hy_spread"]) else "HY n/a"
     styled_card(
         interpretation_callout_html(
@@ -124,45 +157,6 @@ def render_regime(data_manager, config) -> None:
     )
 
     # Fills the vertical gap between the regime callout and the
-    # RATES AND VOLATILITY row on the next page row. Static strip for
-    # v1; a live connector lands in v2.
-    _render_event_calendar_strip()
-
-
-def _render_event_calendar_strip() -> None:
-    """Compact one-line economic calendar strip.
-
-    Static for v1. The dates cycle quarterly; anything sooner than
-    the latest build is stale and the user should fall back to their
-    primary calendar. Keeping it inline mono so it reads as a
-    Bloomberg tape rather than a news widget.
-    """
-    events = [
-        ("FOMC",   "Jun 17"),
-        ("CPI",    "May 13"),
-        ("NFP",    "May 02"),
-        ("ECB",    "Jun 05"),
-        ("BOE",    "Jun 19"),
-        ("GDP Q1", "May 29"),
-        ("PCE",    "May 30"),
-    ]
-    mono = TOKENS["font_mono"]
-    muted = TOKENS["text_muted"]
-    accent = "#FF8A2A"
-    border = TOKENS["border_subtle"]
-    cells = "".join(
-        f'<span style="color:{muted};margin-right:0.35rem;">{lbl}</span>'
-        f'<span style="color:{TOKENS["text_primary"]};margin-right:0.9rem;">{date}</span>'
-        for lbl, date in events
-    )
-    st.markdown(
-        f'<div style="font-family:{mono};font-size:0.64rem;font-weight:600;'
-        f'letter-spacing:0.06em;color:{TOKENS["text_secondary"]};'
-        f'background:#080808;border:1px solid {border};border-left:2px solid {accent};'
-        f'padding:0.22rem 0.5rem;margin:0.2rem 0 0.1rem 0;'
-        f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
-        f'<span style="color:{accent};font-weight:800;text-transform:uppercase;'
-        f'letter-spacing:0.1em;margin-right:0.7rem;">CALENDAR</span>'
-        f'{cells}</div>',
-        unsafe_allow_html=True,
-    )
+    # RATES AND VOLATILITY row. Static strip for v1; live connector
+    # lands in v2.
+    render_event_calendar_strip()

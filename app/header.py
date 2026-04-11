@@ -20,6 +20,7 @@ import streamlit.components.v1 as components
 
 from style_inject import TOKENS  # noqa: F401  used by other helpers
 
+from app.header_sidebar_toggle import render_sidebar_toggle as _render_sidebar_toggle
 from app.header_status import render_status_bar
 from app.header_tape import build_tape_items
 from terminal.managers.data_manager import SharedDataManager
@@ -43,8 +44,11 @@ def render(
     if data_manager.registry.is_dev_mode():
         st.markdown(dev_mode_banner(), unsafe_allow_html=True)
 
-    # Row 1: ticker input + 1D change badge + watchlist controls
-    col_ticker, col_change, col_watchlist, col_actions = st.columns([3, 2, 3, 3])
+    # Row 1: sidebar toggle + ticker input + 1D change badge +
+    # watchlist controls. Toggle lives at the far left so it reads
+    # like a terminal F-key row, not a nav element.
+    col_toggle, col_ticker, col_change, col_watchlist, col_actions = st.columns([1, 3, 2, 3, 3])
+    _render_sidebar_toggle(col_toggle)
     _render_ticker_input(col_ticker)
     _render_ticker_change(col_change, ticker_state or {})
     _render_watchlist_select(col_watchlist, watchlist)

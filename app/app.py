@@ -49,10 +49,30 @@ def _init_session_state() -> None:
         "active_ticker": "AAPL",
         "active_portfolio": {"tickers": [], "weights": {}},
         "market_context": {},
+        "sidebar_visible": True,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
+
+
+def _inject_sidebar_visibility() -> None:
+    """Apply a CSS override that collapses the sidebar to zero width
+    when ``sidebar_visible`` is False. Flipped by the header toggle.
+    """
+    if st.session_state.get("sidebar_visible", True):
+        return
+    st.markdown(
+        '<style>'
+        'section[data-testid="stSidebar"] {'
+        ' width: 0 !important; min-width: 0 !important; max-width: 0 !important;'
+        ' border-right: none !important;'
+        ' transform: translateX(-100%) !important;'
+        ' visibility: hidden !important;'
+        '}'
+        '</style>',
+        unsafe_allow_html=True,
+    )
 
 
 def main() -> None:
@@ -66,6 +86,7 @@ def main() -> None:
     inject_styles()
     inject_density()
     _init_session_state()
+    _inject_sidebar_visibility()
     config, data_manager, analytics_manager, watchlist = _bootstrap()
     st.session_state["_config"] = config
     st.session_state["_data_manager"] = data_manager
