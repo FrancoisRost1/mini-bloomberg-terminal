@@ -4,10 +4,11 @@ Dense grid layout: most of the dashboard fits above the fold on a
 1400px+ viewport.
 
   Row 1 : Global indices (60%)        | Regime classifier (40%)
-  Row 2 : Rates table (50%)           | Yield curve (50%)
-  Row 3 : FX (33%) | Commodities (33%)| Macro snapshot (33%)
-  Row 4 : Sector heatmap              (full width)
-  Row 5 : Breadth table (60%)         | Gainers/losers (40%)
+  Row 2 : Cross asset performance     (full width)
+  Row 3 : Rates table (50%)           | Yield curve (50%)
+  Row 4 : FX (33%) | Commodities (33%)| Macro snapshot (33%)
+  Row 5 : Sector heatmap              (full width)
+  Row 6 : Breadth table (60%)         | Gainers/losers (40%)
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ from style_inject import styled_header  # noqa: E402
 
 from app.pages._market_extras import (  # noqa: E402
     render_commodities_row,
+    render_cross_asset_chart,
     render_fx_row,
     render_gainers_losers,
     render_yield_curve,
@@ -52,11 +54,18 @@ def render() -> None:
     with row1_r:
         render_regime(data_manager, config)
 
-    # Row 2: rates | yield curve
-    row2_l, row2_r = st.columns([1, 1])
-    with row2_l:
+    # Row 2: cross asset performance (full width). Fills the dead
+    # band between the tall regime column and the rates row with a
+    # classic risk asset leaderboard: SPY, TLT, GLD, DBC, UUP rebased
+    # to 100 over the trailing year. Not duplicated anywhere else on
+    # the page.
+    render_cross_asset_chart(data_manager)
+
+    # Row 3: rates | yield curve
+    row3_l, row3_r = st.columns([1, 1])
+    with row3_l:
         render_rates_and_vol(data_manager, config)
-    with row2_r:
+    with row3_r:
         render_yield_curve(data_manager)
 
     # Row 3: FX | commodities | macro

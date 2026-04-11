@@ -34,6 +34,63 @@ CURVE_TENORS: list[tuple[str, str, float]] = [
 ]
 
 
+_CROSS_ASSET_UNIVERSE: list[tuple[str, str, str]] = [
+    # (label, yfinance symbol, accent token key)
+    ("SPY",  "SPY",  "accent_primary"),
+    ("TLT",  "TLT",  "accent_info"),
+    ("GLD",  "GLD",  "accent_warning"),
+    ("DBC",  "DBC",  "accent_success"),
+    ("UUP",  "UUP",  "text_secondary"),
+]
+
+
+def render_cross_asset_chart(data_manager) -> None:
+    """1-year normalized cross-asset performance, rebased to 100.
+
+    Fills the band between the top row (indices + regime) and the
+    rates row with a classic risk-asset regime reading: equities,
+    bonds, gold, broad commodities, and the dollar on a single axis,
+    all indexed to 100 at the start of the trailing year. Every
+    series uses the project palette so the chart reads at a glance
+    which asset class is leading.
+    """
+    st.markdown(section_bar("CROSS ASSET PERFORMANCE (1Y, REBASED TO 100)",
+                            source="yfinance"), unsafe_allow_html=True)
+    fig = go.Figure()
+    ranked: list[tuple[str, float]] = []
+    for label, symbol, token in _CROSS_ASSET_UNIVERSE:
+        data = data_manager.get_index_prices(symbol, period="1y")
+        if is_error(data) or data.is_empty():
+            continue
+        closes = data.prices["close"].dropna()
+        if closes.empty or closes.iloc[0] == 0:
+            continue
+        rebased = (closes / float(closes.iloc[0])) * 100.0
+        color = TOKENS.get(token, TOKENS["accent_primary"])
+        fig.add_trace(go.Scatter(
+            x=rebased.index, y=rebased.values, name=label, mode="lines",
+            line={"width": 1.8, "color": color},
+            hovertemplate=f"<b>{label}</b><br>%{{x|%Y-%m-%d}}<br>%{{y:.1f}}<extra></extra>",
+        ))
+        ranked.append((label, float(rebased.iloc[-1] - 100.0)))
+    if not fig.data:
+        st.markdown(degraded_card("no cross-asset price data available", "yfinance"),
+                    unsafe_allow_html=True)
+        return
+    fig.add_hline(y=100, line={"color": TOKENS["text_muted"], "width": 1, "dash": "dot"})
+    fig.update_xaxes(title_text="Date")
+    fig.update_yaxes(title_text="Rebased level (start = 100)")
+    ranked.sort(key=lambda p: -p[1])
+    leader_tape = " | ".join(f"{lbl} {delta:+.1f}" for lbl, delta in ranked)
+    fig.update_layout(
+        title={"text": f"Cross Asset. {leader_tape}"},
+        height=260,
+        legend={"orientation": "h", "y": 1.08, "x": 0},
+    )
+    apply_plotly_theme(fig)
+    st.plotly_chart(fig, use_container_width=True)
+
+
 def render_yield_curve(data_manager) -> None:
     """Mini line chart of the 2Y / 5Y / 10Y / 30Y Treasury curve."""
     st.markdown(section_bar("US TREASURY CURVE", source="FRED"), unsafe_allow_html=True)
