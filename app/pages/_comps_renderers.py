@@ -26,6 +26,14 @@ from terminal.utils.error_handling import inline_status_line, status_pill
 from terminal.utils.formatting import format_metric
 
 
+_SHORT_LABELS = {
+    "ebitda margin":    "EBITDA MGN",
+    "revenue growth":   "REV GR",
+    "net debt/ebitda":  "ND/EBITDA",
+    "fcf conversion":   "FCF CONV",
+}
+
+
 def render_valuation_card(fundamentals, config) -> None:
     st.markdown(section_bar("VALUATION METRICS"), unsafe_allow_html=True)
     metrics = config["comps"]["metrics"]
@@ -33,10 +41,13 @@ def render_valuation_card(fundamentals, config) -> None:
     for m in metrics:
         fmt = m.get("format", "ratio")
         value = fundamentals.key_ratios.get(m["key"])
-        items.append({"label": m["label"].upper(), "value": format_metric(value, fmt)})
+        raw_label = m["label"].strip().lower()
+        short = _SHORT_LABELS.get(raw_label, m["label"].upper())
+        items.append({"label": short, "value": format_metric(value, fmt)})
     # This card lives in a 50% column on the Comps scrollable layout,
-    # so 8 KPIs on one line clip. Split into 2 rows of 4.
-    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=135), unsafe_allow_html=True)
+    # so 8 KPIs on one line clip. Split into 2 rows of 4 at 145px min
+    # cell width with shortened labels so nothing touches.
+    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=145), unsafe_allow_html=True)
 
 
 def render_pe_score(ratios, config) -> None:

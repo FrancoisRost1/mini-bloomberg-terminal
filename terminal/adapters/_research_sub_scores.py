@@ -70,31 +70,44 @@ def engine_confidences(
 
 
 def lbo_assumptions_from_fundamentals(fundamentals, config: dict[str, Any]) -> dict[str, Any] | None:
-    """Map a live Fundamentals object onto the LBO quick-calc defaults.
+    """Map live fundamentals onto the LBO quick-calc defaults.
 
-    EBITDA is computed as ``revenue * margin`` where revenue comes from
-    the most recent annual income statement. Earlier versions of this
-    function multiplied margin by market cap, which is dimensionally
-    meaningless (market cap is equity value, not revenue). Returns
-    ``None`` when revenue cannot be read; the research adapter then
-    marks the LBO engine as skipped rather than feeding it junk inputs.
+    EBITDA is resolved from ``income.ebitda`` -> operating +
+    depreciation -> revenue * margin. FMP uses ``revenue``, yfinance
+    uses ``totalRevenue``; both are probed. Returns None when no
+    path yields a positive EBITDA.
     """
     defaults = dict(config["lbo_quick_calc"]["defaults"])
-    margin = float(fundamentals.key_ratios.get("ebitda_margin", float("nan")))
-    if margin != margin or margin <= 0:
-        return None
     income = getattr(fundamentals, "income_statement", None)
-    revenue: float = float("nan")
-    if income is not None and not income.empty and "totalRevenue" in income.columns:
-        rev_series = income["totalRevenue"].dropna()
-        if not rev_series.empty:
-            revenue = float(rev_series.iloc[-1])
-    if revenue != revenue or revenue <= 0:
+    ratios = getattr(fundamentals, "key_ratios", {}) or {}
+    if income is None or getattr(income, "empty", True):
         return None
-    ebitda = revenue * margin
+    ebitda = float("nan")
+    if "ebitda" in income.columns:
+        s = income["ebitda"].dropna()
+        if not s.empty and float(s.iloc[-1]) > 0:
+            ebitda = float(s.iloc[-1])
+    if ebitda != ebitda:
+        op = income.get("operatingIncome", pd.Series(dtype=float)).dropna()
+        da = income.get("depreciationAndAmortization", pd.Series(dtype=float)).dropna()
+        if not op.empty and not da.empty:
+            cand = float(op.iloc[-1]) + float(da.iloc[-1])
+            if cand > 0:
+                ebitda = cand
+    if ebitda != ebitda:
+        margin = float(ratios.get("ebitda_margin", float("nan")))
+        revenue = float("nan")
+        for col in ("revenue", "totalRevenue"):
+            if col in income.columns:
+                rev_series = income[col].dropna()
+                if not rev_series.empty:
+                    revenue = float(rev_series.iloc[-1])
+                    break
+        if margin == margin and margin > 0 and revenue == revenue and revenue > 0:
+            ebitda = revenue * margin
     if ebitda != ebitda or ebitda <= 0:
         return None
-    defaults["entry_ebitda"] = ebitda
+    defaults["entry_ebitda"] = float(ebitda)
     return defaults
 
 

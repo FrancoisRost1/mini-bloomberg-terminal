@@ -159,14 +159,14 @@ def render_memo_card(memo_result: dict[str, Any], rating: str, composite: float)
         f"<div style='font-family:{mono};font-size:0.6rem;"
         f"color:{text_muted};letter-spacing:0.08em;text-transform:uppercase;"
         f"margin:0 0 0.45rem 0;padding:0.1rem 0.2rem;'>"
-        f"GENERATED {ts} UTC &nbsp;|&nbsp; memo body collapsed below"
+        f"Generated {ts} UTC"
         f"</div>",
         unsafe_allow_html=True,
     )
 
-    # Block 3: Native expander. Streamlit inserts its own spacing, so
-    # the gap above comes from the timestamp div margin-bottom.
-    with st.expander("Full memo", expanded=False):
+    # Block 3: Native Streamlit expander. The label is a clean
+    # finance-tone string, not marketing copy.
+    with st.expander("Full investment memo", expanded=False):
         if memo_result.get("inconsistency"):
             st.warning(memo_result["inconsistency"])
         st.markdown(memo_result["memo"])
