@@ -30,15 +30,23 @@ section[data-testid="stMain"] a[data-testid="stPageLink-NavLink"] {{
     display: none !important;
 }}
 
-/* Page container: minimum padding, full width */
-.block-container {{
+/* Page container: minimum padding, full viewport width.
+   Streamlit defaults to a ~1200px max-width even with layout="wide";
+   override every known wrapper so the main content stretches edge
+   to edge on 2560px monitors. No empty side gutters. */
+.stMainBlockContainer,
+.block-container,
+[data-testid="stAppViewBlockContainer"],
+[data-testid="stMainBlockContainer"] {{
+    max-width: 100% !important;
+    width: 100% !important;
     padding-top: 0.15rem !important;
     padding-bottom: 0.15rem !important;
-    padding-left: 0.7rem !important;
-    padding-right: 0.7rem !important;
-    max-width: 1700px !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
     background-color: #080808 !important;
 }}
+[data-testid="stMain"] {{ max-width: 100% !important; width: 100% !important; }}
 .stApp {{ background-color: #080808 !important; }}
 
 /* Vertical block stacking: collapse Streamlit's generous default gaps,
@@ -117,14 +125,24 @@ h3 {{ margin-top: 0.1rem !important; margin-bottom: 0.05rem !important; }}
     font-size: 0.6rem !important; margin-bottom: 0 !important;
 }}
 
-/* Sidebar: 180px, flat, terminal style. No rounded pills, no background fills. */
+/* Sidebar: 140px, flat, always visible. No rounded pills, no background fills. */
 section[data-testid="stSidebar"] {{
-    width: 180px !important; min-width: 180px !important;
+    width: 140px !important; min-width: 140px !important; max-width: 140px !important;
     background-color: #080808 !important;
     border-right: 1px solid rgba(255,255,255,0.06) !important;
+    transform: none !important;
+    visibility: visible !important;
 }}
 section[data-testid="stSidebar"] > div {{ padding-top: 0.3rem !important; background-color: #080808 !important; }}
-section[data-testid="stSidebar"] .block-container {{ padding: 0.3rem 0.4rem !important; }}
+section[data-testid="stSidebar"] .block-container {{ padding: 0.25rem 0.3rem !important; }}
+
+/* Kill the sidebar collapse / expand toggles. The sidebar is a
+   fixed terminal style rail; the user never needs to hide it. */
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stSidebarCollapsedControl"],
+button[kind="header"][data-testid="baseButton-header"] {{
+    display: none !important;
+}}
 section[data-testid="stSidebar"] .stMarkdown p {{ font-size: 0.65rem !important; line-height: 1.2 !important; margin: 0.05rem 0 !important; }}
 section[data-testid="stSidebar"] .stMarkdown h3 {{
     font-size: 0.6rem !important; letter-spacing: 0.12em;
