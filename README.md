@@ -4,6 +4,8 @@ Unified investment research workstation in Streamlit. Integrates ten standalone 
 
 Production stack: Railway (hosting) + Cloudflare (domain / DNS) + Financial Modeling Prep (market data) + FRED (macro) + Anthropic (LLM) + SQLite (persistence). Streamlit Community Cloud is not a target for this application.
 
+![Dashboard](docs/screenshot.png)
+
 ## Why this exists
 
 A focused, institutional-grade research terminal where an analyst can go from market overview to deep-dive research to portfolio construction without switching tools. Every analytical result is deterministic and traceable. The LLM layer is optional and never overrides deterministic ratings.
