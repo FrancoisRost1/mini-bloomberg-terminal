@@ -12,6 +12,7 @@ from app.pages._research_engine_grid import render_engine_grid as render_phase2_
 from app.pages._research_engine_renderers import (
     render_llm_memo as render_phase4_llm,  # noqa: F401  re export
 )
+from app.pages._research_analyst import render_analyst_consensus
 from app.pages._research_financials import (
     render_52w_range_bar,
     render_financials_table,
@@ -128,9 +129,11 @@ def render_phase1_stats(packet: dict[str, Any]) -> None:
         {"label": "BETA", "value": fmt_ratio(ratios.get("beta"), suffix="")},
         {"label": "DIV YIELD", "value": fmt_pct(ratios.get("dividend_yield"))},
     ]
-    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=135), unsafe_allow_html=True)
+    st.markdown(dense_kpi_rows(items, rows=3, min_cell_px=135), unsafe_allow_html=True)
     close = _close_series(packet)
     render_52w_range_bar(close)
+    current_price = float(close.iloc[-1]) if close is not None and not close.empty else None
+    render_analyst_consensus(packet.get("analyst", {}), current_price)
     if fundamentals is None or is_error(fundamentals):
         st.markdown(inline_status_line("OFF", source="FMP"), unsafe_allow_html=True)
         return

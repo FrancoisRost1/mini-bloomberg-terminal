@@ -474,7 +474,7 @@ def styled_card(content: str, accent_color: str = None):
         border: 1px solid {TOKENS["border_default"]};
         border-radius: {TOKENS["radius_md"]};
         padding: 0.75rem 1rem;
-        margin-bottom: 0.75rem;
+        margin-bottom: 0.35rem;
         box-shadow: {TOKENS["shadow_sm"]};
         {accent}
     ">
@@ -530,7 +530,7 @@ def styled_kpi(label: str, value: str, delta: str = "", delta_color: str = ""):
 def styled_divider():
     """Thin horizontal rule."""
     st.markdown(
-        f'<hr style="border: none; border-top: 1px solid {TOKENS["border_subtle"]}; margin: 1rem 0;">',
+        f'<hr style="border: none; border-top: 1px solid {TOKENS["border_subtle"]}; margin: 0.4rem 0;">',
         unsafe_allow_html=True
     )
 
@@ -548,8 +548,8 @@ def styled_section_label(text: str):
         letter-spacing: 0.12em;
         font-weight: 600;
         font-family: {TOKENS["font_body"]};
-        margin-bottom: 0.5rem;
-        margin-top: 0.75rem;
+        margin-bottom: 0.2rem;
+        margin-top: 0.4rem;
     ">{text}</div>
     """
     st.markdown(html, unsafe_allow_html=True)

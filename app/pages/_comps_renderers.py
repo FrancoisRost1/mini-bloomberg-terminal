@@ -1,12 +1,4 @@
-"""Comps page tab renderers.
-
-Split out of comps_relative_value.py so the page module stays under
-the 150 line budget. Contains:
-
-- render_valuation_card   : dense valuation KPI row
-- render_pe_score         : PE Target Screener composite score
-- render_ma_comps         : M&A comps table from the P4 adapter
-"""
+"""Comps page tab renderers: valuation card, PE score, M&A comps."""
 
 from __future__ import annotations
 
@@ -51,10 +43,7 @@ def render_valuation_card(fundamentals, config) -> None:
 
 
 def render_pe_score(ratios, config) -> None:
-    """PE Screener composite. KPI strip on top, then chart on the left
-    and per-metric table on the right so the user can compare the
-    scoring bands against the per-metric scores at a glance.
-    """
+    """PE Screener composite. KPI strip + chart + per-metric table."""
     st.markdown(section_bar("PE TARGET SCREENER SCORE"), unsafe_allow_html=True)
     result = score_single_ticker(ratios, config["comps"]["pe_scoring_bands"])
     score = result["pe_score"]
@@ -132,25 +121,30 @@ def render_ma_comps(sector, config) -> None:
         )
         return
     display = table.copy()
+    _fmt_mult = lambda v: f"{v:.1f}x" if v == v and v > 0 else "n/a"
+    _fmt_pct = lambda v: f"{v:.0f}%" if v == v else "n/a"
     if "ev_usd" in display.columns:
         display["ev_usd"] = display["ev_usd"].apply(
             lambda v: f"${v / 1e9:,.2f}B" if v == v and v > 0 else "n/a"
         )
-    if "ev_ebitda" in display.columns:
-        display["ev_ebitda"] = display["ev_ebitda"].apply(
-            lambda v: f"{v:.1f}x" if v == v and v > 0 else "n/a"
-        )
+    for col in ("ev_ebitda", "ev_revenue"):
+        if col in display.columns:
+            display[col] = display[col].apply(_fmt_mult)
+    if "premium_pct" in display.columns:
+        display["premium_pct"] = display["premium_pct"].apply(_fmt_pct)
     rename = {
         "year": "Year", "target": "Target", "acquirer": "Acquirer",
-        "sector": "Sector", "deal_type": "Type", "ev_usd": "EV", "ev_ebitda": "EV/EBITDA",
+        "sector": "Sector", "deal_type": "Type", "ev_usd": "EV",
+        "ev_ebitda": "EV/EBITDA", "ev_revenue": "EV/Rev",
+        "premium_pct": "Premium",
     }
     display = display.rename(columns={k: v for k, v in rename.items() if k in display.columns})
     st.dataframe(display, use_container_width=True, hide_index=True)
-    coverage = float((comps.get("coverage") or {}).get("ev_ebitda", 0.0))
-    caption = f"Showing {len(display)} deals in sector '{sector}' from Project 4 (ma-database)."
-    if coverage < 0.5:
-        caption += (
-            f" EV/EBITDA limited coverage ({coverage * 100:.0f}% disclosed); "
-            "public M&A datasets often omit the multiple."
-        )
-    st.caption(caption)
+    cov = comps.get("coverage") or {}
+    parts = [f"Showing {len(display)} deals in sector '{sector}' from Project 4 (ma-database)."]
+    for field, label in [("ev_ebitda", "EV/EBITDA"), ("ev_revenue", "EV/Rev"), ("premium_pct", "Premium")]:
+        c = float(cov.get(field, 0.0))
+        if 0 < c < 1.0:
+            parts.append(f"{label} {c * 100:.0f}% disclosed.")
+    parts.append("Public M&A data often has incomplete multiples and premiums.")
+    st.caption(" ".join(parts))

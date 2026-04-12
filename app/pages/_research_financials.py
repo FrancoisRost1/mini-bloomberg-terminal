@@ -95,7 +95,7 @@ def render_52w_range_bar(close: pd.Series) -> None:
     # touches the section_bar underline above it and the bottom
     # never touches the financials table below.
     bar = (
-        f'<div style="padding:0.45rem 0.1rem 0.55rem 0.1rem;">'
+        f'<div style="padding:0.25rem 0.1rem 0.3rem 0.1rem;">'
         f'<div style="display:flex;align-items:center;gap:0.6rem;'
         f'font-family:{TOKENS["font_mono"]};font-size:0.7rem;color:{text};'
         f'line-height:1.4;">'

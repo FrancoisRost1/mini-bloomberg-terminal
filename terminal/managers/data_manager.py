@@ -1,18 +1,7 @@
 """SharedDataManager.
 
-Routes every data call through the registry to the correct per purpose
-provider. Single stock fundamentals and prices go to FMP. Indices,
-ETFs, options chains, and the breadth universe go to yfinance. Macro
-goes to FRED. Each method returns either a normalized schema or a
-``ProviderError`` -- never raises.
-
-The page layer should pick the right method explicitly:
-- get_stock_prices  for an FMP single ticker
-- get_index_prices  for SPY / QQQ / sector ETFs / ^VIX style symbols
-- get_any_prices    for portfolio holdings where the type is unknown
-- get_fundamentals  for FMP single ticker statements
-- get_options_chain for an options chain (yfinance)
-- get_macro         for FRED series
+Routes every data call through the registry to the correct per-purpose
+provider. Each method returns a normalized schema or ProviderError.
 """
 
 from __future__ import annotations
@@ -54,14 +43,7 @@ class SharedDataManager:
         return self._fetch_prices("index", self.registry.index_etf_provider(), ticker, period)
 
     def get_any_prices(self, ticker: str, period: str = "1y") -> PriceData | ProviderError:
-        """Try the stock provider first; fall through to the index provider per ticker.
-
-        Used by the Portfolio Builder where the user enters arbitrary
-        tickers and we cannot tell stocks from ETFs at the call site.
-        Returns the first non-error response. Both providers are
-        explicitly probed; this is NOT a silent failover at the
-        registry level.
-        """
+        """Try stock provider first, then index. For unknown ticker types."""
         result = self.get_stock_prices(ticker, period)
         if isinstance(result, PriceData) and not result.is_empty():
             return result
@@ -126,6 +108,32 @@ class SharedDataManager:
             return ProviderError(provider.name, ticker, f"{kind}_prices", str(exc))
         self.cache.set("prices", key, data, float(self.ttls["prices"]))
         return data
+
+    def _yf_cached(self, namespace: str, ticker: str, fetcher, ttl_key: str = "fundamentals", **kw):
+        """Shared cache-through pattern for yfinance convenience methods."""
+        key = f"{namespace}|{ticker}"
+        cached = self.cache.get(namespace, key)
+        if cached is not None:
+            return cached
+        data = fetcher(ticker, **kw) if kw else fetcher(ticker)
+        self.cache.set(namespace, key, data, float(self.ttls.get(ttl_key, 3600)))
+        return data
+
+    def get_news(self, ticker: str, count: int = 8) -> list[dict]:
+        from ._news_fetch import fetch_news
+        return self._yf_cached("news", ticker, fetch_news, "prices", count=count)
+
+    def get_analyst_data(self, ticker: str) -> dict:
+        from ._analyst_fetch import fetch_analyst_data
+        return self._yf_cached("analyst", ticker, fetch_analyst_data)
+
+    def get_earnings(self, ticker: str) -> dict:
+        from ._earnings_fetch import fetch_earnings
+        return self._yf_cached("earnings", ticker, fetch_earnings)
+
+    def get_ownership(self, ticker: str) -> dict:
+        from ._ownership_fetch import fetch_ownership
+        return self._yf_cached("ownership", ticker, fetch_ownership)
 
     def snapshot_age(self) -> datetime:
         return datetime.utcnow()

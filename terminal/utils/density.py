@@ -82,7 +82,7 @@ def dense_kpi_row(items: list[dict[str, Any]], min_cell_px: int = 130) -> str:
     return (
         f'<div style="display:grid;'
         f'grid-template-columns:repeat(auto-fit,minmax({min_cell_px}px,1fr));'
-        f'gap:0.35rem;margin-bottom:0.5rem;align-items:stretch;">{"".join(cells)}</div>'
+        f'gap:0.35rem;margin-bottom:0.25rem;align-items:stretch;">{"".join(cells)}</div>'
     )
 
 
@@ -142,8 +142,8 @@ def section_bar(label: str, tape: str = "", source: str = "") -> str:
         f'<div style="color:{accent};font-family:{TOKENS["font_mono"]};'
         f'font-size:0.72rem;line-height:1.5;font-weight:800;'
         f'text-transform:uppercase;letter-spacing:0.14em;'
-        f'border-bottom:2px solid {accent};padding:0.55rem 0 0.25rem 0;'
-        f'margin:0.55rem 0 0.4rem 0;text-shadow:0 0 1px rgba(255,138,42,0.25);'
+        f'border-bottom:2px solid {accent};padding:0.35rem 0 0.18rem 0;'
+        f'margin:0.35rem 0 0.2rem 0;text-shadow:0 0 1px rgba(255,138,42,0.25);'
         f'overflow:hidden;">{label}{right}</div>'
     )
 

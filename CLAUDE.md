@@ -1,7 +1,10 @@
-# CLAUDE.md -- Mini Bloomberg Terminal (Project 11 of 11)
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+Mini Bloomberg Terminal (Project 11 of 11) -- unified investment research terminal integrating all 10 prior projects.
 
 > Read this file fully before writing any code. This is the single source of truth for Project 11.
-> This is the FINAL BOSS project: a unified investment research terminal integrating all 10 prior projects.
 
 ---
 
@@ -38,7 +41,7 @@ Python: `python3` (not `python`). Package manager: `pip3`.
 - Parent `~/Documents/CODE/CLAUDE.md` carries cross-project universal rules and formulas. Read it before deviating from patterns.
 - The data layer routes per purpose, NOT per environment. FMP (`terminal/data/provider_fmp.py`) serves single ticker stock data via the `stable/` endpoints only (the v3/ endpoints all return 403 on the Starter tier; verified with `scripts/fmp_endpoint_audit.py`). yfinance serves indices, ETFs, the breadth universe, and options chains in production AND development. FRED serves macro. There is NO silent failover between providers; each route is an explicit architectural decision. Routing lives in `terminal/data/provider_registry.py` (single_stock_provider, index_etf_provider, options_provider, macro). The SharedDataManager exposes per purpose methods: `get_stock_prices`, `get_index_prices`, `get_any_prices` (cascade for portfolio holdings of unknown type), `get_fundamentals`, `get_options_chain`, `get_macro`.
 - All config flows through `terminal/config_loader.py`; PE scoring bands and regime thresholds live in `config.yaml`. Every consumed key has a config truthfulness test.
-- Design system is canonical. `style_inject.py` lives at the project root and is imported flat (`from style_inject import inject_styles, TOKENS, styled_header, styled_kpi, styled_section_label, styled_divider, styled_card, apply_plotly_theme`). It is the same file across every Streamlit project in the Finance Lab. Do NOT fork it. The accent color (#E07020 Bloomberg orange) is auto detected from the folder name.
+- Design system is canonical. `style_inject.py` lives at the project root and is imported flat (`from style_inject import inject_styles, TOKENS, styled_header, styled_kpi, styled_section_label, styled_divider, styled_card, apply_plotly_theme`). It is the same file across every Streamlit project in the Finance Lab. Do NOT fork it. The accent color (#E07020 Bloomberg orange) is auto-detected by walking up the filesystem and matching the folder name against a `PROJECT_ACCENTS` dict inside the file.
 - File size limit: ~150 lines per Python module. Split proactively.
 - Production stack: Railway (hosting) + Cloudflare (DNS) + Financial Modeling Prep (market data) + FRED (macro) + Anthropic (LLM) + SQLite (persistence). Streamlit Community Cloud is irrelevant.
 
@@ -154,16 +157,28 @@ mini-bloomberg-terminal/
   app/
     __init__.py
     app.py                          # entry point, st.navigation, global header
-    style_inject.py                 # Bloomberg dark mode CSS
     header.py                       # global header component (ticker bar, watchlist, market strip)
+    header_status.py                # market status indicator
+    header_tape.py                  # scrolling market tape
+    header_tape_batch.py            # batched tape data fetching
+    header_sidebar_toggle.py        # sidebar toggle button
+    sidebar_ticker.py               # sidebar ticker display
+    footer.py                       # page footer
+    density_css.py                  # UI density/compactness CSS injection
     pages/
       __init__.py
-      market_overview.py            # MARKET workspace
-      ticker_deep_dive.py           # RESEARCH workspace
-      options_lab.py                # ANALYTICS: Options Lab
-      lbo_quick_calc.py             # ANALYTICS: LBO Quick Calc
-      comps_relative_value.py       # ANALYTICS: Comps & Relative Value
-      portfolio_builder.py          # PORTFOLIO workspace
+      market_overview.py            # MARKET workspace (delegates to _market_* helpers)
+      ticker_deep_dive.py           # RESEARCH workspace (delegates to _research_* helpers)
+      options_lab.py                # ANALYTICS: Options Lab (delegates to _options_* helpers)
+      lbo_quick_calc.py             # ANALYTICS: LBO Quick Calc (uses _lbo_helpers)
+      comps_relative_value.py       # ANALYTICS: Comps (delegates to _comps_* helpers)
+      portfolio_builder.py          # PORTFOLIO workspace (delegates to _portfolio_* helpers)
+      _market_*.py                  # ~6 helper modules (breadth, grid, kpi, regime, etc.)
+      _research_*.py                # ~8 helper modules (phase1-4, engine cards, etc.)
+      _options_*.py                 # ~6 helper modules (chain, greeks, surface, etc.)
+      _portfolio_*.py               # ~5 helper modules (build, decompose, validate, etc.)
+      _comps_*.py                   # ~5 helper modules (peers, valuation, ma, etc.)
+      _lbo_helpers.py               # LBO page helper
   terminal/
     __init__.py
     config_loader.py                # load config.yaml once, pass as dict
@@ -171,16 +186,20 @@ mini-bloomberg-terminal/
       __init__.py
       provider_interface.py         # MarketDataProvider ABC
       provider_fmp.py               # Financial Modeling Prep: PRODUCTION provider (fully implemented)
-      provider_yfinance.py          # yfinance: LOCAL DEV ONLY (excluded from production config)
+      provider_yfinance.py          # yfinance: indices, ETFs, breadth, options, FX (prod AND dev)
       provider_polygon.py           # Polygon.io: future upgrade stub (interface-ready, not wired)
       provider_fred.py              # FRED API for macro data (always used, not a fallback)
-      provider_registry.py          # provider selection, mode enforcement (dev vs production), no silent fallback
+      provider_registry.py          # provider selection, mode enforcement, no silent fallback
       schemas.py                    # normalized dataclasses: PriceData, Fundamentals, MacroData, OptionsChain
       cache.py                      # cache layer with config-hash keys, aggressive TTLs
+      _fmp_http.py                  # FMP HTTP client with rate limiting
+      _fmp_parsers.py               # FMP response normalization
+      _fmp_ratios.py                # FMP ratio computation helpers
     managers/
       __init__.py
       data_manager.py               # SharedDataManager (st.cache_resource)
       analytics_manager.py          # AnalyticsManager (st.cache_data for expensive engine outputs)
+      _macro_fallback.py            # fallback logic for macro data gaps
     adapters/
       __init__.py
       research_adapter.py           # wraps P10 orchestrator pipeline
@@ -193,6 +212,7 @@ mini-bloomberg-terminal/
       robustness_adapter.py         # wraps P7 robustness validation (PBO, DSR, plateau)
       optimizer_adapter.py          # wraps P8 MV + HRP optimizers
       options_adapter.py            # wraps P9 Greeks, IV, vol surface
+      _research_sub_scores.py       # sub-score computation helpers for research pipeline
     engines/
       __init__.py
       pnl_engine.py                 # P&L interpretation layer (shared across workspaces)
@@ -205,6 +225,15 @@ mini-bloomberg-terminal/
       chart_helpers.py              # Plotly chart factory with Bloomberg theme + interpretation callouts
       error_handling.py             # degraded state display, error boundaries
       watchlist_io.py               # SQLite persistence (production) with JSON fallback (local dev)
+      sparkline.py                  # inline sparkline chart generation
+      marquee.py                    # scrolling marquee/tape components
+      tape_helpers.py               # market tape data helpers
+      density.py                    # UI density configuration
+      styling.py                    # additional styling utilities
+      skeletons.py                  # loading skeleton placeholders
+      sector_peers.py               # sector peer lookup for comps
+      cache_utils.py                # shared caching utilities
+      tradingview.py                # TradingView widget integration
   tests/
     __init__.py
     test_adapters/
@@ -226,6 +255,15 @@ Rules:
 - No file exceeds ~150 lines. Split proactively.
 - Inside `app/` use **absolute** imports (`from app.header import ...`, `from app.pages._helpers import ...`) NOT relative imports. Streamlit loads the entry script and every page via `st.Page("pages/X.py")` as a top-level script (no parent package), so relative imports raise `ImportError: attempted relative import with no known parent package` and crash the app on Railway. This was a real production crash on the first deploy. Do NOT revert to relative imports.
 - Every entry-point file in `app/` (the entry script `app.py` and every page in `app/pages/`) MUST bootstrap the project root onto `sys.path` BEFORE any project import. The pattern: `_PROJECT_ROOT = Path(__file__).resolve().parents[2]` (or `.parent.parent` for `app/app.py`), then `sys.path.insert(0, str(_PROJECT_ROOT))`. This makes `app.*` and `terminal.*` resolvable when Streamlit runs the file directly.
+- **Page helper module pattern**: Each main page file (e.g., `market_overview.py`) stays under 150 lines by delegating to underscore-prefixed helper modules (e.g., `_market_kpi.py`, `_market_regime.py`, `_market_breadth.py`). There are ~35 helper modules total across all pages. Only the main page files are registered with `st.Page()`; helpers are imported by the main page.
+- **Docker entrypoint**: The Dockerfile runs `start.sh` (not `streamlit run` directly). Check `start.sh` for any pre-launch setup.
+
+### Test fixtures
+
+`tests/conftest.py` provides three session-scoped fixtures used across all test files:
+- `config`: loads `config.yaml` once via `load_config()`
+- `synthetic_prices`: 400-day OHLCV DataFrame (seed=42) for any test needing price data
+- `synthetic_returns_matrix`: 500x5 returns DataFrame (seed=7) for portfolio/optimizer tests
 
 ---
 

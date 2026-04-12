@@ -18,6 +18,9 @@ import streamlit as st  # noqa: E402
 
 from style_inject import TOKENS, styled_header  # noqa: E402
 
+from app.pages._research_earnings import render_earnings  # noqa: E402
+from app.pages._research_news import render_news  # noqa: E402
+from app.pages._research_ownership import render_ownership  # noqa: E402
 from app.pages._research_page_helpers import (  # noqa: E402
     render_phase1_chart,
     render_phase1_stats,
@@ -71,16 +74,12 @@ def render() -> None:
 
     styled_header(f"Research. {ticker}", "Deterministic pipeline | Sub scores | Memo synthesis")
 
-    # Fetch the raw building blocks BEFORE the pipeline runs so Phase 1
-    # KPIs always have data to render, even when a downstream engine
-    # raises and the pipeline is reduced to a hard_failure packet.
+    # Fetch raw building blocks before the pipeline so Phase 1 KPIs
+    # always have data, even on hard_failure.
     raw_prices = data_manager.get_stock_prices(ticker, config["research"]["default_price_period"])
     raw_fundamentals = data_manager.get_fundamentals(ticker)
 
-    # Guard against indices and ETFs routed to this page. Research is
-    # for single stocks only; showing an n/a KPI strip and a chart
-    # from a stale cached ticker reads as a data bug, not a workspace
-    # choice. Nudge the user to Market Overview and bail early.
+    # Guard: indices/ETFs have no fundamentals. Nudge to Market Overview.
     if _looks_like_non_equity(raw_fundamentals):
         _render_non_equity_state(ticker)
         return
@@ -105,12 +104,12 @@ def render() -> None:
         "sub_scores": {}, "override_reason": None, "rule_trace": [],
     })
     packet.setdefault("scenarios", [])
-    # Inject raw price + fundamentals into the packet if the pipeline
-    # itself did not. On success these are already present (same
-    # objects, since data_manager is cache-backed). On hard_failure the
-    # key is absent and Phase 1 would otherwise show all n/a.
+    # Inject raw data if pipeline didn't (e.g. hard_failure).
     packet.setdefault("prices", raw_prices)
     packet.setdefault("fundamentals", raw_fundamentals)
+    packet.setdefault("analyst", data_manager.get_analyst_data(ticker))
+    packet.setdefault("ownership", data_manager.get_ownership(ticker))
+    packet.setdefault("earnings", data_manager.get_earnings(ticker))
 
     row1_l, row1_r = st.columns([1, 1])
     with row1_l:
@@ -133,6 +132,16 @@ def render() -> None:
     # of the pipeline. Full width so the composite score bar has
     # room to read every sub-score segment.
     safe_render(lambda: render_phase3_recommendation(packet), label="phase3_recommendation", source="local")
+
+    # Ownership and earnings side by side to save vertical space.
+    own_col, earn_col = st.columns(2)
+    with own_col:
+        safe_render(lambda: render_ownership(packet.get("ownership", {})), label="ownership", source="yfinance")
+    with earn_col:
+        safe_render(lambda: render_earnings(packet.get("earnings", {})), label="earnings", source="yfinance")
+
+    # News feed at the bottom.
+    safe_render(lambda: render_news(ticker, data_manager), label="news", source="yfinance")
 
 
 render()

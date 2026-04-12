@@ -141,27 +141,25 @@ section[data-testid="stSidebar"] > div {{ padding-top: 0.3rem !important; backgr
 section[data-testid="stSidebar"] .block-container {{ padding: 0.25rem 0.3rem !important; }}
 
 /* Streamlit injects a Material Symbols icon ("expand_more") next to
-   each sidebar navigation section group header. Two defenses so the
-   raw icon name never leaks to the user:
-   1. Force the span to use the Material Symbols font (loaded via
-      the Google Fonts link at the top of inject_density).
-   2. Hide every icon container + expand button inside the sidebar
-      nav. The user cannot collapse nav groups anyway because we
-      have disabled the sidebar collapse button globally. */
+   each sidebar navigation section group header. The nav groups are
+   not collapsible in this terminal so we hide the icon entirely.
+   Broad selectors ensure no raw icon name ever leaks regardless of
+   which element wrapper Streamlit uses across versions. */
 section[data-testid="stSidebarNav"] span.material-icons,
 section[data-testid="stSidebarNav"] span.material-symbols-outlined,
 section[data-testid="stSidebarNav"] span[data-testid="stIconMaterial"],
 section[data-testid="stSidebarNav"] i.material-icons,
 section[data-testid="stSidebarNav"] i.material-symbols-outlined,
 section[data-testid="stSidebarNav"] button[kind="headerNoPadding"],
-section[data-testid="stSidebarNav"] button[title*="expand" i] {{
+section[data-testid="stSidebarNav"] button[title*="expand" i],
+section[data-testid="stSidebarNav"] [data-testid="stSidebarNavSeparator"] button,
+section[data-testid="stSidebarNav"] div[role="heading"] button,
+section[data-testid="stSidebarNav"] div[role="heading"] span {{
     font-size: 0 !important;
     width: 0 !important;
     height: 0 !important;
+    overflow: hidden !important;
     display: none !important;
-}}
-section[data-testid="stSidebarNav"] span {{
-    font-family: {TOKENS["font_mono"]}, "Material Symbols Outlined", "Material Icons" !important;
 }}
 
 /* Kill the sidebar collapse / expand toggles. The sidebar is a
@@ -222,8 +220,8 @@ section[data-testid="stSidebarNav"] span[class*="StyledNavSection"] {{
 /* Page title h1: max 0.5rem from first content. Zero top margin. */
 h1 {{ margin-top: 0 !important; margin-bottom: 0.2rem !important; font-size: 1.1rem !important; line-height: 1.15 !important; }}
 /* Custom styled_header wrapper margin (designs use a 1.25rem margin-bottom inline). */
-.stMarkdown div[style*="margin-bottom: 1.25rem"] {{ margin-bottom: 0.3rem !important; }}
-.stMarkdown div[style*="margin-bottom: 0.4rem"] {{ margin-bottom: 0.15rem !important; }}
+.stMarkdown div[style*="margin-bottom: 1.25rem"] {{ margin-bottom: 0.15rem !important; }}
+.stMarkdown div[style*="margin-bottom: 0.4rem"] {{ margin-bottom: 0.1rem !important; }}
 
 /* Markdown body line height tighter */
 .stMarkdown p {{ margin: 0.08rem 0 !important; line-height: 1.25 !important; }}
@@ -269,16 +267,7 @@ h1 {{ margin-top: 0 !important; margin-bottom: 0.2rem !important; font-size: 1.1
 """
 
 
-_MATERIAL_FONT_LINK = (
-    '<link href="https://fonts.googleapis.com/css2?'
-    'family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&'
-    'family=Material+Icons" rel="stylesheet">'
-)
-
-
 def inject_density() -> None:
-    # Preload the Material Symbols font so Streamlit's sidebar nav
-    # collapse indicators render as an icon. Without this link the
-    # browser paints the raw icon name ("expand_more") as text.
-    st.markdown(_MATERIAL_FONT_LINK, unsafe_allow_html=True)
+    """Inject density overrides. No external font dependency -- the
+    sidebar icon elements are hidden purely via CSS selectors above."""
     st.markdown(DENSITY_CSS, unsafe_allow_html=True)
