@@ -43,7 +43,7 @@ Python: `python3` (not `python`). Package manager: `pip3`.
 - All config flows through `terminal/config_loader.py`; PE scoring bands and regime thresholds live in `config.yaml`. Every consumed key has a config truthfulness test.
 - Design system is canonical. `style_inject.py` lives at the project root and is imported flat (`from style_inject import inject_styles, TOKENS, styled_header, styled_kpi, styled_section_label, styled_divider, styled_card, apply_plotly_theme`). It is the same file across every Streamlit project in the Finance Lab. Do NOT fork it. The accent color (#E07020 Bloomberg orange) is auto-detected by walking up the filesystem and matching the folder name against a `PROJECT_ACCENTS` dict inside the file.
 - File size limit: ~150 lines per Python module. Split proactively.
-- Production stack: Railway (hosting) + Cloudflare (DNS) + Financial Modeling Prep (market data) + FRED (macro) + Anthropic (LLM) + SQLite (persistence). Streamlit Community Cloud is irrelevant.
+- Production stack: Railway (hosting) + Cloudflare (DNS) + Financial Modeling Prep (market data) + FRED (macro) + Finnhub (news) + Anthropic (LLM) + SQLite (persistence). Streamlit Community Cloud is irrelevant.
 
 ### Phase 2 audit fixes applied (reference)
 
@@ -62,6 +62,33 @@ Python: `python3` (not `python`). Package manager: `pip3`.
 - **Portfolio Phase 3 (robustness validation)**: removed from the page. The previous implementation generated a fake trial matrix by perturbing the fitted weights with Gaussian noise, producing theatrical PBO verdicts. The robustness adapter remains available standalone for v2 to wire into a real CSCV parameter sweep.
 - **Risk Parity and Black-Litterman optimizers** (already deferred in v1).
 - **Cold render API budget optimization**: Market Overview can issue 20+ provider calls on a single cold render. With FMP Starter (750 req/min) this is no longer a hard limit, but pre warming on boot is still on the v2 list.
+
+### v1.3 changes (2026-04-12)
+
+- **Command bar**: Bloomberg-style persistent command/search bar at the top of every page. Accepts tickers, page shortcuts (market/options/lbo/comps/portfolio), and combined commands (e.g. "MSFT options"). Uses fuzzy matching via `suggest_ticker()`. Rendered in `app/command_bar.py`, integrated into `app/header.py`.
+- **News switched to Finnhub**: `_news_fetch.py` now calls Finnhub `/company-news` (last 7 days) when `FINNHUB_API_KEY` is set. Falls back to yfinance silently when key is absent. Source tag updates dynamically.
+- **Research page bottom layout**: 3-column row (ownership | earnings | dividends) + full-width news row. Ownership tables stack vertically. Earnings table + 180px surprise chart stack vertically. Dividends chart (180px) + yield/payout/CAGR KPIs fill the column.
+- **Earnings surprise chart**: Grouped bar chart (EPS Estimate gray, EPS Actual green/red) in `_research_earnings_chart.py`.
+- **Dividend section**: Annual DPS bar chart + 4 KPIs (DIV YIELD, PAYOUT RATIO, EX-DIV DATE, 5Y CAGR). Timezone crash fixed (yfinance returns tz-aware index).
+- **Short interest**: SHORT % FLOAT and SHORT RATIO KPIs added to KEY STATS on Research page. Data from `_short_interest_fetch.py`.
+- **LBO assumptions row**: Dense KPI row showing active scenario inputs (Entry EV, Entry Mult, EBITDA, Leverage, Exit Mult, Hold, Rev Growth) at the top of the LBO page.
+- **Options chain extra columns**: Last, Chg, %Chg columns added per side. yfinance `lastPrice`, `change`, `percentChange` now flow through the provider.
+- **Insider transactions fix**: `Text` field used instead of empty `Transaction` column from yfinance.
+- **VIX fallback**: If FRED VIXCLS is NaN, Market Overview fetches `^VIX` from yfinance as backup. Shows STALE marker when using fallback.
+- **PE score table**: Replaced `st.dataframe` with Bloomberg-style HTML table (dark background, monospace, color-coded deltas).
+- **LLM memo spacing**: TLDR, timestamp, and expander now have explicit padding and separation.
+- **Overlap fixes**: section_bar `overflow:hidden` clearfix for floated source tags; ownership table caption spacing increased.
+- **Version bumped to 1.3.0** in `config.yaml`. Footer shows `FMP STABLE | YFINANCE | FRED | FINNHUB | ANTHROPIC`.
+
+### Environment variables (updated)
+
+```
+FMP_API_KEY         # REQUIRED for production (single-stock market data)
+FINNHUB_API_KEY     # Ticker-specific news (optional; falls back to yfinance)
+ANTHROPIC_API_KEY   # LLM memo synthesis (enabled automatically when present)
+FRED_API_KEY        # REQUIRED for macro data
+APP_MODE            # "production" or "development" (default: production)
+```
 
 ---
 
@@ -157,6 +184,7 @@ mini-bloomberg-terminal/
   app/
     __init__.py
     app.py                          # entry point, st.navigation, global header
+    command_bar.py                  # Bloomberg-style command/search bar (ticker + page navigation)
     header.py                       # global header component (ticker bar, watchlist, market strip)
     header_status.py                # market status indicator
     header_tape.py                  # scrolling market tape
@@ -180,11 +208,11 @@ mini-bloomberg-terminal/
       _research_visuals.py          # phase3 recommendation bar + composite score
       _research_financials.py       # financials table + 52w range bar
       _research_analyst.py          # analyst consensus (price targets, ratings)
-      _research_news.py             # news feed via yfinance
+      _research_news.py             # news feed via Finnhub (yfinance fallback)
       _research_ownership.py        # institutional holders + insider transactions
       _research_earnings.py         # earnings calendar + history table
       _research_earnings_chart.py   # EPS estimate vs actual grouped bar chart
-      _research_dividends.py        # annual dividend per share bar chart
+      _research_dividends.py        # annual DPS bar chart + yield/payout/CAGR KPIs
       _options_chain.py             # full chain table with ITM/ATM highlighting
       _options_payoff.py            # single-leg payoff chart with spot/breakeven lines
       _options_*.py                 # ~4 more helpers (greeks, surface, strategies, etc.)
@@ -212,11 +240,11 @@ mini-bloomberg-terminal/
       data_manager.py               # SharedDataManager (st.cache_resource)
       analytics_manager.py          # AnalyticsManager (st.cache_data for expensive engine outputs)
       _macro_fallback.py            # fallback logic for macro data gaps
-      _news_fetch.py                # yfinance news feed fetcher
+      _news_fetch.py                # Finnhub news (primary) with yfinance fallback
       _analyst_fetch.py             # yfinance analyst consensus fetcher
       _ownership_fetch.py           # yfinance institutional holders + insider transactions
       _earnings_fetch.py            # yfinance earnings calendar + history
-      _dividends_fetch.py           # yfinance dividend history
+      _dividends_fetch.py           # yfinance dividend history + yield/payout/ex-date stats
       _short_interest_fetch.py      # yfinance short interest metrics
     adapters/
       __init__.py
@@ -713,10 +741,11 @@ CMD ["streamlit", "run", "app/app.py", "--server.port=8501", "--server.headless=
 ### Environment variables
 
 ```
-FMP_API_KEY   # REQUIRED for production (market data)
-ANTHROPIC_API_KEY       # LLM memo synthesis (enabled automatically when present)
-FRED_API_KEY            # REQUIRED for macro data
-APP_MODE                # "production" or "development" (default: production)
+FMP_API_KEY         # REQUIRED for production (single-stock market data)
+FINNHUB_API_KEY     # Ticker-specific news (optional; falls back to yfinance)
+ANTHROPIC_API_KEY   # LLM memo synthesis (enabled automatically when present)
+FRED_API_KEY        # REQUIRED for macro data
+APP_MODE            # "production" or "development" (default: production)
 ```
 
 ### Mode behavior
@@ -820,4 +849,4 @@ requests
 
 *CLAUDE.md -- Mini Bloomberg Terminal (Project 11)*
 *Written: 2026-04-10, updated 2026-04-12*
-*Status: COMPLETE. v1.2 shipped 2026-04-12. 137 tests passing. v1.2 adds: news feed, analyst consensus, ownership tables, earnings with surprise chart, dividend history, short interest KPIs, smart ticker validation, M&A comps enriched with EV/Rev and Premium columns, LBO assumptions summary row, options chain extra columns (Last, Chg, %Chg), regime/ownership overlap fixes, section_bar orange border-bottom removed, sidebar expand_more hidden via CSS. Production stack: Railway + Cloudflare + Financial Modeling Prep + FRED + Anthropic + SQLite.*
+*Status: COMPLETE. v1.3.0 shipped 2026-04-12. 137 tests passing. Production stack: Railway + Cloudflare + FMP + FRED + Finnhub + Anthropic + SQLite. See "v1.3 changes" section above for full changelog.*
