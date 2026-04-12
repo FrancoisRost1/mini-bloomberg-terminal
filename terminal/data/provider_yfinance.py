@@ -73,6 +73,11 @@ class YFinanceProvider(MarketDataProvider):
         div_yield = trailing / spot if spot else 0.0
         if div_yield > self.yf_cfg["dividend_yield_warning"]:
             div_yield = float("nan")
+        ev = float(info.get("enterpriseValue") or 0)
+        ebitda = float(info.get("ebitda") or 0)
+        total_debt = float(info.get("totalDebt") or 0)
+        total_cash = float(info.get("totalCash") or 0)
+        net_debt = total_debt - total_cash
         ratios = {
             "pe_ratio": float(info.get("trailingPE") or float("nan")),
             "ev_ebitda": float(info.get("enterpriseToEbitda") or float("nan")),
@@ -81,6 +86,9 @@ class YFinanceProvider(MarketDataProvider):
             "dividend_yield": div_yield,
             "beta": float(info.get("beta") or float("nan")),
             "revenue_growth": float(info.get("revenueGrowth") or float("nan")),
+            "net_debt_ebitda": float(net_debt / ebitda) if ebitda > 0 else float("nan"),
+            "fcf_conversion": float(info.get("freeCashflow") or 0) / ebitda if ebitda > 0 else float("nan"),
+            "interest_coverage": float("nan"),
         }
         return ratios
 

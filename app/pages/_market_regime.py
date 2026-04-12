@@ -20,6 +20,7 @@ from terminal.utils.chart_helpers import bar_chart, interpretation_callout_html
 from terminal.utils.density import (
     colored_dataframe,
     dense_kpi_row,
+    dense_kpi_rows,
     period_returns_tape,
     section_bar,
     signed_color,
@@ -91,7 +92,7 @@ def render_regime(data_manager, config) -> None:
         {"label": "HY SPREAD", "value": f"{sigs['hy_spread']:.2f}%"
          if _is_num(sigs["hy_spread"]) else "n/a"},
     ]
-    st.markdown(dense_kpi_row(items, min_cell_px=135), unsafe_allow_html=True)
+    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=135), unsafe_allow_html=True)
 
     # Raw signals tell the story. Integer scores collapse to zero when no
     # stress threshold is breached, which reads like the engine is broken.

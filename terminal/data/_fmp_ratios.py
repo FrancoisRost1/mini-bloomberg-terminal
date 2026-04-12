@@ -175,7 +175,9 @@ def compute_ratios(
         #   3. longTermDebt alone
         #   4. net_debt = 0 (pure-equity ev proxy)
         net_debt = _resolve_net_debt(balance)
-        ratios["ev_ebitda"] = float((market_cap + net_debt) / ebitda)
+        ev_ebitda = float((market_cap + net_debt) / ebitda)
+        if ev_ebitda > 0:
+            ratios["ev_ebitda"] = ev_ebitda
         ratios["net_debt_ebitda"] = float(net_debt / ebitda)
     if not balance.empty and not income.empty:
         equity = balance.get("totalStockholdersEquity", pd.Series(dtype=float)).dropna()

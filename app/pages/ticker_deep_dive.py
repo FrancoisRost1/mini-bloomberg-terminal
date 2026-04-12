@@ -84,7 +84,7 @@ def render() -> None:
         _render_non_equity_state(ticker)
         return
 
-    chart_slot = chart_skeleton(height=380)
+    chart_slot = chart_skeleton(height=520)
     kpi_slot = kpi_skeleton(rows=2, cells=6)
     with st.spinner(f"Running research pipeline for {ticker}."):
         try:

@@ -93,11 +93,11 @@ def render_phase1_chart(packet: dict[str, Any], data_manager=None) -> None:
             prices_obj = refetched
             close = refetched.prices["close"]
 
-    placeholder = chart_skeleton(height=380)
+    placeholder = chart_skeleton(height=520)
     if view == "Candlestick":
-        html = build_tv_chart_html(prices_obj.prices, ticker, height_px=380)
+        html = build_tv_chart_html(prices_obj.prices, ticker, height_px=520)
         placeholder.empty()
-        components.html(html, height=390)
+        components.html(html, height=530)
     else:
         fig = line_chart({ticker: close}, title=f"{ticker} price ({period_label})", y_unit="USD")
         placeholder.empty()
