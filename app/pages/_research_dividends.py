@@ -25,6 +25,11 @@ def render_dividends(ticker: str, data_manager) -> None:
         st.markdown(inline_status_line("No dividend history", source="yfinance"), unsafe_allow_html=True)
         return
 
+    # Strip timezone to avoid tz-aware vs tz-naive comparison crash
+    # (yfinance returns tz-aware index, pd.Timestamp.now() is naive).
+    if divs.index.tz is not None:
+        divs.index = divs.index.tz_localize(None)
+
     # Keep last 5 years.
     cutoff = pd.Timestamp.now() - pd.DateOffset(years=5)
     divs = divs[divs.index >= cutoff]

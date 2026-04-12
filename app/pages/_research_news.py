@@ -1,12 +1,13 @@
 """NEWS section for the Research page.
 
-Renders the 8 most recent ticker-specific articles from yfinance in a
-dense Bloomberg-style list: timestamp | publisher | title (linked).
-Degrades to an inline OFF pill when no articles are available.
+Renders the 8 most recent ticker-specific articles in a dense
+Bloomberg-style list: timestamp | publisher | title (linked).
+Primary source is Finnhub; falls back to yfinance when key is absent.
 """
 
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 from typing import Any
 
@@ -15,6 +16,8 @@ import streamlit as st
 from style_inject import TOKENS
 from terminal.utils.density import section_bar
 from terminal.utils.error_handling import inline_status_line
+
+_NEWS_SOURCE = "FINNHUB" if os.environ.get("FINNHUB_API_KEY") else "yfinance"
 
 
 def _fmt_time(iso: str) -> str:
@@ -63,11 +66,11 @@ def _news_row(article: dict) -> str:
 
 def render_news(ticker: str, data_manager: Any) -> None:
     """Render the NEWS section on the Research page."""
-    st.markdown(section_bar("NEWS", source="yfinance"), unsafe_allow_html=True)
+    st.markdown(section_bar("NEWS", source=_NEWS_SOURCE), unsafe_allow_html=True)
     articles = data_manager.get_news(ticker, count=8)
     if not articles:
         st.markdown(
-            inline_status_line("OFF", source="yfinance"),
+            inline_status_line("OFF", source=_NEWS_SOURCE),
             unsafe_allow_html=True,
         )
         return
