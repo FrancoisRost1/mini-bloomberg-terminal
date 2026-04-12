@@ -38,7 +38,7 @@ def render_earnings_chart(history: list[dict]) -> None:
         marker_color=colors, opacity=0.9,
     ))
     fig.update_layout(
-        barmode="group", height=240,
+        barmode="group", height=180,
         title="EPS: Estimate vs Actual",
         yaxis_title="EPS ($)",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),

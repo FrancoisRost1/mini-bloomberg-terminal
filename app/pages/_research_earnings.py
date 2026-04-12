@@ -84,8 +84,5 @@ def render_earnings(earnings: dict) -> None:
     st.markdown(dense_kpi_rows(items, rows=1, min_cell_px=140), unsafe_allow_html=True)
 
     if history:
-        tbl_col, chart_col = st.columns([1, 1])
-        with tbl_col:
-            st.markdown(_history_table(history), unsafe_allow_html=True)
-        with chart_col:
-            render_earnings_chart(history)
+        st.markdown(_history_table(history), unsafe_allow_html=True)
+        render_earnings_chart(history)

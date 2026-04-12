@@ -132,19 +132,17 @@ def render() -> None:
     # room to read every sub-score segment.
     safe_render(lambda: render_phase3_recommendation(packet), label="phase3_recommendation", source="local")
 
-    # Ownership and earnings side by side to save vertical space.
-    own_col, earn_col = st.columns(2)
+    # Row: ownership | earnings | dividends (three equal columns).
+    own_col, earn_col, div_col = st.columns(3)
     with own_col:
         safe_render(lambda: render_ownership(packet.get("ownership", {})), label="ownership", source="yfinance")
     with earn_col:
         safe_render(lambda: render_earnings(packet.get("earnings", {})), label="earnings", source="yfinance")
-
-    # Dividends and news side by side at the bottom.
-    div_col, news_col = st.columns(2)
     with div_col:
         safe_render(lambda: render_dividends(ticker, data_manager), label="dividends", source="yfinance")
-    with news_col:
-        safe_render(lambda: render_news(ticker, data_manager), label="news", source="yfinance")
+
+    # News: full width so article titles have room.
+    safe_render(lambda: render_news(ticker, data_manager), label="news", source="yfinance")
 
 
 render()
