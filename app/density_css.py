@@ -172,6 +172,27 @@ section[data-testid="stSidebar"] [data-testid="stIconMaterial"] {{
     visibility: hidden !important;
 }}
 
+/* Expander chevron: Streamlit renders keyboard_arrow_right/down via
+   Material Icons DynamicIcon. Without the font loaded the raw icon
+   name leaks as text ("_arrow..."). Hide the icon span and use a
+   pure CSS triangle as the disclosure indicator instead. */
+.stExpander [data-testid="stIconMaterial"] {{
+    font-size: 0 !important;
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    height: 0 !important;
+}}
+.stExpander summary::before {{
+    content: "\\25B8";
+    font-size: 0.7rem;
+    color: {TOKENS["text_muted"]};
+    margin-right: 0.35rem;
+}}
+.stExpander[open] summary::before {{
+    content: "\\25BE";
+}}
+
 /* Kill the sidebar collapse / expand toggles. The sidebar is a
    fixed terminal style rail; the user never needs to hide it. */
 [data-testid="stSidebarCollapseButton"],

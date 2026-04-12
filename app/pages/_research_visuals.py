@@ -140,44 +140,33 @@ def render_memo_card(memo_result: dict[str, Any], rating: str, composite: float)
     # Block 1: TLDR card with clear separation from the section bar
     # above and from the timestamp below. Explicit vertical margin
     # on both ends prevents any collapse into neighbouring elements.
-    tldr = (
-        f"<div style='font-family:{mono};font-size:0.76rem;"
-        f"color:{text_primary};line-height:1.55;"
-        f"background:{bg_surface};border:1px solid {border_subtle};"
-        f"border-left:3px solid {accent};border-radius:2px;"
-        f"padding:0.75rem 0.9rem 0.75rem 0.9rem;"
-        f"margin:0.6rem 0 0.9rem 0;'>"
-        f"<div style='color:{accent};font-weight:800;letter-spacing:0.12em;"
-        f"text-transform:uppercase;font-size:0.64rem;line-height:1.4;"
-        f"margin-bottom:0.5rem;'>"
-        f"TLDR"
-        f"</div>"
-        f"<div style='line-height:1.6;'>"
+    body_text = (
         f"Deterministic rating "
         f"<span style='color:{accent};font-weight:700;'>{rating}</span> "
         f"with composite <span style='color:{accent};font-weight:700;'>{composite_str}</span>. "
         f"The narrative below was generated around the locked rating; "
         f"the LLM is forbidden from overriding it."
-        f"</div>"
+    )
+    tldr = (
+        f"<div style='font-family:{mono};font-size:0.76rem;"
+        f"color:{text_primary};line-height:1.55;"
+        f"background:{bg_surface};border:1px solid {border_subtle};"
+        f"border-left:3px solid {accent};border-radius:2px;"
+        f"padding:0.75rem 0.9rem;margin:0.6rem 0 0.5rem 0;"
+        f"position:relative;z-index:1;'>"
+        f"<div style='color:{accent};font-weight:800;letter-spacing:0.12em;"
+        f"text-transform:uppercase;font-size:0.64rem;line-height:1.4;"
+        f"margin-bottom:0.4rem;'>TLDR</div>"
+        f"<div style='line-height:1.6;'>{body_text}</div>"
         f"</div>"
     )
     st.markdown(tldr, unsafe_allow_html=True)
 
-    # Block 2: Generation timestamp, on its own line.
+    # Block 2: Generation timestamp.
     ts = memo_result.get("generated_at") or "n/a"
-    st.markdown(
-        f"<div style='font-family:{mono};font-size:0.6rem;"
-        f"color:{text_muted};letter-spacing:0.1em;text-transform:uppercase;"
-        f"margin:0.5rem 0 1rem 0;padding:0.2rem 0.3rem;line-height:1.5;'>"
-        f"Generated {ts} UTC"
-        f"</div>",
-        unsafe_allow_html=True,
-    )
+    st.caption(f"Generated {ts} UTC")
 
-    # Block 3: Native Streamlit expander. Streamlit ships its own
-    # rotating chevron next to the label; a custom Unicode arrow
-    # collided with the Material Symbols font and rendered as the
-    # raw text "arrow_right" beside the label. Plain label only.
+    # Block 3: Full memo in a native expander.
     with st.expander("Full investment memo", expanded=False):
         if memo_result.get("inconsistency"):
             st.warning(memo_result["inconsistency"])
