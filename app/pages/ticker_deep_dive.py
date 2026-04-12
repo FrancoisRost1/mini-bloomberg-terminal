@@ -15,10 +15,13 @@ import streamlit as st  # noqa: E402
 
 from style_inject import TOKENS, styled_header  # noqa: E402
 
+from app.pages._research_decision_banner import render_decision_banner  # noqa: E402
 from app.pages._research_dividends import render_dividends  # noqa: E402
 from app.pages._research_earnings import render_earnings  # noqa: E402
 from app.pages._research_news import render_news  # noqa: E402
 from app.pages._research_ownership import render_ownership  # noqa: E402
+from app.pages._research_synthesis import render_synthesis  # noqa: E402
+from app.pages._research_triggers import render_triggers  # noqa: E402
 from app.pages._research_page_helpers import (  # noqa: E402
     render_phase1_chart,
     render_phase1_stats,
@@ -110,6 +113,8 @@ def render() -> None:
     packet.setdefault("earnings", data_manager.get_earnings(ticker))
     packet.setdefault("short_interest", data_manager.get_short_interest(ticker))
 
+    safe_render(lambda: render_decision_banner(packet), label="decision_banner", source="local")
+
     row1_l, row1_r = st.columns([1, 1])
     with row1_l:
         safe_render(lambda: render_phase1_chart(packet, data_manager),
@@ -127,9 +132,14 @@ def render() -> None:
     with memo_col:
         safe_render(lambda: render_phase4_llm(packet, config), label="phase4_llm", source="anthropic")
 
-    # Deterministic rating stays below the engines as the conclusion
-    # of the pipeline. Full width so the composite score bar has
-    # room to read every sub-score segment.
+    # Synthesis + triggers side by side to avoid extra vertical space.
+    synth_col, trigger_col = st.columns([60, 40])
+    with synth_col:
+        safe_render(lambda: render_synthesis(packet), label="synthesis", source="local")
+    with trigger_col:
+        safe_render(lambda: render_triggers(packet, config), label="triggers", source="local")
+
+    # Deterministic rating stays below as the conclusion of the pipeline.
     safe_render(lambda: render_phase3_recommendation(packet), label="phase3_recommendation", source="local")
 
     # Row: ownership | earnings | dividends (three equal columns).
