@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pandas as pd
 import streamlit as st
 
 from style_inject import TOKENS
@@ -12,9 +11,43 @@ from style_inject import TOKENS
 from app.pages._comps_charts import render_pe_metric_bars
 from terminal.adapters.ma_comps_adapter import run_comps
 from terminal.adapters.pe_scoring_adapter import score_single_ticker
-from terminal.utils.density import colored_dataframe, dense_kpi_row, dense_kpi_rows, section_bar, signed_color
+from terminal.utils.density import dense_kpi_row, dense_kpi_rows, section_bar, signed_color
 from terminal.utils.error_handling import inline_status_line, status_pill
 from terminal.utils.formatting import format_metric
+
+
+_MONO = TOKENS["font_mono"]
+_MUTED = TOKENS["text_muted"]
+_PRIMARY = TOKENS["text_primary"]
+_BORDER = TOKENS["border_subtle"]
+_BG = TOKENS["bg_surface"]
+_TH = (
+    f'font-family:{_MONO};font-size:0.58rem;color:{_MUTED};'
+    f'text-transform:uppercase;letter-spacing:0.06em;font-weight:700;'
+    f'padding:0.2rem 0.4rem;border-bottom:1px solid {_BORDER};text-align:left;'
+)
+_TD = (
+    f'font-family:{_MONO};font-size:0.62rem;color:{_PRIMARY};'
+    f'padding:0.15rem 0.4rem;border-bottom:1px solid {_BORDER};'
+)
+
+
+def _pe_score_table(per_metric: dict[str, float]) -> str:
+    """Render PE per-metric scores as a Bloomberg-style HTML table."""
+    rows = ""
+    for k, v in per_metric.items():
+        delta = v - 50
+        color = TOKENS["accent_success"] if delta >= 0 else TOKENS["accent_danger"]
+        rows += (
+            f'<tr><td style="{_TD}text-transform:uppercase;">{k.replace("_", " ")}</td>'
+            f'<td style="{_TD}text-align:right;color:{color};font-weight:700;">{delta:+.1f}</td></tr>'
+        )
+    return (
+        f'<table style="width:100%;border-collapse:collapse;background:{_BG};">'
+        f'<tr><th style="{_TH}">Metric</th>'
+        f'<th style="{_TH}text-align:right;">Score (vs 50)</th></tr>'
+        f'{rows}</table>'
+    )
 
 
 _SHORT_LABELS = {
@@ -78,12 +111,7 @@ def render_pe_score(ratios, config) -> None:
     with table_col:
         per_metric = {k: v for k, v in result["per_metric_scores"].items() if v == v}
         if per_metric:
-            df = pd.DataFrame(
-                [(k.replace("_", " ").title(), round(v - 50, 1)) for k, v in per_metric.items()],
-                columns=["Metric", "Score (vs 50)"],
-            )
-            styler = colored_dataframe(df, ["Score (vs 50)"]).format({"Score (vs 50)": "{:.1f}"})
-            st.dataframe(styler, use_container_width=True, hide_index=True)
+            st.markdown(_pe_score_table(per_metric), unsafe_allow_html=True)
         flags = result.get("red_flags", [])
         flag_text = f"{len(flags)} red flag(s)" if flags else "No red flags"
         st.caption(f"{flag_text}. Score blends margin, FCF, leverage, ROE, and valuation bands.")

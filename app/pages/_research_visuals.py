@@ -162,11 +162,15 @@ def render_memo_card(memo_result: dict[str, Any], rating: str, composite: float)
     )
     st.markdown(tldr, unsafe_allow_html=True)
 
-    # Block 2: Generation timestamp.
+    # Block 2: Generation timestamp on its own line, muted small mono.
     ts = memo_result.get("generated_at") or "n/a"
-    st.caption(f"Generated {ts} UTC")
+    st.markdown(
+        f'<div style="font-family:{mono};font-size:0.58rem;color:{text_muted};'
+        f'letter-spacing:0.06em;padding:0.15rem 0 0.4rem 0;">GENERATED {ts} UTC</div>',
+        unsafe_allow_html=True,
+    )
 
-    # Block 3: Full memo in a native expander.
+    # Block 3: Full memo in a native expander with a gap above.
     with st.expander("Full investment memo", expanded=False):
         if memo_result.get("inconsistency"):
             st.warning(memo_result["inconsistency"])
