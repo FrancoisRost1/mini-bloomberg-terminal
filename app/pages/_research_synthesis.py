@@ -91,6 +91,30 @@ def _consensus_sentence(rec: dict[str, Any]) -> str:
     )
 
 
+def _implication_sentence(rec: dict[str, Any]) -> str:
+    """Cross-engine implication from sub-score distribution and regime."""
+    sub = rec.get("sub_scores") or {}
+    if not sub:
+        return "Insufficient data for cross-engine synthesis."
+    bullish = sum(1 for v in sub.values() if _safe(v) >= 60)
+    bearish = sum(1 for v in sub.values() if _safe(v) < 40)
+    total = len(sub)
+    risk_score = _safe(sub.get("risk"))
+    val_score = _safe(sub.get("valuation"))
+    regime_stress = not math.isnan(risk_score) and risk_score < 35
+    val_weakest = not math.isnan(val_score) and val_score == min(
+        _safe(v) for v in sub.values() if not math.isnan(_safe(v)))
+    if bearish > total / 2:
+        return "Multiple engines flag deterioration. Defensive positioning warranted."
+    if bullish > total / 2 and regime_stress:
+        return "Despite strong fundamentals, elevated macro stress caps conviction. Reduce position size."
+    if bullish > total / 2 and val_weakest:
+        return "Despite strong fundamentals, elevated valuation caps upside. Momentum-driven entry preferred."
+    if bullish > total / 2:
+        return "Fundamentals and momentum align. Conviction entry supported by regime."
+    return "Mixed signals reduce conviction. Wait for alignment before adding risk."
+
+
 def render_synthesis(packet: dict[str, Any]) -> None:
     engines = packet.get("engines") or {}
     rec = packet.get("recommendation") or {}
@@ -111,6 +135,7 @@ def render_synthesis(packet: dict[str, Any]) -> None:
 
     observation = " ".join(sentences) if sentences else "No engine signals available."
     consensus = _consensus_sentence(rec)
+    implication = _implication_sentence(rec)
     rating = rec.get("rating", "INSUFFICIENT_DATA")
     color_map = {"BUY": TOKENS["accent_success"], "HOLD": TOKENS["accent_warning"],
                  "SELL": TOKENS["accent_danger"]}
@@ -121,7 +146,7 @@ def render_synthesis(packet: dict[str, Any]) -> None:
         interpretation_callout_html(
             observation=observation,
             interpretation=consensus,
-            implication="",
+            implication=implication,
         ),
         accent_color=accent,
     )

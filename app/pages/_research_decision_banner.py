@@ -73,6 +73,27 @@ def _build_thesis(rating: str, ranked: list[tuple[str, float]]) -> str:
     return "Insufficient data for a deterministic thesis."
 
 
+def _build_positioning(rating: str, ranked: list[tuple[str, float]]) -> str:
+    """One-line trade recommendation from rating + sub-score context."""
+    if rating == "HOLD":
+        return "No new positioning. Monitor catalyst triggers."
+    if rating == "SELL":
+        risk_val = dict(ranked).get("risk", 50) if ranked else 50
+        if risk_val < 30:
+            return "Put spread or reduce exposure."
+        return "Underweight or exit. Risk outweighs reward."
+    if rating == "BUY":
+        scores = dict(ranked)
+        risk_val = scores.get("risk", 50)
+        val_val = scores.get("valuation", 50)
+        if risk_val < 35:
+            return "Long equity but reduce size due to macro regime."
+        if val_val < 30:
+            return "Call spread preferred given stretched valuation."
+        return "Long equity, 3-6 month horizon."
+    return ""
+
+
 def _build_key_risk(ranked: list[tuple[str, float]]) -> tuple[str, str]:
     """Return (risk label, color). Weakest sub-score drives the risk."""
     if not ranked:
@@ -92,6 +113,7 @@ def render_decision_banner(packet: dict[str, Any]) -> None:
     ranked = _ranked_scores(sub)
     accent = _RATING_COLORS.get(rating, TOKENS["text_muted"])
     thesis = _build_thesis(rating, ranked)
+    positioning = _build_positioning(rating, ranked)
     risk_label, risk_color = _build_key_risk(ranked)
     comp_str = f"{composite:.1f}" if composite == composite else "n/a"
     mono = TOKENS["font_mono"]
@@ -114,9 +136,13 @@ def render_decision_banner(packet: dict[str, Any]) -> None:
         f'<div style="font-family:{mono};font-size:0.62rem;font-weight:600;'
         f'color:{muted};letter-spacing:0.1em;margin-top:0.1rem;">GRADE {grade}</div>'
         f'</div>'
-        # Middle column: thesis
+        # Middle column: thesis + positioning
+        f'<div style="padding:0 0.3rem;">'
         f'<div style="font-family:{mono};font-size:0.72rem;font-weight:500;'
-        f'color:{primary};line-height:1.55;padding:0 0.3rem;">{thesis}</div>'
+        f'color:{primary};line-height:1.55;">{thesis}</div>'
+        f'<div style="font-family:{mono};font-size:0.6rem;font-weight:500;'
+        f'color:{muted};line-height:1.4;margin-top:0.25rem;">{positioning}</div>'
+        f'</div>'
         # Right column: key risk
         f'<div style="text-align:right;">'
         f'<div style="font-family:{mono};font-size:0.56rem;font-weight:700;'
