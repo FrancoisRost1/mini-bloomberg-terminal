@@ -111,10 +111,7 @@ def render_ownership(ownership: dict) -> None:
     if not institutions and not insiders:
         st.markdown(inline_status_line("OFF", source="yfinance"), unsafe_allow_html=True)
         return
-    col_l, col_r = st.columns(2)
-    with col_l:
-        if institutions:
-            st.markdown(_institutions_table(institutions), unsafe_allow_html=True)
-    with col_r:
-        if insiders:
-            st.markdown(_insiders_table(insiders), unsafe_allow_html=True)
+    if institutions:
+        st.markdown(_institutions_table(institutions), unsafe_allow_html=True)
+    if insiders:
+        st.markdown(_insiders_table(insiders), unsafe_allow_html=True)
