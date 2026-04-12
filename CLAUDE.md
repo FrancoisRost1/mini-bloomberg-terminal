@@ -174,8 +174,20 @@ mini-bloomberg-terminal/
       comps_relative_value.py       # ANALYTICS: Comps (delegates to _comps_* helpers)
       portfolio_builder.py          # PORTFOLIO workspace (delegates to _portfolio_* helpers)
       _market_*.py                  # ~6 helper modules (breadth, grid, kpi, regime, etc.)
-      _research_*.py                # ~8 helper modules (phase1-4, engine cards, etc.)
-      _options_*.py                 # ~6 helper modules (chain, greeks, surface, etc.)
+      _research_page_helpers.py     # phase1 chart + stats, re-exports for phase2-4
+      _research_engine_grid.py      # phase2 engine card grid
+      _research_engine_renderers.py # individual engine card renderers + LLM memo
+      _research_visuals.py          # phase3 recommendation bar + composite score
+      _research_financials.py       # financials table + 52w range bar
+      _research_analyst.py          # analyst consensus (price targets, ratings)
+      _research_news.py             # news feed via yfinance
+      _research_ownership.py        # institutional holders + insider transactions
+      _research_earnings.py         # earnings calendar + history table
+      _research_earnings_chart.py   # EPS estimate vs actual grouped bar chart
+      _research_dividends.py        # annual dividend per share bar chart
+      _options_chain.py             # full chain table with ITM/ATM highlighting
+      _options_payoff.py            # single-leg payoff chart with spot/breakeven lines
+      _options_*.py                 # ~4 more helpers (greeks, surface, strategies, etc.)
       _portfolio_*.py               # ~5 helper modules (build, decompose, validate, etc.)
       _comps_*.py                   # ~5 helper modules (peers, valuation, ma, etc.)
       _lbo_helpers.py               # LBO page helper
@@ -200,6 +212,12 @@ mini-bloomberg-terminal/
       data_manager.py               # SharedDataManager (st.cache_resource)
       analytics_manager.py          # AnalyticsManager (st.cache_data for expensive engine outputs)
       _macro_fallback.py            # fallback logic for macro data gaps
+      _news_fetch.py                # yfinance news feed fetcher
+      _analyst_fetch.py             # yfinance analyst consensus fetcher
+      _ownership_fetch.py           # yfinance institutional holders + insider transactions
+      _earnings_fetch.py            # yfinance earnings calendar + history
+      _dividends_fetch.py           # yfinance dividend history
+      _short_interest_fetch.py      # yfinance short interest metrics
     adapters/
       __init__.py
       research_adapter.py           # wraps P10 orchestrator pipeline
@@ -213,6 +231,7 @@ mini-bloomberg-terminal/
       optimizer_adapter.py          # wraps P8 MV + HRP optimizers
       options_adapter.py            # wraps P9 Greeks, IV, vol surface
       _research_sub_scores.py       # sub-score computation helpers for research pipeline
+      _ma_seed.py                   # M&A synthetic seed data generator
     engines/
       __init__.py
       pnl_engine.py                 # P&L interpretation layer (shared across workspaces)
@@ -234,6 +253,8 @@ mini-bloomberg-terminal/
       sector_peers.py               # sector peer lookup for comps
       cache_utils.py                # shared caching utilities
       tradingview.py                # TradingView widget integration
+      ticker_lookup.py              # smart ticker validation + search
+      _ticker_symbols.py            # ticker symbol constants for validation
   tests/
     __init__.py
     test_adapters/
@@ -798,5 +819,5 @@ requests
 ---
 
 *CLAUDE.md -- Mini Bloomberg Terminal (Project 11)*
-*Written: 2026-04-10*
-*Status: COMPLETE. v1 cut shipped 2026-04-10. 125 tests passing. Two audit passes applied, design system aligned to canonical, FMP swapped in for Alpha Vantage. Production stack: Railway + Cloudflare + Financial Modeling Prep + FRED + Anthropic + SQLite.*
+*Written: 2026-04-10, updated 2026-04-12*
+*Status: COMPLETE. v1.2 shipped 2026-04-12. 137 tests passing. v1.2 adds: news feed, analyst consensus, ownership tables, earnings with surprise chart, dividend history, short interest KPIs, smart ticker validation, M&A comps enriched with EV/Rev and Premium columns, LBO assumptions summary row, options chain extra columns (Last, Chg, %Chg), regime/ownership overlap fixes, section_bar orange border-bottom removed, sidebar expand_more hidden via CSS. Production stack: Railway + Cloudflare + Financial Modeling Prep + FRED + Anthropic + SQLite.*
