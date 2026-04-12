@@ -61,10 +61,10 @@ def _institutions_table(institutions: list[dict]) -> str:
     cap = (
         f'<caption style="font-family:{_MONO};font-size:0.58rem;color:{_MUTED};'
         f'text-transform:uppercase;letter-spacing:0.06em;font-weight:700;'
-        f'text-align:left;padding:0 0 0.4rem 0;">Top Institutional Holders</caption>'
+        f'text-align:left;caption-side:top;padding:0.2rem 0 0.5rem 0;">Top Institutional Holders</caption>'
     )
     return (
-        f'<table style="width:100%;border-collapse:collapse;background:{_BG};">'
+        f'<table style="width:100%;border-collapse:collapse;background:{_BG};margin-top:0.3rem;">'
         f'{cap}'
         f'<tr><th style="{_TH}">Holder</th>'
         f'<th style="{_TH}text-align:right;">Shares</th>'
@@ -90,10 +90,10 @@ def _insiders_table(insiders: list[dict]) -> str:
     cap = (
         f'<caption style="font-family:{_MONO};font-size:0.58rem;color:{_MUTED};'
         f'text-transform:uppercase;letter-spacing:0.06em;font-weight:700;'
-        f'text-align:left;padding:0 0 0.4rem 0;">Recent Insider Transactions</caption>'
+        f'text-align:left;caption-side:top;padding:0.2rem 0 0.5rem 0;">Recent Insider Transactions</caption>'
     )
     return (
-        f'<table style="width:100%;border-collapse:collapse;background:{_BG};">'
+        f'<table style="width:100%;border-collapse:collapse;background:{_BG};margin-top:0.3rem;">'
         f'{cap}'
         f'<tr><th style="{_TH}">Date</th><th style="{_TH}">Insider</th>'
         f'<th style="{_TH}">Transaction</th>'

@@ -139,7 +139,7 @@ def section_bar(label: str, tape: str = "", source: str = "") -> str:
         f'text-transform:uppercase;letter-spacing:0.14em;'
         f'padding:0.55rem 0 0.25rem 0;'
         f'margin:0.55rem 0 0.4rem 0;text-shadow:0 0 1px rgba(255,138,42,0.25);'
-        f'overflow:visible;">{label}{right}</div>'
+        f'overflow:hidden;">{label}{right}</div>'
     )
 
 

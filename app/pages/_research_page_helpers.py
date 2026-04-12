@@ -129,6 +129,11 @@ def render_phase1_stats(packet: dict[str, Any]) -> None:
         {"label": "BETA", "value": fmt_ratio(ratios.get("beta"), suffix="")},
         {"label": "DIV YIELD", "value": fmt_pct(ratios.get("dividend_yield"))},
     ]
+    si = packet.get("short_interest") or {}
+    if si.get("short_pct_float") is not None:
+        items.append({"label": "SHORT % FLOAT", "value": fmt_pct(si["short_pct_float"])})
+    if si.get("short_ratio") is not None:
+        items.append({"label": "SHORT RATIO", "value": f"{si['short_ratio']:.1f}d"})
     st.markdown(dense_kpi_rows(items, rows=3, min_cell_px=135), unsafe_allow_html=True)
     close = _close_series(packet)
     render_52w_range_bar(close)

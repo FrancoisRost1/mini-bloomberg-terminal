@@ -12,7 +12,8 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from terminal.utils.density import dense_kpi_row, section_bar, signed_color
+from style_inject import TOKENS
+from terminal.utils.density import dense_kpi_row, dense_kpi_rows, section_bar, signed_color
 from terminal.utils.formatting import fmt_money, fmt_pct, fmt_ratio
 
 
@@ -21,6 +22,24 @@ from terminal.utils.formatting import fmt_money, fmt_pct, fmt_ratio
 # without forcing the user to specify a full term sheet.
 SENIOR_TRANCHE = 0.70
 SUB_TRANCHE = 0.30
+
+
+def render_assumptions_row(assumptions: dict) -> None:
+    """Dense KPI row showing the active LBO scenario inputs."""
+    entry_ev = assumptions.get("entry_ebitda", 0) * assumptions.get("entry_multiple", 0)
+    items = [
+        {"label": "ENTRY EV", "value": fmt_money(entry_ev)},
+        {"label": "ENTRY MULT", "value": f"{assumptions.get('entry_multiple', 0):.1f}x"},
+        {"label": "EBITDA", "value": fmt_money(assumptions.get("entry_ebitda", 0))},
+        {"label": "LEVERAGE", "value": f"{assumptions.get('leverage', 0):.1f}x"},
+        {"label": "EXIT MULT", "value": f"{assumptions.get('exit_multiple', 0):.1f}x"},
+        {"label": "HOLD", "value": f"{assumptions.get('hold_period', 5)}yr"},
+        {"label": "REV GROWTH", "value": fmt_pct(assumptions.get("revenue_growth", 0))},
+    ]
+    label = (f'<div style="font-family:{TOKENS["font_mono"]};font-size:0.55rem;'
+             f'color:{TOKENS["text_muted"]};text-transform:uppercase;'
+             f'letter-spacing:0.08em;font-weight:700;margin-bottom:0.2rem;">LBO ASSUMPTIONS</div>')
+    st.markdown(label + dense_kpi_rows(items, rows=1, min_cell_px=110), unsafe_allow_html=True)
 
 
 def render_credit_metrics(result, debt_rate: float = 0.06) -> None:

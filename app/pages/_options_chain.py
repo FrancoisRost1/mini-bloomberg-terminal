@@ -1,24 +1,14 @@
-"""Options Lab. Chain table and payoff annotations.
-
-Pulled out of _options_lab_helpers.py so the helpers module stays
-under the per module budget. The IV smile helper lives in
-_options_iv_smile.py and is re-exported from here so existing call
-sites can import from this module.
-"""
+"""Options Lab. Chain table with ITM/ATM highlighting and IV smile re-export."""
 
 from __future__ import annotations
 
-from typing import Any
-
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
 import streamlit as st
 
-from style_inject import TOKENS, apply_plotly_theme
+from style_inject import TOKENS
 
 from app.pages._options_iv_smile import render_iv_smile_moneyness as render_iv_smile_moneyness  # noqa: F401  re export
-from terminal.engines.pnl_engine import compute_option_payoff
 from terminal.utils.density import section_bar
 from terminal.utils.error_handling import inline_status_line
 
@@ -63,7 +53,7 @@ def render_chain_table(expiry_chain: pd.DataFrame, spot: float) -> None:
     raw_strikes = merged["Strike"].astype(float).to_numpy()
     atm_idx = int(np.argmin(np.abs(raw_strikes - spot))) if len(raw_strikes) else -1
     merged["Strike"] = merged["Strike"].map(lambda v: f"{v:,.2f}")
-    col_order = ["C Bid", "C Ask", "C Vol", "C OI", "C IV", "Strike", "P Bid", "P Ask", "P Vol", "P OI", "P IV"]
+    col_order = ["C Last", "C Chg", "C %Chg", "C Bid", "C Ask", "C Vol", "C OI", "C IV", "Strike", "P Last", "P Chg", "P %Chg", "P Bid", "P Ask", "P Vol", "P OI", "P IV"]
     merged = merged.reindex(columns=[c for c in col_order if c in merged.columns])
 
     call_cols = [c for c in merged.columns if c.startswith("C ")]
@@ -111,6 +101,18 @@ def _fmt_int(v) -> str:
         return _DASH
 
 
+def _fmt_signed(v) -> str:
+    if v is None or (isinstance(v, float) and v != v):
+        return _DASH
+    return f"{v:+.2f}"
+
+
+def _fmt_signed_pct(v) -> str:
+    if v is None or (isinstance(v, float) and v != v):
+        return _DASH
+    return f"{v:+.2f}%"
+
+
 def _fmt_iv(v) -> str:
     if v is None or (isinstance(v, float) and v != v) or not (v > 0):
         return _DASH
@@ -132,6 +134,9 @@ def _side_frame(chain: pd.DataFrame, side: str) -> pd.DataFrame:
     prefix = "C " if side == "call" else "P "
     out = pd.DataFrame({
         "Strike": df["strike"].astype(float),
+        f"{prefix}Last": df.get("last", pd.Series(dtype=float)).map(_fmt_price),
+        f"{prefix}Chg": df.get("change", pd.Series(dtype=float)).map(_fmt_signed),
+        f"{prefix}%Chg": df.get("pct_change", pd.Series(dtype=float)).map(_fmt_signed_pct),
         f"{prefix}Bid": df.get("bid", pd.Series(dtype=float)).map(_fmt_price),
         f"{prefix}Ask": df.get("ask", pd.Series(dtype=float)).map(_fmt_price),
         f"{prefix}Vol": df.get("volume", pd.Series(dtype=float)).map(_fmt_int),
@@ -143,28 +148,4 @@ def _side_frame(chain: pd.DataFrame, side: str) -> pd.DataFrame:
     return out
 
 
-def render_payoff_with_lines(spot: float, strike: float, premium: float, opt_type: str, config: dict[str, Any]) -> None:
-    """Single leg payoff with vertical lines for spot and breakeven."""
-    payoff_cfg = config["options_lab"]["payoff"]
-    df = compute_option_payoff(
-        spot=spot, strike=strike, premium=premium, option_type=opt_type,
-        spot_range_pct=float(payoff_cfg["spot_range_pct"]),
-        points=int(payoff_cfg["spot_points"]),
-    )
-    breakeven = strike + premium if opt_type == "call" else strike - premium
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=df.index, y=df["pnl"], name="P&L", mode="lines",
-        line={"width": 1.7, "color": TOKENS["accent_primary"]},
-        fill="tozeroy", fillcolor="rgba(255,138,42,0.07)",
-    ))
-    fig.add_hline(y=0, line={"color": TOKENS["text_muted"], "width": 1})
-    fig.add_vline(x=spot, line={"color": TOKENS["accent_info"], "width": 1.4, "dash": "dot"},
-                  annotation_text=f"SPOT {spot:,.2f}", annotation_position="top")
-    fig.add_vline(x=breakeven, line={"color": TOKENS["accent_warning"], "width": 1.4, "dash": "dash"},
-                  annotation_text=f"BE {breakeven:,.2f}", annotation_position="bottom")
-    fig.update_xaxes(title_text="Spot at expiry ($)")
-    fig.update_yaxes(title_text="P&L ($)")
-    fig.update_layout(title={"text": f"Expiration Payoff. {opt_type.upper()} K {strike:,.2f}"}, height=260)
-    apply_plotly_theme(fig)
-    st.plotly_chart(fig, use_container_width=True)
+from app.pages._options_payoff import render_payoff_with_lines as render_payoff_with_lines  # noqa: F401,E402  re-export

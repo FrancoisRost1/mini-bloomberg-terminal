@@ -135,5 +135,13 @@ class SharedDataManager:
         from ._ownership_fetch import fetch_ownership
         return self._yf_cached("ownership", ticker, fetch_ownership)
 
+    def get_short_interest(self, ticker: str) -> dict:
+        from ._short_interest_fetch import fetch_short_interest
+        return self._yf_cached("short_interest", ticker, fetch_short_interest)
+
+    def get_dividends(self, ticker: str) -> dict:
+        from ._dividends_fetch import fetch_dividends
+        return self._yf_cached("dividends", ticker, fetch_dividends)
+
     def snapshot_age(self) -> datetime:
         return datetime.utcnow()

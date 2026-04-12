@@ -14,7 +14,7 @@ import streamlit as st  # noqa: E402
 
 from style_inject import TOKENS, styled_header  # noqa: E402
 
-from app.pages._lbo_helpers import render_credit_metrics, render_sources_and_uses  # noqa: E402
+from app.pages._lbo_helpers import render_assumptions_row, render_credit_metrics, render_sources_and_uses  # noqa: E402
 from terminal.adapters.lbo_adapter import run_base_case, sensitivity_grid  # noqa: E402
 from terminal.engines.pnl_engine import compute_lbo_equity_bridge  # noqa: E402
 from terminal.utils.chart_helpers import heatmap, waterfall  # noqa: E402
@@ -31,6 +31,7 @@ def render() -> None:
     result = run_base_case(assumptions)
 
     st.markdown(section_bar("LBO MODEL", source="local"), unsafe_allow_html=True)
+    render_assumptions_row(assumptions)
     # Outputs + Sources & Uses at the top (full width). Bridge and
     # sensitivity sit side by side below so the page reads as one
     # scrollable dashboard instead of three stacked tabs with empty

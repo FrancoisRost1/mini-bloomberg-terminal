@@ -1,8 +1,5 @@
-"""RESEARCH. Ticker Deep Dive workspace.
-
-Always renders the full 2x2 skeleton. Each phase fills with whatever
-data is available and shows an inline status pill where data is
-missing. The page never collapses to a void.
+"""RESEARCH. Ticker Deep Dive workspace. Full skeleton always renders;
+missing data shows inline status pills instead of collapsing.
 """
 
 from __future__ import annotations
@@ -18,6 +15,7 @@ import streamlit as st  # noqa: E402
 
 from style_inject import TOKENS, styled_header  # noqa: E402
 
+from app.pages._research_dividends import render_dividends  # noqa: E402
 from app.pages._research_earnings import render_earnings  # noqa: E402
 from app.pages._research_news import render_news  # noqa: E402
 from app.pages._research_ownership import render_ownership  # noqa: E402
@@ -110,6 +108,7 @@ def render() -> None:
     packet.setdefault("analyst", data_manager.get_analyst_data(ticker))
     packet.setdefault("ownership", data_manager.get_ownership(ticker))
     packet.setdefault("earnings", data_manager.get_earnings(ticker))
+    packet.setdefault("short_interest", data_manager.get_short_interest(ticker))
 
     row1_l, row1_r = st.columns([1, 1])
     with row1_l:
@@ -140,8 +139,12 @@ def render() -> None:
     with earn_col:
         safe_render(lambda: render_earnings(packet.get("earnings", {})), label="earnings", source="yfinance")
 
-    # News feed at the bottom.
-    safe_render(lambda: render_news(ticker, data_manager), label="news", source="yfinance")
+    # Dividends and news side by side at the bottom.
+    div_col, news_col = st.columns(2)
+    with div_col:
+        safe_render(lambda: render_dividends(ticker, data_manager), label="dividends", source="yfinance")
+    with news_col:
+        safe_render(lambda: render_news(ticker, data_manager), label="news", source="yfinance")
 
 
 render()

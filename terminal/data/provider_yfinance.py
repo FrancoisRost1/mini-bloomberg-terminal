@@ -125,10 +125,11 @@ class YFinanceProvider(MarketDataProvider):
                 "openInterest": "open_interest",
                 "lastPrice": "last",
                 "impliedVolatility": "implied_volatility",
+                "percentChange": "pct_change",
             })
             keep = [c for c in [
-                "strike", "bid", "ask", "last", "volume", "open_interest",
-                "implied_volatility", "type",
+                "strike", "bid", "ask", "last", "change", "pct_change",
+                "volume", "open_interest", "implied_volatility", "type",
             ] if c in both.columns]
             chains[str(expiry)] = both[keep].reset_index(drop=True)
         return OptionsChain(ticker, spot, chains, self.name, datetime.utcnow())

@@ -10,6 +10,7 @@ from __future__ import annotations
 import streamlit as st
 
 from style_inject import TOKENS
+from app.pages._research_earnings_chart import render_earnings_chart
 from terminal.utils.density import dense_kpi_rows, section_bar
 from terminal.utils.error_handling import inline_status_line
 
@@ -83,4 +84,8 @@ def render_earnings(earnings: dict) -> None:
     st.markdown(dense_kpi_rows(items, rows=1, min_cell_px=140), unsafe_allow_html=True)
 
     if history:
-        st.markdown(_history_table(history), unsafe_allow_html=True)
+        tbl_col, chart_col = st.columns([1, 1])
+        with tbl_col:
+            st.markdown(_history_table(history), unsafe_allow_html=True)
+        with chart_col:
+            render_earnings_chart(history)
