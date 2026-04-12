@@ -43,7 +43,7 @@ def _engine_fail_block(label: str, status: str, reason: str | None) -> str:
     body = body.replace("<", "&lt;").replace(">", "&gt;")
     return (
         '<div style="overflow:hidden;max-width:100%;min-width:0;'
-        'padding:0.25rem 0.4rem 0.25rem 0.4rem;margin:0.15rem 0 0.2rem 0;'
+        'padding:0.35rem 0.4rem 0.35rem 0.4rem;margin:0.3rem 0 0.4rem 0;'
         'border-left:2px solid rgba(255,255,255,0.06);">'
         '<div style="font-family:\'JetBrains Mono\',monospace;'
         f'font-size:0.64rem;font-weight:800;color:{color};'
@@ -71,9 +71,9 @@ def _engine_cell_header(label: str, status: str) -> str:
     return (
         '<div style="overflow:hidden;max-width:100%;min-width:0;'
         'white-space:nowrap;text-overflow:ellipsis;'
-        'padding:0.3rem 0 0.15rem 0;margin-top:0.15rem;'
+        'padding:0.45rem 0 0.25rem 0;margin-top:0.3rem;'
         'border-bottom:1px solid rgba(255,255,255,0.06);'
-        'margin-bottom:0.2rem;">'
+        'margin-bottom:0.35rem;">'
         '<span style="font-family:\'JetBrains Mono\',monospace;'
         f'font-size:0.66rem;font-weight:800;color:{color};'
         'letter-spacing:0.1em;line-height:1.6;'
@@ -84,7 +84,7 @@ def _engine_cell_header(label: str, status: str) -> str:
 
 
 _ENGINE_DIVIDER = (
-    '<div style="height:0.4rem;margin:0.15rem 0;'
+    '<div style="height:0.7rem;margin:0.3rem 0;'
     'border-top:1px solid rgba(255,255,255,0.08);"></div>'
 )
 

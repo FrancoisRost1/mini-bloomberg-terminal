@@ -233,8 +233,8 @@ section[data-testid="stSidebarNav"] span[class*="StyledNavSection"] {{
 /* Page title h1: max 0.5rem from first content. Zero top margin. */
 h1 {{ margin-top: 0 !important; margin-bottom: 0.2rem !important; font-size: 1.1rem !important; line-height: 1.15 !important; }}
 /* Custom styled_header wrapper margin (designs use a 1.25rem margin-bottom inline). */
-.stMarkdown div[style*="margin-bottom: 1.25rem"] {{ margin-bottom: 0.15rem !important; }}
-.stMarkdown div[style*="margin-bottom: 0.4rem"] {{ margin-bottom: 0.1rem !important; }}
+.stMarkdown div[style*="margin-bottom: 1.25rem"] {{ margin-bottom: 0.3rem !important; }}
+.stMarkdown div[style*="margin-bottom: 0.4rem"] {{ margin-bottom: 0.15rem !important; }}
 
 /* Markdown body line height tighter */
 .stMarkdown p {{ margin: 0.08rem 0 !important; line-height: 1.25 !important; }}

@@ -121,7 +121,7 @@ def render_backtest_metrics(returns: pd.DataFrame,
         body.append("<tr>" + "".join(cells) + "</tr>")
     st.markdown(
         '<table style="width:100%;border-collapse:collapse;'
-        'margin:0.15rem 0 0.3rem 0;">'
+        'margin:0.2rem 0 0.9rem 0;">'
         f'<thead><tr>{head_html}</tr></thead>'
         f'<tbody>{"".join(body)}</tbody></table>',
         unsafe_allow_html=True,

@@ -48,7 +48,7 @@ def _target_range_bar(lo: float, hi: float, current: float) -> str:
     upside = (hi / current - 1.0) * 100 if current > 0 else float("nan")
     upside_str = f"+{upside:.0f}% to HIGH" if upside == upside else ""
     return (
-        f'<div style="padding:0.2rem 0.1rem 0.25rem 0.1rem;">'
+        f'<div style="padding:0.35rem 0.1rem 0.45rem 0.1rem;">'
         f'<div style="display:flex;align-items:center;gap:0.6rem;'
         f'font-family:{mono};font-size:0.7rem;color:{text};line-height:1.4;">'
         f'<span style="color:{muted};">LOW</span>'
