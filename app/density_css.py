@@ -55,12 +55,9 @@ section[data-testid="stMain"] a[data-testid="stPageLink-NavLink"] {{
 [data-testid="stVerticalBlock"] {{ gap: 0.22rem !important; }}
 [data-testid="stHorizontalBlock"] {{ gap: 0.2rem !important; }}
 
-/* Element containers: tiny trailing margin + visible overflow so
-   section_bar orange underlines are never clipped by the parent. */
-[data-testid="element-container"] {{
-    margin-bottom: 0.08rem !important;
-    overflow: visible !important;
-}}
+/* Element containers keep a tiny trailing margin so KPI strips and
+   section bars have room to breathe below. */
+[data-testid="element-container"] {{ margin-bottom: 0.08rem !important; }}
 
 /* Plotly / dataframe / expander containers stay tight (they already
    carry their own padding) so the grid is dense without forcing
