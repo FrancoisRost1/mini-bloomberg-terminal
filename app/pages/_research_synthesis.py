@@ -104,15 +104,19 @@ def _implication_sentence(rec: dict[str, Any]) -> str:
     regime_stress = not math.isnan(risk_score) and risk_score < 35
     val_weakest = not math.isnan(val_score) and val_score == min(
         _safe(v) for v in sub.values() if not math.isnan(_safe(v)))
+    # Find strongest category for the edge line.
+    valid = [(k, _safe(v)) for k, v in sub.items() if not math.isnan(_safe(v))]
+    strongest = max(valid, key=lambda x: x[1])[0] if valid else None
+    edge = f" Edge: market underweights {strongest} persistence." if strongest else ""
     if bearish > total / 2:
-        return "Multiple engines flag deterioration. Defensive positioning warranted."
+        return "Multiple engines flag deterioration. Defensive positioning warranted." + edge
     if bullish > total / 2 and regime_stress:
-        return "Despite strong fundamentals, elevated macro stress caps conviction. Reduce position size."
+        return "Despite strong fundamentals, elevated macro stress caps conviction. Reduce position size." + edge
     if bullish > total / 2 and val_weakest:
-        return "Despite strong fundamentals, elevated valuation caps upside. Momentum-driven entry preferred."
+        return "Despite strong fundamentals, elevated valuation caps upside. Momentum-driven entry preferred." + edge
     if bullish > total / 2:
-        return "Fundamentals and momentum align. Conviction entry supported by regime."
-    return "Mixed signals reduce conviction. Wait for alignment before adding risk."
+        return "Fundamentals and momentum align. Conviction entry supported by regime." + edge
+    return "Mixed signals reduce conviction. Wait for alignment before adding risk." + edge
 
 
 def render_synthesis(packet: dict[str, Any]) -> None:

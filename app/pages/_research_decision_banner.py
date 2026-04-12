@@ -113,7 +113,9 @@ def render_decision_banner(packet: dict[str, Any]) -> None:
     ranked = _ranked_scores(sub)
     accent = _RATING_COLORS.get(rating, TOKENS["text_muted"])
     thesis = _build_thesis(rating, ranked)
-    positioning = _build_positioning(rating, ranked)
+    confidence = rec.get("confidence", 0)
+    conviction = "HIGH" if confidence >= 0.7 else ("MEDIUM" if confidence >= 0.4 else "LOW")
+    positioning = _build_positioning(rating, ranked) + f" Conviction: {conviction}."
     risk_label, risk_color = _build_key_risk(ranked)
     comp_str = f"{composite:.1f}" if composite == composite else "n/a"
     mono = TOKENS["font_mono"]
