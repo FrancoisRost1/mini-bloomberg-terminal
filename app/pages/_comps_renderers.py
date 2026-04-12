@@ -7,12 +7,11 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from style_inject import TOKENS, styled_card
+from style_inject import TOKENS
 
 from app.pages._comps_charts import render_pe_metric_bars
 from terminal.adapters.ma_comps_adapter import run_comps
 from terminal.adapters.pe_scoring_adapter import score_single_ticker
-from terminal.utils.chart_helpers import interpretation_callout_html
 from terminal.utils.density import colored_dataframe, dense_kpi_row, dense_kpi_rows, section_bar, signed_color
 from terminal.utils.error_handling import inline_status_line, status_pill
 from terminal.utils.formatting import format_metric
@@ -85,14 +84,9 @@ def render_pe_score(ratios, config) -> None:
             )
             styler = colored_dataframe(df, ["Score (vs 50)"]).format({"Score (vs 50)": "{:.1f}"})
             st.dataframe(styler, use_container_width=True, hide_index=True)
-        styled_card(
-            interpretation_callout_html(
-                observation=f"{len(result.get('red_flags', []))} red flag(s) detected.",
-                interpretation="Score blends EBITDA margin, FCF conversion, leverage, ROE, and valuation bands.",
-                implication="Use this as a screening signal, not a buy sell trigger.",
-            ),
-            accent_color=color,
-        )
+        flags = result.get("red_flags", [])
+        flag_text = f"{len(flags)} red flag(s)" if flags else "No red flags"
+        st.caption(f"{flag_text}. Score blends margin, FCF, leverage, ROE, and valuation bands.")
 
 
 def render_ma_comps(sector, config) -> None:
