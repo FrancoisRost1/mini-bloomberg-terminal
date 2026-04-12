@@ -10,8 +10,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from style_inject import TOKENS, apply_plotly_theme, styled_card
-from terminal.utils.chart_helpers import interpretation_callout_html
+from style_inject import TOKENS, apply_plotly_theme
 from terminal.utils.density import section_bar
 from terminal.utils.error_handling import inline_status_line
 
@@ -58,11 +57,4 @@ def render_dividends(ticker: str, data_manager) -> None:
     latest = float(annual.iloc[-1]) if len(annual) else 0
     prev = float(annual.iloc[-2]) if len(annual) >= 2 else 0
     growth = ((latest / prev - 1) * 100) if prev > 0 else 0
-    styled_card(
-        interpretation_callout_html(
-            observation=f"Latest annual DPS ${latest:.2f}, YoY change {growth:+.1f}%.",
-            interpretation="Stable or growing dividends signal cash flow discipline and shareholder commitment.",
-            implication="Dividend cuts are a strong negative signal; watch payout ratio for sustainability.",
-        ),
-        accent_color=TOKENS["accent_primary"],
-    )
+    st.caption(f"Latest annual DPS ${latest:.2f}, YoY {growth:+.1f}%")

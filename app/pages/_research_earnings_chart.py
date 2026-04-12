@@ -9,8 +9,7 @@ from __future__ import annotations
 import plotly.graph_objects as go
 import streamlit as st
 
-from style_inject import TOKENS, apply_plotly_theme, styled_card
-from terminal.utils.chart_helpers import interpretation_callout_html
+from style_inject import TOKENS, apply_plotly_theme
 
 _GREEN = "#00C853"
 _RED = "#FF1744"
@@ -51,11 +50,5 @@ def render_earnings_chart(history: list[dict]) -> None:
     total = len(valid)
     beat_rate = beats / total * 100 if total else 0
     avg_surp = sum((a - e) / abs(e) * 100 for a, e in zip(actuals, estimates) if e != 0) / total if total else 0
-    styled_card(
-        interpretation_callout_html(
-            observation=f"Beat rate {beat_rate:.0f}% over last {total} quarters, avg surprise {avg_surp:+.1f}%.",
-            interpretation="Consistent beats suggest conservative guidance; misses flag execution risk.",
-            implication="Use the surprise trend to gauge management credibility on forward estimates.",
-        ),
-        accent_color=_GREEN if beat_rate >= 50 else _RED,
-    )
+    color = _GREEN if beat_rate >= 50 else _RED
+    st.caption(f"Beat rate {beat_rate:.0f}% over {total}Q, avg surprise {avg_surp:+.1f}%")
