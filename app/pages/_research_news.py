@@ -67,7 +67,7 @@ def _news_row(article: dict) -> str:
 def render_news(ticker: str, data_manager: Any) -> None:
     """Render the NEWS section on the Research page."""
     st.markdown(section_bar("NEWS", source=_NEWS_SOURCE), unsafe_allow_html=True)
-    articles = data_manager.get_news(ticker, count=8)
+    articles = data_manager.get_news(ticker, count=15)
     if not articles:
         st.markdown(
             inline_status_line("OFF", source=_NEWS_SOURCE),
