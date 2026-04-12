@@ -9,7 +9,7 @@
 # "development": yfinance allowed (with DEV MODE banner). JSON watchlist. LLM optional.
 app:
   title: "Mini Bloomberg Terminal"
-  version: "1.3.0"
+  version: "1.4.0"
   mode: "production"              # "production" or "development"
   debug: false
 

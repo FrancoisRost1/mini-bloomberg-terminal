@@ -206,6 +206,9 @@ mini-bloomberg-terminal/
       _research_engine_grid.py      # phase2 engine card grid
       _research_engine_renderers.py # individual engine card renderers + LLM memo
       _research_visuals.py          # phase3 recommendation bar + composite score
+      _research_decision_banner.py  # full-width banner: rating, thesis, positioning, key risk
+      _research_synthesis.py        # cross-engine signal synthesis narrative + edge line
+      _research_triggers.py         # downgrade/upgrade/catalyst triggers with threshold colors
       _research_financials.py       # financials table + 52w range bar
       _research_analyst.py          # analyst consensus (price targets, ratings)
       _research_news.py             # news feed via Finnhub (yfinance fallback)
@@ -849,4 +852,4 @@ requests
 
 *CLAUDE.md -- Mini Bloomberg Terminal (Project 11)*
 *Written: 2026-04-10, updated 2026-04-12*
-*Status: COMPLETE. v1.3.0 shipped 2026-04-12. 137 tests passing. Production stack: Railway + Cloudflare + FMP + FRED + Finnhub + Anthropic + SQLite. See "v1.3 changes" section above for full changelog.*
+*Status: COMPLETE. v1.4 shipped 2026-04-12. 137 tests passing. v1.4 adds: decision summary banner (rating + thesis + positioning + conviction + key risk), cross-engine signal synthesis with edge line, downgrade/upgrade/catalyst triggers with threshold-colored values. Production stack: Railway + Cloudflare + FMP + FRED + Finnhub + Anthropic + SQLite.*
