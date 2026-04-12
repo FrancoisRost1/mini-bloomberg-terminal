@@ -122,15 +122,14 @@ def render() -> None:
     with row1_r:
         safe_render(lambda: render_phase1_stats(packet), label="phase1_stats", source="FMP")
 
-    # Engine grid next to the LLM memo so the memo is not buried
-    # under three more sections. 55/45 split gives the 2x2 engine
-    # grid enough breathing room while the memo column still shows
-    # a full TLDR card and the expander trigger.
-    engines_col, memo_col = st.columns([55, 45])
+    # Engine grid next to the news feed so the right column fills
+    # instantly while the rest of the page renders. The LLM memo
+    # moves to the very bottom (full width) where it loads last.
+    engines_col, news_col = st.columns([55, 45])
     with engines_col:
         safe_render(lambda: render_phase2_engines(packet), label="phase2_engines", source="FMP")
-    with memo_col:
-        safe_render(lambda: render_phase4_llm(packet, config), label="phase4_llm", source="anthropic")
+    with news_col:
+        safe_render(lambda: render_news(ticker, data_manager), label="news", source="finnhub")
 
     # Synthesis + triggers side by side to avoid extra vertical space.
     synth_col, trigger_col = st.columns([60, 40])
@@ -151,8 +150,10 @@ def render() -> None:
     with div_col:
         safe_render(lambda: render_dividends(ticker, data_manager), label="dividends", source="yfinance")
 
-    # News: full width so article titles have room.
-    safe_render(lambda: render_news(ticker, data_manager), label="news", source="yfinance")
+    # LLM memo: full width at the bottom. It waits on the Anthropic API,
+    # so placing it last means users see it when they scroll down after
+    # the rest of the page has already rendered.
+    safe_render(lambda: render_phase4_llm(packet, config), label="phase4_llm", source="anthropic")
 
 
 render()

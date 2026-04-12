@@ -312,7 +312,7 @@ comps:
     fcf_conversion:  {ideal: 0.90, penalty: 0.30, higher_better: true}
     roe:             {ideal: 0.25, penalty: 0.05, higher_better: true}
     revenue_growth:  {ideal: 0.15, penalty: -0.05, higher_better: true}
-    ev_ebitda:       {ideal: 8.0,  penalty: 18.0,  higher_better: false}
+    ev_ebitda:       {ideal: 12.0, penalty: 30.0,  higher_better: false}
     pe_ratio:        {ideal: 15.0, penalty: 35.0,  higher_better: false}
     net_debt_ebitda: {ideal: 1.5,  penalty: 5.0,   higher_better: false}
 
