@@ -257,8 +257,9 @@ h1 {{ margin-top: 0 !important; margin-bottom: 0.2rem !important; font-size: 1.1
 /* Markdown body line height tighter */
 .stMarkdown p {{ margin: 0.08rem 0 !important; line-height: 1.25 !important; }}
 
-/* Cap any vertical gap to 1rem */
+/* Cap any vertical gap and collapse spacing between stacked column rows */
 [data-testid="stVerticalBlock"] > div {{ margin-top: 0 !important; margin-bottom: 0 !important; }}
+[data-testid="stHorizontalBlock"] {{ margin-top: 0 !important; margin-bottom: 0 !important; }}
 .stRadio > label {{ margin-bottom: 0 !important; }}
 .stRadio div[role="radiogroup"] {{ gap: 0.3rem !important; }}
 

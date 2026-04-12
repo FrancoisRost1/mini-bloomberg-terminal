@@ -10,6 +10,7 @@ import streamlit.components.v1 as components
 
 from style_inject import TOKENS  # noqa: F401  used by other helpers
 
+from app.command_bar import render_command_bar
 from app.header_sidebar_toggle import render_sidebar_toggle as _render_sidebar_toggle
 from app.header_status import render_status_bar
 from app.header_tape import build_tape_items
@@ -34,6 +35,9 @@ def render(
 ) -> None:
     if data_manager.registry.is_dev_mode():
         st.markdown(dev_mode_banner(), unsafe_allow_html=True)
+
+    # Row 0: Bloomberg-style command bar (persistent across all pages).
+    render_command_bar()
 
     # Row 1: sidebar toggle + ticker input + 1D change badge +
     # watchlist controls. Toggle lives at the far left so it reads

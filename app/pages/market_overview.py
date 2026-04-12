@@ -87,6 +87,14 @@ def render() -> None:
         render_gainers_losers(data_manager, config)
 
 
+def _vix_fallback(data_manager) -> tuple[float, bool]:
+    """Fetch VIX from yfinance ^VIX when FRED VIXCLS is unavailable."""
+    data = data_manager.get_index_prices("^VIX", period="5d")
+    if is_error(data) or data.is_empty():
+        return float("nan"), False
+    return data.last_close(), True
+
+
 def _render_macro_snapshot(data_manager, config) -> None:
     st.markdown(section_bar("MACRO SNAPSHOT", source="FRED + yfinance"), unsafe_allow_html=True)
     vix_id = config["market"]["macro_series"]["volatility"]["vix_series"]
@@ -97,6 +105,9 @@ def _render_macro_snapshot(data_manager, config) -> None:
         for key, label in [(vix_id, "VIX"), (hy_id, "HY OAS"), ("FEDFUNDS", "FED FUNDS")]:
             v = macro.latest(key)
             stale = macro.is_stale(key) if hasattr(macro, "is_stale") else False
+            # VIX fallback: if FRED VIXCLS is NaN, fetch ^VIX from yfinance.
+            if key == vix_id and not (v == v):
+                v, stale = _vix_fallback(data_manager)
             if v == v:
                 value = f"{v:.2f}"
                 item = {"label": label, "value": value}
