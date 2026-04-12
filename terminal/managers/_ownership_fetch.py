@@ -54,10 +54,11 @@ def fetch_ownership(ticker: str) -> dict:
                     date_str = str(date_val)[:10]
                 except Exception:
                     pass
+            txn_text = _safe_str(row.get("Text")) or _safe_str(row.get("Transaction"))
             insiders.append({
                 "date": date_str,
                 "insider": _safe_str(row.get("Insider")),
-                "transaction": _safe_str(row.get("Transaction")),
+                "transaction": txn_text,
                 "shares": _safe_float(row.get("Shares")),
                 "value": _safe_float(row.get("Value")),
             })

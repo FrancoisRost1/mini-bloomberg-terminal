@@ -21,7 +21,7 @@ def render_footer(data_manager: SharedDataManager, config: dict[str, Any]) -> No
     snapshot = data_manager.snapshot_age().strftime("%Y-%m-%d %H:%M:%S UTC")
     mode = data_manager.registry.mode_label()
     version = config.get("app", {}).get("version", "1.0.0")
-    src = "FMP STABLE | YFINANCE | FRED | ANTHROPIC"
+    src = "FMP STABLE | YFINANCE | FRED | FINNHUB | ANTHROPIC"
     st.markdown(
         f'<div class="freshness-footer">'
         f'<span>MINI BLOOMBERG TERMINAL v{version} | MODE {mode} | {src}</span>'

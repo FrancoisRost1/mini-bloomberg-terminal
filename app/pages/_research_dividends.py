@@ -11,8 +11,9 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from style_inject import TOKENS, apply_plotly_theme
-from terminal.utils.density import section_bar
+from terminal.utils.density import dense_kpi_rows, section_bar
 from terminal.utils.error_handling import inline_status_line
+from terminal.utils.formatting import fmt_pct
 
 
 def render_dividends(ticker: str, data_manager) -> None:
@@ -58,3 +59,16 @@ def render_dividends(ticker: str, data_manager) -> None:
     prev = float(annual.iloc[-2]) if len(annual) >= 2 else 0
     growth = ((latest / prev - 1) * 100) if prev > 0 else 0
     st.caption(f"Latest annual DPS ${latest:.2f}, YoY {growth:+.1f}%")
+
+    # Dividend stats KPIs to fill the column height.
+    stats = data.get("stats") or {}
+    first = float(annual.iloc[0]) if len(annual) else 0
+    n_years = len(annual) - 1
+    cagr = ((latest / first) ** (1.0 / n_years) - 1) if first > 0 and n_years > 0 else None
+    items = [
+        {"label": "DIV YIELD", "value": fmt_pct(stats.get("dividend_yield"))},
+        {"label": "PAYOUT RATIO", "value": fmt_pct(stats.get("payout_ratio"))},
+        {"label": "EX-DIV DATE", "value": stats.get("ex_dividend_date") or "n/a"},
+        {"label": f"{n_years}Y CAGR", "value": fmt_pct(cagr)},
+    ]
+    st.markdown(dense_kpi_rows(items, rows=2, min_cell_px=100), unsafe_allow_html=True)
