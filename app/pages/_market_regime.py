@@ -76,7 +76,7 @@ def render_regime(data_manager, config) -> None:
     }
     accent = color_map.get(label, TOKENS["accent_primary"])
     st.markdown(
-        section_bar("REGIME CLASSIFIER", tape=period_returns_tape(spy_close), source="yfinance + FRED"),
+        section_bar("REGIME CLASSIFIER", source="yfinance + FRED"),
         unsafe_allow_html=True,
     )
     sigs = regime["signals"]
