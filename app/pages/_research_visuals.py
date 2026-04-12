@@ -168,7 +168,7 @@ def render_memo_card(memo_result: dict[str, Any], rating: str, composite: float)
     st.markdown(
         f"<div style='font-family:{mono};font-size:0.6rem;"
         f"color:{text_muted};letter-spacing:0.1em;text-transform:uppercase;"
-        f"margin:0.5rem 0 1rem 0;padding:0.2rem 0.3rem;line-height:1.5;'>"
+        f"margin:0.2rem 0 0.3rem 0;padding:0.2rem 0.3rem;line-height:1.5;'>"
         f"Generated {ts} UTC"
         f"</div>",
         unsafe_allow_html=True,

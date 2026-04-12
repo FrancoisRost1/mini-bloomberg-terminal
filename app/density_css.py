@@ -55,10 +55,12 @@ section[data-testid="stMain"] a[data-testid="stPageLink-NavLink"] {{
 [data-testid="stVerticalBlock"] {{ gap: 0.22rem !important; }}
 [data-testid="stHorizontalBlock"] {{ gap: 0.2rem !important; }}
 
-/* Element containers keep a tiny trailing margin so KPI strips and
-   section bars have room to breathe below. Zero'ing this out caused
-   the orange headers to clip into the KPI rows and chart titles. */
-[data-testid="element-container"] {{ margin-bottom: 0.08rem !important; }}
+/* Element containers: tiny trailing margin + visible overflow so
+   section_bar orange underlines are never clipped by the parent. */
+[data-testid="element-container"] {{
+    margin-bottom: 0.08rem !important;
+    overflow: visible !important;
+}}
 
 /* Plotly / dataframe / expander containers stay tight (they already
    carry their own padding) so the grid is dense without forcing
@@ -140,26 +142,37 @@ section[data-testid="stSidebar"] {{
 section[data-testid="stSidebar"] > div {{ padding-top: 0.3rem !important; background-color: #080808 !important; }}
 section[data-testid="stSidebar"] .block-container {{ padding: 0.25rem 0.3rem !important; }}
 
-/* Streamlit injects a Material Symbols icon ("expand_more") next to
-   each sidebar navigation section group header. The nav groups are
-   not collapsible in this terminal so we hide the icon entirely.
-   Broad selectors ensure no raw icon name ever leaks regardless of
-   which element wrapper Streamlit uses across versions. */
+/* Streamlit 1.50 injects a Material icon ("expand_more") via a
+   DynamicIcon > MaterialFontIcon chain inside a StyledChevronContainer
+   next to each sidebar nav section header. The chevron container is
+   a plain div with an emotion class (no data-testid). We hide the
+   icon at every layer: the testid span, any material class span,
+   and the chevron container itself (targeted as the last child div
+   of the section header wrapper). */
+section[data-testid="stSidebarNav"] [data-testid="stIconMaterial"],
 section[data-testid="stSidebarNav"] span.material-icons,
-section[data-testid="stSidebarNav"] span.material-symbols-outlined,
-section[data-testid="stSidebarNav"] span[data-testid="stIconMaterial"],
-section[data-testid="stSidebarNav"] i.material-icons,
-section[data-testid="stSidebarNav"] i.material-symbols-outlined,
-section[data-testid="stSidebarNav"] button[kind="headerNoPadding"],
-section[data-testid="stSidebarNav"] button[title*="expand" i],
-section[data-testid="stSidebarNav"] [data-testid="stSidebarNavSeparator"] button,
-section[data-testid="stSidebarNav"] div[role="heading"] button,
-section[data-testid="stSidebarNav"] div[role="heading"] span {{
+section[data-testid="stSidebarNav"] span.material-symbols-outlined {{
     font-size: 0 !important;
     width: 0 !important;
     height: 0 !important;
     overflow: hidden !important;
     display: none !important;
+    visibility: hidden !important;
+}}
+/* Hide the chevron container (StyledChevronContainer). It wraps the
+   icon span and is the last child div inside the clickable section
+   header. Without a data-testid we target it structurally. */
+section[data-testid="stSidebarNav"] div > div:last-child:has([data-testid="stIconMaterial"]) {{
+    display: none !important;
+    width: 0 !important;
+    overflow: hidden !important;
+}}
+/* Sidebar scope: any stray icon-like descendant that managed to
+   evade the above (different Streamlit build, SSR, etc.). */
+section[data-testid="stSidebar"] [data-testid="stIconMaterial"] {{
+    font-size: 0 !important;
+    display: none !important;
+    visibility: hidden !important;
 }}
 
 /* Kill the sidebar collapse / expand toggles. The sidebar is a

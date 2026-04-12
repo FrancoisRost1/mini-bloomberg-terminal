@@ -1,9 +1,4 @@
-"""Bloomberg density primitives. Project specific helpers beyond
-the canonical style_inject. Tape helpers (ticker_tape, bloomberg_tape,
-period_returns_tape) live in tapes.py and are re exported here.
-Pandas Styler helpers for directional coloring live in
-dataframe_styling.py and are re exported here.
-"""
+"""Bloomberg density primitives. KPI rows, section bars, signed colors."""
 
 from __future__ import annotations
 
@@ -142,9 +137,9 @@ def section_bar(label: str, tape: str = "", source: str = "") -> str:
         f'<div style="color:{accent};font-family:{TOKENS["font_mono"]};'
         f'font-size:0.72rem;line-height:1.5;font-weight:800;'
         f'text-transform:uppercase;letter-spacing:0.14em;'
-        f'border-bottom:2px solid {accent};padding:0.35rem 0 0.18rem 0;'
+        f'border-bottom:2px solid {accent};padding:0.5rem 0 0.22rem 0;'
         f'margin:0.35rem 0 0.2rem 0;text-shadow:0 0 1px rgba(255,138,42,0.25);'
-        f'overflow:hidden;">{label}{right}</div>'
+        f'overflow:visible;">{label}{right}</div>'
     )
 
 

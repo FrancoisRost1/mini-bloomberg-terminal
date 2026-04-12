@@ -1,14 +1,4 @@
-"""Global header. 2 row Bloomberg layout.
-
-Row 1: ticker input + watchlist controls (input, dropdown, +/- buttons).
-Row 2: full width Bloomberg style ticker tape with provider status,
-       watchlist count, VIX (FRED), and 8 market tickers from yfinance
-       with arrows and colored % change.
-
-The tape never shows raw n/a once any prior fetch has succeeded.
-Failed fetches fall through to the LastGoodCache and render with a
-STALE marker so the header always reads as a live tape.
-"""
+"""Global header. Ticker input, watchlist controls, scrolling tape."""
 
 from __future__ import annotations
 
@@ -27,6 +17,7 @@ from terminal.managers.data_manager import SharedDataManager
 from terminal.utils.error_handling import dev_mode_banner
 from terminal.utils.marquee import build_marquee_html
 from terminal.utils.last_good_cache import LastGoodCache
+from terminal.utils.ticker_lookup import suggest_ticker
 from terminal.utils.watchlist_io import WatchlistStore
 
 
@@ -79,14 +70,16 @@ def _render_ticker_input(col) -> None:
             placeholder="ACTIVE TICKER",
         )
         if ticker_input and ticker_input.upper() != active:
-            st.session_state["active_ticker"] = ticker_input.upper()
+            raw = ticker_input.upper()
+            suggestions = suggest_ticker(raw)
+            if suggestions:
+                links = ", ".join(suggestions)
+                st.caption(f"Did you mean: {links}?")
+            st.session_state["active_ticker"] = raw
 
 
 def _render_ticker_change(col, state: dict[str, float | None]) -> None:
-    """Render the active ticker's last close + signed 1D change. Lives
-    next to the ticker input so the active name + price + delta read
-    as a single Bloomberg style line.
-    """
+    """Active ticker's last close + signed 1D change badge."""
     last = state.get("last")
     chg = state.get("chg")
     if last is None or chg is None:
@@ -127,17 +120,11 @@ def _render_watchlist_select(col, watchlist: WatchlistStore) -> None:
             key="header_watchlist",
             label_visibility="collapsed",
         )
-        # Picking a ticker from the watchlist jumps the user to Research
-        # on that name, matching CLAUDE.md section 7. The previous
-        # behavior only updated session_state and left the user on the
-        # current page, which made the dropdown feel inert.
         if chosen and chosen != "WATCHLIST" and chosen != st.session_state.get("active_ticker"):
             st.session_state["active_ticker"] = chosen
             try:
                 st.switch_page("pages/ticker_deep_dive.py")
             except Exception:
-                # st.switch_page is only valid inside a navigation runtime;
-                # fall back to a soft rerun on the current page.
                 st.rerun()
 
 

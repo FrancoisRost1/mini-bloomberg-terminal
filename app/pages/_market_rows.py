@@ -134,7 +134,10 @@ def render_gainers_losers(data_manager, config) -> None:
 
     rows.sort(key=lambda r: r["_chg_1d"], reverse=True)
     df = pd.DataFrame(rows).drop(columns=["_chg_1d"])
+    # Height matches the breadth table in the sibling column so
+    # there is no dead space at the bottom of this column.
     st.dataframe(
         colored_dataframe(df, ["1D %", "5D %"]),
         use_container_width=True, hide_index=True,
+        height=min(36 * len(df) + 38, 520),
     )
