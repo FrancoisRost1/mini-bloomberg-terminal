@@ -8,7 +8,7 @@
 # "production": FMP + FRED. No yfinance. LLM on if key present. SQLite persistence.
 # "development": yfinance allowed (with DEV MODE banner). JSON watchlist. LLM optional.
 app:
-  title: "Mini Bloomberg Terminal"
+  title: "Frostaing Terminal"
   version: "1.4.0"
   mode: "production"              # "production" or "development"
   debug: false

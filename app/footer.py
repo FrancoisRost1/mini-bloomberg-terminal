@@ -24,7 +24,7 @@ def render_footer(data_manager: SharedDataManager, config: dict[str, Any]) -> No
     src = "FMP STABLE | YFINANCE | FRED | FINNHUB | ANTHROPIC"
     st.markdown(
         f'<div class="freshness-footer">'
-        f'<span>MINI BLOOMBERG TERMINAL v{version} | MODE {mode} | {src}</span>'
+        f'<span>FROSTAING TERMINAL v{version} | MODE {mode} | {src}</span>'
         f'<span>SNAPSHOT {snapshot} | RENDERED {now}</span>'
         f'</div>',
         unsafe_allow_html=True,
