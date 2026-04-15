@@ -14,18 +14,10 @@ FMP stays on the single-stock route for the Research pipeline.
 
 from __future__ import annotations
 
-from functools import lru_cache
 from typing import Any
 
 import pandas as pd
 import streamlit as st
-
-from terminal.data._yfinance_session import get_hardened_session
-
-
-@lru_cache(maxsize=1)
-def _session():
-    return get_hardened_session()
 
 
 # Display label -> yfinance symbol. Order is the order on the tape.
@@ -97,7 +89,6 @@ def fetch_tape_batch() -> dict[str, dict[str, Any]]:
             auto_adjust=False,
             threads=True,
             progress=False,
-            session=_session(),
         )
     except Exception:
         return {}
