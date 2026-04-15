@@ -21,6 +21,9 @@ def render_dividends(ticker: str, data_manager) -> None:
     st.markdown(section_bar("DIVIDENDS", source="yfinance"), unsafe_allow_html=True)
     data = data_manager.get_dividends(ticker)
     divs: pd.Series = data.get("dividends", pd.Series(dtype=float))
+    _first = str(divs.index.min())[:10] if not divs.empty else "n/a"
+    _last = str(divs.index.max())[:10] if not divs.empty else "n/a"
+    st.text(f"DEBUG DIVS: raw rows={len(divs)}, first={_first}, last={_last}")
     if divs.empty:
         st.markdown(inline_status_line("No dividend history", source="yfinance"), unsafe_allow_html=True)
         return
@@ -40,6 +43,7 @@ def render_dividends(ticker: str, data_manager) -> None:
 
     # Aggregate to annual totals for a cleaner chart.
     annual = divs.groupby(divs.index.year).sum()
+    st.text(f"DEBUG DIVS: post-cutoff rows={len(divs)}, years={list(annual.index)}")
     fig = go.Figure()
     fig.add_trace(go.Bar(
         x=[str(y) for y in annual.index],
