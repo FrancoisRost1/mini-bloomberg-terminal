@@ -57,8 +57,20 @@ def fetch_dividends(ticker: str) -> dict:
             ex_str = datetime.fromtimestamp(int(ex_date)).strftime("%Y-%m-%d")
         except Exception:
             ex_str = str(ex_date)[:10]
+    # Per project rule: compute yield from trailingAnnualDividendRate / spot
+    # instead of trusting dividendYield. yfinance's dividendYield field has
+    # flipped units between versions (fraction vs percent), so it routinely
+    # comes back 100x off. Flag anomalous yields above 15% as NaN.
+    spot = _safe_float(info.get("currentPrice") or info.get("regularMarketPrice"))
+    trailing = _safe_float(info.get("trailingAnnualDividendRate"))
+    if trailing is not None and spot and spot > 0:
+        dy = trailing / spot
+        if dy > 0.15:
+            dy = None
+    else:
+        dy = None
     stats = {
-        "dividend_yield": _safe_float(info.get("dividendYield")),
+        "dividend_yield": dy,
         "payout_ratio": _safe_float(info.get("payoutRatio")),
         "ex_dividend_date": ex_str,
     }
