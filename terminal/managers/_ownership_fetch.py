@@ -7,6 +7,14 @@ Returns a dict with 'institutions' (list of dicts) and 'insiders'
 from __future__ import annotations
 
 import math
+from functools import lru_cache
+
+from terminal.data._yfinance_session import get_hardened_session
+
+
+@lru_cache(maxsize=1)
+def _session():
+    return get_hardened_session()
 
 
 def _safe_float(val) -> float | None:
@@ -29,7 +37,7 @@ def fetch_ownership(ticker: str) -> dict:
     """Pull institutional holders and insider transactions."""
     try:
         import yfinance as yf
-        tk = yf.Ticker(ticker)
+        tk = yf.Ticker(ticker, session=_session())
         ih = tk.institutional_holders
         it = tk.insider_transactions
     except Exception:

@@ -10,6 +10,14 @@ from __future__ import annotations
 
 import os
 from datetime import date, timedelta
+from functools import lru_cache
+
+from terminal.data._yfinance_session import get_hardened_session
+
+
+@lru_cache(maxsize=1)
+def _session():
+    return get_hardened_session()
 
 
 def _finnhub_fetch(ticker: str, count: int) -> list[dict] | None:
@@ -59,7 +67,7 @@ def _yfinance_fallback(ticker: str, count: int) -> list[dict]:
     """Fallback to yfinance news when Finnhub key is absent."""
     try:
         import yfinance as yf
-        raw = yf.Ticker(ticker).news or []
+        raw = yf.Ticker(ticker, session=_session()).news or []
     except Exception:
         return []
     articles: list[dict] = []

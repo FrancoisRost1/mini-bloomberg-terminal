@@ -3,8 +3,16 @@
 from __future__ import annotations
 
 import math
+from functools import lru_cache
 
 import pandas as pd
+
+from terminal.data._yfinance_session import get_hardened_session
+
+
+@lru_cache(maxsize=1)
+def _session():
+    return get_hardened_session()
 
 
 def _safe_float(val) -> float | None:
@@ -21,7 +29,7 @@ def fetch_dividends(ticker: str) -> dict:
     """Return dividend history Series and key stats for *ticker*."""
     try:
         import yfinance as yf
-        tk = yf.Ticker(ticker)
+        tk = yf.Ticker(ticker, session=_session())
         divs = tk.dividends
         info = tk.info or {}
     except Exception:

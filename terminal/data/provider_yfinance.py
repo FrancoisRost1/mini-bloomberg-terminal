@@ -13,6 +13,7 @@ from typing import Any
 
 import pandas as pd
 
+from ._yfinance_session import get_hardened_session
 from .provider_interface import MarketDataProvider
 from .schemas import Fundamentals, MacroData, OptionsChain, PriceData
 
@@ -26,6 +27,7 @@ class YFinanceProvider(MarketDataProvider):
     def __init__(self, config: dict[str, Any]):
         self.cfg = config
         self.yf_cfg = config["data"]["yfinance"]
+        self._session = get_hardened_session()
 
     def _yf(self):
         import yfinance as yf  # imported lazily so prod images without yfinance still boot
@@ -33,7 +35,7 @@ class YFinanceProvider(MarketDataProvider):
 
     def get_prices(self, ticker: str, period: str = "1y") -> PriceData:
         yf = self._yf()
-        hist = yf.Ticker(ticker).history(period=period, auto_adjust=False)
+        hist = yf.Ticker(ticker, session=self._session).history(period=period, auto_adjust=False)
         if hist is None or hist.empty:
             empty = pd.DataFrame(columns=["open", "high", "low", "close", "adj_close", "volume"])
             return PriceData(ticker, empty, "USD", self.name, datetime.utcnow(), period)
@@ -48,7 +50,7 @@ class YFinanceProvider(MarketDataProvider):
 
     def get_fundamentals(self, ticker: str) -> Fundamentals:
         yf = self._yf()
-        t = yf.Ticker(ticker)
+        t = yf.Ticker(ticker, session=self._session)
         info = getattr(t, "info", {}) or {}
         income = _safe_df(getattr(t, "income_stmt", None))
         balance = _safe_df(getattr(t, "balance_sheet", None))
@@ -97,7 +99,7 @@ class YFinanceProvider(MarketDataProvider):
         divisor = float(self.yf_cfg["treasury_yield_divisor"])
         out: dict[str, pd.Series] = {}
         for sid in series:
-            hist = yf.Ticker(sid).history(period="5y")
+            hist = yf.Ticker(sid, session=self._session).history(period="5y")
             if hist is None or hist.empty:
                 out[sid] = pd.Series(dtype=float, name=sid)
                 continue
@@ -109,7 +111,7 @@ class YFinanceProvider(MarketDataProvider):
 
     def get_options_chain(self, ticker: str) -> OptionsChain:
         yf = self._yf()
-        t = yf.Ticker(ticker)
+        t = yf.Ticker(ticker, session=self._session)
         expiries = list(getattr(t, "options", ()) or ())
         spot = float((getattr(t, "info", {}) or {}).get("regularMarketPrice") or 0.0)
         chains: dict[str, pd.DataFrame] = {}

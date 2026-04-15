@@ -9,6 +9,14 @@ from __future__ import annotations
 
 import math
 from datetime import date
+from functools import lru_cache
+
+from terminal.data._yfinance_session import get_hardened_session
+
+
+@lru_cache(maxsize=1)
+def _session():
+    return get_hardened_session()
 
 
 def _safe_float(val) -> float | None:
@@ -25,7 +33,7 @@ def fetch_earnings(ticker: str) -> dict:
     """Return earnings calendar and history for *ticker*."""
     try:
         import yfinance as yf
-        tk = yf.Ticker(ticker)
+        tk = yf.Ticker(ticker, session=_session())
         cal = tk.calendar or {}
         hist = tk.earnings_history
     except Exception:
