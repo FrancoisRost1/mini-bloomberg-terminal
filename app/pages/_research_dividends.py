@@ -49,6 +49,7 @@ def render_dividends(ticker: str, data_manager) -> None:
     fig.update_layout(
         title="Annual Dividend per Share",
         yaxis_title="DPS ($)",
+        xaxis=dict(type="category"),
         height=180,
         margin=dict(l=40, r=10, t=40, b=25),
     )
