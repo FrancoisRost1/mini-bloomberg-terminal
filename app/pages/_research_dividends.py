@@ -30,8 +30,9 @@ def render_dividends(ticker: str, data_manager) -> None:
     if divs.index.tz is not None:
         divs.index = divs.index.tz_localize(None)
 
-    # Keep last 5 years.
-    cutoff = pd.Timestamp.now() - pd.DateOffset(years=5)
+    # Keep the last ~7 years so the chart always shows 5+ full annual bars
+    # even when the partial current year is included.
+    cutoff = pd.Timestamp.now() - pd.DateOffset(years=7)
     divs = divs[divs.index >= cutoff]
     if divs.empty:
         st.markdown(inline_status_line("No recent dividends", source="yfinance"), unsafe_allow_html=True)

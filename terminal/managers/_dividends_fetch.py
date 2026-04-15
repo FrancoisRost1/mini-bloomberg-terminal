@@ -26,6 +26,20 @@ def fetch_dividends(ticker: str) -> dict:
         info = tk.info or {}
     except Exception:
         return {"dividends": pd.Series(dtype=float), "stats": {}}
+    # Fallback: if the dividends shortcut returned nothing or very little,
+    # try pulling the full price history and extracting the Dividends column.
+    # Some yfinance builds return stale/truncated series via tk.dividends
+    # but give full history via tk.history(period="max").
+    if divs is None or divs.empty or len(divs) < 8:
+        try:
+            hist = tk.history(period="max", auto_adjust=False)
+            if hist is not None and "Dividends" in hist.columns:
+                full = hist["Dividends"]
+                full = full[full > 0]
+                if not full.empty and (divs is None or len(full) > len(divs)):
+                    divs = full
+        except Exception:
+            pass
     if divs is None or divs.empty:
         return {"dividends": pd.Series(dtype=float), "stats": {}}
     ex_date = info.get("exDividendDate")
