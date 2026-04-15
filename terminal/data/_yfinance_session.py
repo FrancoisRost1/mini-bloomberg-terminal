@@ -16,6 +16,7 @@ Usage in provider_yfinance.py:
     df = yf.download("SPY", session=session, period="1y")
 """
 
+import os
 import random
 from requests import Session
 from requests.adapters import HTTPAdapter
@@ -68,5 +69,13 @@ def get_hardened_session() -> Session:
         "Connection": "keep-alive",
         "Cache-Control": "max-age=0",
     })
+
+    # Optional outbound proxy. Yahoo Finance IP-bans some cloud provider
+    # ranges (Railway us-west2 observed). Set YFINANCE_PROXY to a
+    # residential or datacenter proxy URL (http://user:pass@host:port or
+    # socks5://...) to route yfinance traffic through it.
+    proxy = os.environ.get("YFINANCE_PROXY")
+    if proxy:
+        session.proxies = {"https": proxy, "http": proxy}
 
     return session
