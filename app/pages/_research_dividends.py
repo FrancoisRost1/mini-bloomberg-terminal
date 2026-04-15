@@ -21,9 +21,6 @@ def render_dividends(ticker: str, data_manager) -> None:
     st.markdown(section_bar("DIVIDENDS", source="yfinance"), unsafe_allow_html=True)
     data = data_manager.get_dividends(ticker)
     divs: pd.Series = data.get("dividends", pd.Series(dtype=float))
-    _first = str(divs.index.min())[:10] if not divs.empty else "n/a"
-    _last = str(divs.index.max())[:10] if not divs.empty else "n/a"
-    st.text(f"DEBUG DIVS: raw rows={len(divs)}, first={_first}, last={_last}")
     if divs.empty:
         st.markdown(inline_status_line("No dividend history", source="yfinance"), unsafe_allow_html=True)
         return
@@ -41,24 +38,30 @@ def render_dividends(ticker: str, data_manager) -> None:
         st.markdown(inline_status_line("No recent dividends", source="yfinance"), unsafe_allow_html=True)
         return
 
-    # Aggregate to annual totals for a cleaner chart.
-    annual = divs.groupby(divs.index.year).sum()
-    st.text(f"DEBUG DIVS: post-cutoff rows={len(divs)}, years={list(annual.index)}")
+    # Aggregate to annual totals for a cleaner chart. Build plain Python
+    # lists so Plotly receives a well-typed categorical axis regardless of
+    # what dtype the upstream series happened to carry.
+    annual = divs.groupby(divs.index.year).sum().sort_index()
+    x_years = [str(int(y)) for y in annual.index.tolist()]
+    y_dps = [float(v) for v in annual.values.tolist()]
+
     fig = go.Figure()
     fig.add_trace(go.Bar(
-        x=[str(y) for y in annual.index],
-        y=annual.values,
+        x=x_years,
+        y=y_dps,
         marker_color=TOKENS["accent_primary"],
         opacity=0.85,
     ))
     fig.update_layout(
         title="Annual Dividend per Share",
         yaxis_title="DPS ($)",
-        xaxis=dict(type="category"),
-        height=180,
-        margin=dict(l=40, r=10, t=40, b=25),
+        height=220,
+        margin=dict(l=40, r=10, t=40, b=30),
     )
     apply_plotly_theme(fig)
+    # Force category axis AFTER the theme so it cannot get clobbered by
+    # the theme's xaxis dict merge.
+    fig.update_xaxes(type="category", categoryorder="array", categoryarray=x_years)
     st.plotly_chart(fig, use_container_width=True)
 
     latest = float(annual.iloc[-1]) if len(annual) else 0
