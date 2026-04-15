@@ -148,12 +148,7 @@ def render() -> None:
     with earn_col:
         safe_render(lambda: render_earnings(packet.get("earnings", {})), label="earnings", source="yfinance")
     with div_col:
-        try:
-            render_dividends(ticker, data_manager)
-        except Exception as e:
-            import traceback
-            st.error(f"Dividend section error: {type(e).__name__}: {e}")
-            st.code(traceback.format_exc())
+        safe_render(lambda: render_dividends(ticker, data_manager), label="dividends", source="yfinance")
 
     # LLM memo: full width at the bottom. It waits on the Anthropic API,
     # so placing it last means users see it when they scroll down after

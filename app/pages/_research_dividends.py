@@ -41,34 +41,37 @@ def render_dividends(ticker: str, data_manager) -> None:
     # Aggregate to annual totals for a cleaner chart. Build plain Python
     # lists so Plotly receives a well-typed categorical axis regardless of
     # what dtype the upstream series happened to carry.
-    annual = divs.groupby(divs.index.year).sum().sort_index()
-    x_years = [str(int(y)) for y in annual.index.tolist()]
-    y_dps = [float(v) for v in annual.values.tolist()]
-    st.text(f"DEBUG DIVS: x_years={x_years}, y_vals={y_dps}")
+    # Defensive: if upstream handed us a DataFrame, collapse to a Series
+    # so groupby + .values work as a 1-D array.
+    if isinstance(divs, pd.DataFrame):
+        divs = divs.squeeze("columns")
+        if isinstance(divs, pd.DataFrame):
+            divs = divs.iloc[:, 0]
 
-    try:
-        fig = go.Figure()
-        fig.add_trace(go.Bar(
-            x=x_years,
-            y=y_dps,
-            marker_color=TOKENS["accent_primary"],
-            opacity=0.85,
-        ))
-        fig.update_layout(
-            title="Annual Dividend per Share",
-            yaxis_title="DPS ($)",
-            height=220,
-            margin=dict(l=40, r=10, t=40, b=30),
-        )
-        apply_plotly_theme(fig)
-        # Force category axis AFTER the theme so it cannot get clobbered by
-        # the theme's xaxis dict merge.
-        fig.update_xaxes(type="category", categoryorder="array", categoryarray=x_years)
-        st.plotly_chart(fig, use_container_width=True)
-    except Exception as e:
-        import traceback
-        st.error(f"Dividend chart error: {type(e).__name__}: {e}")
-        st.code(traceback.format_exc())
+    annual = divs.groupby(divs.index.year).sum().sort_index()
+    if isinstance(annual, pd.DataFrame):
+        annual = annual.squeeze("columns")
+    x_years = [str(int(y)) for y in annual.index.tolist()]
+    y_dps = [float(v) for v in annual.tolist()]
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=x_years,
+        y=y_dps,
+        marker_color=TOKENS["accent_primary"],
+        opacity=0.85,
+    ))
+    fig.update_layout(
+        title="Annual Dividend per Share",
+        yaxis_title="DPS ($)",
+        height=220,
+        margin=dict(l=40, r=10, t=40, b=30),
+    )
+    apply_plotly_theme(fig)
+    # Force category axis AFTER the theme so it cannot get clobbered by
+    # the theme's xaxis dict merge.
+    fig.update_xaxes(type="category", categoryorder="array", categoryarray=x_years)
+    st.plotly_chart(fig, use_container_width=True)
 
     latest = float(annual.iloc[-1]) if len(annual) else 0
     prev = float(annual.iloc[-2]) if len(annual) >= 2 else 0

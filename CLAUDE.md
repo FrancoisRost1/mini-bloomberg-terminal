@@ -63,6 +63,12 @@ Python: `python3` (not `python`). Package manager: `pip3`.
 - **Risk Parity and Black-Litterman optimizers** (already deferred in v1).
 - **Cold render API budget optimization**: Market Overview can issue 20+ provider calls on a single cold render. With FMP Starter (750 req/min) this is no longer a hard limit, but pre warming on boot is still on the v2 list.
 
+### v1.4.1 changes (2026-04-12)
+
+- **Research page layout swap**: NEWS moved from full-width bottom section into the right column of the engine results row (55/45 split with the 2x2 engine grid). Fills instantly from cache while engines load. LLM MEMO moved to the very bottom, full width, below the ownership/earnings/dividends row -- loads last after the Anthropic API returns and is the final thing users see when they scroll down.
+- **News article count**: bumped from 8 to 15 in `_research_news.py` and `data_manager.get_news()` call so the right column fills the vertical space naturally next to the taller engine grid. Count is honored end-to-end by `_news_fetch.fetch_news` (Finnhub primary, yfinance fallback).
+- **EV/EBITDA PE scoring bands fix**: widened `ev_ebitda` band in `config.yaml` from `{ideal: 8.0, penalty: 18.0}` to `{ideal: 12.0, penalty: 30.0, higher_better: false}`. The old bands clipped every real large-cap to 0 (AAPL 27x, NVDA ~40x, ASML ~30x all scored 0). New bands: AAPL ~17, below 12x scores 100, above 30x scores 0. Scoring logic in `pe_scoring_adapter.score_band` was correct -- only the band values were wrong. Config-truthfulness test still passes.
+
 ### v1.3 changes (2026-04-12)
 
 - **Command bar**: Bloomberg-style persistent command/search bar at the top of every page. Accepts tickers, page shortcuts (market/options/lbo/comps/portfolio), and combined commands (e.g. "MSFT options"). Uses fuzzy matching via `suggest_ticker()`. Rendered in `app/command_bar.py`, integrated into `app/header.py`.
@@ -852,4 +858,4 @@ requests
 
 *CLAUDE.md -- Mini Bloomberg Terminal (Project 11)*
 *Written: 2026-04-10, updated 2026-04-12*
-*Status: COMPLETE. v1.4 shipped 2026-04-12. 137 tests passing. v1.4 adds: decision summary banner (rating + thesis + positioning + conviction + key risk), cross-engine signal synthesis with edge line, downgrade/upgrade/catalyst triggers with threshold-colored values. Production stack: Railway + Cloudflare + FMP + FRED + Finnhub + Anthropic + SQLite.*
+*Status: COMPLETE. v1.4.1 shipped 2026-04-12. 137 tests passing. v1.4 adds: decision summary banner (rating + thesis + positioning + conviction + key risk), cross-engine signal synthesis with edge line, downgrade/upgrade/catalyst triggers with threshold-colored values. Production stack: Railway + Cloudflare + FMP + FRED + Finnhub + Anthropic + SQLite.*

@@ -42,6 +42,13 @@ def fetch_dividends(ticker: str) -> dict:
             pass
     if divs is None or divs.empty:
         return {"dividends": pd.Series(dtype=float), "stats": {}}
+    # Normalize to a 1-D Series. Some yfinance builds return a single-column
+    # DataFrame here which breaks downstream groupby/aggregation math.
+    if isinstance(divs, pd.DataFrame):
+        divs = divs.squeeze("columns")
+        if isinstance(divs, pd.DataFrame):
+            divs = divs.iloc[:, 0]
+    divs = pd.to_numeric(divs, errors="coerce").dropna()
     ex_date = info.get("exDividendDate")
     ex_str = ""
     if ex_date is not None:
