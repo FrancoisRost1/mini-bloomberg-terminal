@@ -431,3 +431,41 @@ ui:
   interpretation_format: "observation_interpretation_implication"
   show_model_limitations: true
   show_units_on_axes: true
+# -------------------------------------------------------------------
+# SIGNALS: LIVE SIGNAL DASHBOARD
+# -------------------------------------------------------------------
+signals:
+  cache_ttl: 900                    # 15 minutes
+
+  tsmom:
+    # 13-ETF universe from P6 (Moskowitz, Ooi & Pedersen 2012)
+    universe:
+      equities:
+        - { ticker: "SPY", label: "US Large Cap" }
+        - { ticker: "EFA", label: "Intl Developed" }
+        - { ticker: "EEM", label: "Emerging Mkts" }
+        - { ticker: "IWM", label: "US Small Cap" }
+      bonds:
+        - { ticker: "TLT", label: "Long Treasuries" }
+        - { ticker: "IEF", label: "Intermed Treasuries" }
+        - { ticker: "LQD", label: "IG Corporate" }
+      commodities:
+        - { ticker: "GLD", label: "Gold" }
+        - { ticker: "DBC", label: "Broad Commodities" }
+        - { ticker: "SLV", label: "Silver" }
+      fx:
+        - { ticker: "UUP", label: "US Dollar" }
+        - { ticker: "FXE", label: "Euro" }
+        - { ticker: "FXY", label: "Japanese Yen" }
+
+    # Signal parameters (from P6 spec)
+    lookback_days: 252              # 12 months
+    skip_days: 21                   # skip most recent month
+    flat_threshold: 0.01            # |return| below 1% = FLAT (no conviction)
+
+    # Vol estimation for context display
+    vol_halflife: 60                # EWMA halflife in days
+
+  breadth:
+    # Reuses market.breadth.universe from main config
+    ma_period: 200                  # 200-day moving average

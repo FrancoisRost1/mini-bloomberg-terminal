@@ -109,7 +109,10 @@ def main() -> None:
         analytics.insert(0, st.Page("pages/options_lab.py", title="Options", url_path="options-lab"))
 
     pages = {
-        "MARKET": [st.Page("pages/market_overview.py", title="Market", url_path="market-overview")],
+        "MARKET": [
+            st.Page("pages/market_overview.py", title="Market", url_path="market-overview"),
+            st.Page("pages/live_signals.py", title="Signals", url_path="live-signals"),
+        ],
         "RESEARCH": [st.Page("pages/ticker_deep_dive.py", title="Research", url_path="ticker-deep-dive")],
         "ANALYTICS": analytics,
         "PORTFOLIO": [st.Page("pages/portfolio_builder.py", title="Portfolio", url_path="portfolio-builder")],

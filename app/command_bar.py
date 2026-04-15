@@ -14,6 +14,7 @@ from terminal.utils.ticker_lookup import suggest_ticker
 # Page shortcut -> url_path mapping (matches st.Page url_path in app.py).
 _PAGE_MAP: dict[str, str] = {
     "market": "pages/market_overview.py",
+    "signals": "pages/live_signals.py",
     "research": "pages/ticker_deep_dive.py",
     "options": "pages/options_lab.py",
     "lbo": "pages/lbo_quick_calc.py",
