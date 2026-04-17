@@ -15,6 +15,8 @@ import streamlit as st
 
 from style_inject import TOKENS
 
+from terminal.utils.density import show_data_sources
+
 
 def _is_dev() -> bool:
     return os.environ.get("APP_MODE", "production").lower() != "production"
@@ -27,7 +29,7 @@ def data_status(status: str, source: str = "") -> str:
     pages that build their own status line outside section_bar.
     """
     color = TOKENS["text_secondary"]
-    src = f' | SRC {source.upper()}' if source else ""
+    src = f' | SRC {source.upper()}' if source and show_data_sources() else ""
     return (
         f'<span style="font-family:{TOKENS["font_mono"]};font-size:0.62rem;'
         f'font-weight:700;letter-spacing:0.08em;color:{color};">'
@@ -38,7 +40,7 @@ def data_status(status: str, source: str = "") -> str:
 def inline_status_line(status: str, source: str = "") -> str:
     """Single line mono status used in body when a section degrades."""
     color = TOKENS["text_secondary"]
-    src = f' | SRC {source.upper()}' if source else ""
+    src = f' | SRC {source.upper()}' if source and show_data_sources() else ""
     return (
         f'<div style="font-family:{TOKENS["font_mono"]};font-size:0.66rem;'
         f'font-weight:600;color:{color};padding:0.2rem 0;letter-spacing:0.06em;">'

@@ -10,6 +10,24 @@ from style_inject import TOKENS
 from .dataframe_styling import colored_dataframe  # noqa: F401  re export
 
 
+# Debug gate for per section data source watermarks ("SRC YFINANCE" etc).
+# Toggled from app/app.py based on config.yaml app.debug. The 2026-04-17
+# recruiter audit flagged the watermarks as noisy for external visitors
+# while still being useful for us during development, so we surface them
+# only when the user explicitly opts in. error_handling.py reads the same
+# flag via the accessor below so the two call sites stay in sync.
+_SHOW_DATA_SOURCES: bool = False
+
+
+def set_show_data_sources(flag: bool) -> None:
+    global _SHOW_DATA_SOURCES
+    _SHOW_DATA_SOURCES = bool(flag)
+
+
+def show_data_sources() -> bool:
+    return _SHOW_DATA_SOURCES
+
+
 def signed_color(value: Any) -> str:
     if value is None:
         return TOKENS["text_muted"]
@@ -115,7 +133,7 @@ def section_bar(label: str, tape: str = "", source: str = "") -> str:
     # punch on near-black. Same hue, higher value.
     accent = "#FF8A2A"
     pieces: list[str] = []
-    if source:
+    if source and _SHOW_DATA_SOURCES:
         pieces.append(
             f'<span style="font-family:{TOKENS["font_mono"]};font-size:0.55rem;'
             f'font-weight:700;color:{TOKENS["text_secondary"]};letter-spacing:0.08em;'

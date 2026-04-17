@@ -46,13 +46,23 @@ def _median_ignoring_nan(values: list[float]) -> float:
     return float((clean[mid - 1] + clean[mid]) / 2.0)
 
 
-def render_peer_fundamentals(data_manager, ticker: str, sector: str | None) -> None:
+def render_peer_fundamentals(
+    data_manager,
+    ticker: str,
+    sector: str | None,
+    render_header: bool = True,
+) -> None:
     """Fetch the active ticker plus four sector peers and render a
     fundamentals comparison table. The active row is highlighted with
     the project accent color and a sector median row is appended so
     the user can read the delta against peers at a glance.
+
+    Set ``render_header=False`` when the caller has already rendered
+    the section bar as part of a skeleton shell (see
+    ``comps_relative_value.py`` progressive render flow).
     """
-    st.markdown(section_bar("PEER FUNDAMENTALS + SECTOR MEDIAN", source="FMP"), unsafe_allow_html=True)
+    if render_header:
+        st.markdown(section_bar("PEER FUNDAMENTALS + SECTOR MEDIAN", source="FMP"), unsafe_allow_html=True)
     peers = peers_for(sector, ticker, limit=5)
     rows: list[dict] = []
     raw_values: dict[str, list[float]] = {label: [] for label, _, _ in METRIC_COLS}

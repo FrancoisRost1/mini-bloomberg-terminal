@@ -9,9 +9,9 @@
 # "development": yfinance allowed (with DEV MODE banner). JSON watchlist. LLM optional.
 app:
   title: "Frostaing Terminal"
-  version: "1.4.0"
+  version: "1.4.2"
   mode: "production"              # "production" or "development"
-  debug: false
+  debug: false                    # when true, per chart "SRC X" watermarks render
 
 # -------------------------------------------------------------------
 # DATA PROVIDERS

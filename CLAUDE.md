@@ -63,6 +63,16 @@ Python: `python3` (not `python`). Package manager: `pip3`.
 - **Risk Parity and Black-Litterman optimizers** (already deferred in v1).
 - **Cold render API budget optimization**: Market Overview can issue 20+ provider calls on a single cold render. With FMP Starter (750 req/min) this is no longer a hard limit, but pre warming on boot is still on the v2 list.
 
+### v1.4.3 changes (2026-04-17, P1 polish pass)
+
+Follow-up to v1.4.2. Three P1 items from the hostile-recruiter audit.
+
+- **P1.1 Mode indicator removed from UI.** `header_status.build_status_bar_html` no longer renders the `MODE PRODUCTION` / `MODE DEVELOPMENT` segment. `footer.render_footer` drops the `| MODE {mode}` segment. The registry still exposes `mode_label()` for internal code paths, and the DEV banner (`dev_mode_banner()`) still fires at the top of the page when `APP_MODE` is non-production.
+- **P1.2 Source watermarks debug-gated.** Per-chart `SRC YFINANCE` / `SRC FMP` labels emitted by `terminal/utils/density.section_bar` and `terminal/utils/error_handling.{data_status,inline_status_line}` are now suppressed by default. Module-level flag `_SHOW_DATA_SOURCES` with `set_show_data_sources()` / `show_data_sources()` accessors in `density.py`; `app/app.py` toggles it from `config.yaml` `app.debug` on boot. The multi-source provider list stays in the footer because it is a credibility signal rather than dev jargon. Six new regression tests in `tests/test_utils/test_density_debug_gate.py` lock the default-off invariant.
+- **P1.3 Skeletons + progressive load on Comps and Portfolio.** Both pages previously sat blank for ~27s (Comps) / ~35s (Portfolio) while data fetches and optimizers blocked the first render. Rewrote both to paint the full section bar shell plus placeholder skeletons immediately, then hydrate each `st.empty()` slot as the fetch / compute pipeline returns. Comps pulls fundamentals once up front and reuses across valuation card, historical range, PE score, and peer table. Portfolio renders every MV / HRP / concentration / frontier / backtest / drawdown / risk / correlation slot as a skeleton immediately and fills them in order. `portfolio_builder.py` split into a 47-line entry file plus `_portfolio_progressive.py` for the skeleton + hydrate pipeline to keep both files under the 150-line budget. `_comps_peers.render_peer_fundamentals` gained a `render_header=False` param so the section bar renders with the shell rather than inside the helper.
+
+`config.yaml app.version` bumped to `1.4.2` (reflects the v1.4.2 + v1.4.3 combined shipment). 146 tests passing (140 + 6 new debug gate regressions).
+
 ### v1.4.2 changes (2026-04-17, hostile-recruiter stress-test pass)
 
 Four P0 bugs surfaced by a cold LinkedIn-click walkthrough of terminal.frostaing.com. Full audit log in `career-ops/data/terminal-stress-test-2026-04-17.md`.

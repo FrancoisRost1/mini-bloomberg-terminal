@@ -35,6 +35,7 @@ from app.sidebar_ticker import render as render_sidebar_ticker  # noqa: E402
 from terminal.config_loader import load_config  # noqa: E402
 from terminal.managers.analytics_manager import AnalyticsManager  # noqa: E402
 from terminal.managers.data_manager import SharedDataManager  # noqa: E402
+from terminal.utils.density import set_show_data_sources  # noqa: E402
 from terminal.utils.watchlist_io import WatchlistStore  # noqa: E402
 
 
@@ -87,6 +88,10 @@ def main() -> None:
     inject_density()
     _init_session_state()
     _inject_sidebar_visibility()
+    # Toggle per chart "SRC X" watermarks based on config.yaml app.debug.
+    # When false (default) the chart headers stay clean for visitors;
+    # when true the internal provider tags render for debugging.
+    set_show_data_sources(bool(cfg.get("app", {}).get("debug", False)))
     config, data_manager, analytics_manager, watchlist = _bootstrap()
     st.session_state["_config"] = config
     st.session_state["_data_manager"] = data_manager

@@ -50,19 +50,21 @@ def _market_status(now_et: datetime) -> tuple[str, str]:
 
 
 def build_status_bar_html(data_manager: Any | None = None) -> str:
-    """Build the one-line status strip. Pure HTML, no Streamlit calls."""
+    """Build the one-line status strip. Pure HTML, no Streamlit calls.
+
+    The mode indicator ('MODE PRODUCTION' / 'MODE DEVELOPMENT') was
+    removed from the strip on 2026-04-17 after a recruiter-facing
+    audit flagged it as dev-jargon leak. The registry still exposes
+    ``mode_label()`` for internal code paths; it just does not render
+    here anymore. A DEV banner still appears at the top of the page
+    via ``dev_mode_banner()`` when the app is not in production.
+    """
+    _ = data_manager  # reserved for future per-provider freshness tags
     now_et = _et_now()
     label, token = _market_status(now_et)
     color = TOKENS.get(token, TOKENS["text_secondary"])
     et_clock = now_et.strftime("%H:%M ET")
     utc_clock = datetime.now(timezone.utc).strftime("%H:%M UTC")
-    provider_label = ""
-    try:
-        if data_manager is not None and hasattr(data_manager, "registry"):
-            mode = data_manager.registry.mode_label()
-            provider_label = f"MODE {mode}"
-    except Exception:
-        provider_label = ""
 
     freshness = f"prices as of {et_clock}"
     pieces = [
@@ -71,8 +73,6 @@ def build_status_bar_html(data_manager: Any | None = None) -> str:
         (utc_clock, TOKENS["text_muted"]),
         (freshness, TOKENS["text_muted"]),
     ]
-    if provider_label:
-        pieces.append((provider_label, TOKENS["text_muted"]))
 
     spans = "".join(
         f'<span style="color:{c};padding:0 0.7rem;'
