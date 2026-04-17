@@ -53,8 +53,9 @@ def render() -> None:
     styled_header(f"Options Lab. {ticker}", "European vanilla | BS Greeks | Brent IV")
     st.sidebar.markdown("### Options Lab")
     st.sidebar.caption(
-        "European vanilla only. Greeks scenario is a local Taylor expansion. "
-        "IV surface is strike wise per expiry. Risk free rate from FRED."
+        "European vanilla only. Scenario grid is full Black-Scholes repricing "
+        "at each spot, not a Taylor expansion. IV surface is strike wise per "
+        "expiry. Risk free rate from FRED."
     )
 
     st.markdown(section_bar("CHAIN", source="yfinance"), unsafe_allow_html=True)
@@ -98,7 +99,13 @@ def render() -> None:
         )
     with row1_r:
         st.markdown(section_bar("SCENARIO (7D FWD)", source="local"), unsafe_allow_html=True)
-        safe_render(lambda: render_scenario(greeks, spot, price), label="scenario", source="local")
+        safe_render(
+            lambda: render_scenario(
+                spot=spot, strike=strike, tau=tau, rate=rate,
+                sigma=sigma, price=price, option_type=opt_type,
+            ),
+            label="scenario", source="local",
+        )
 
     row2_l, row2_r = st.columns([1, 1])
     with row2_l:

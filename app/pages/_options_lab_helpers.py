@@ -38,22 +38,34 @@ def render_greeks_kpis(price: float, greeks: dict[str, float]) -> None:
     st.markdown(dense_kpi_row(items, min_cell_px=135), unsafe_allow_html=True)
 
 
-def render_scenario(greeks: dict[str, float], spot: float, price: float) -> None:
-    """Greeks-based P&L scenario chart + numeric grid.
+def render_scenario(
+    spot: float,
+    strike: float,
+    tau: float,
+    rate: float,
+    sigma: float,
+    price: float,
+    option_type: str,
+) -> None:
+    """Black-Scholes repriced P&L scenario chart + numeric grid.
 
     Chart shows the full spot range; the table sits next to it and
     resolves P&L, resulting option value, and percent return at seven
-    fixed spot moves (-20, -10, -5, 0, +5, +10, +20%). Per-contract
-    quantities are unit (1 share); the Options Lab header reminds the
-    reader this is a Taylor expansion approximation.
+    fixed spot moves (-20, -10, -5, 0, +5, +10, +20%), 7 calendar days
+    forward, with volatility unchanged. Per-contract quantities are
+    unit (1 share).
     """
     spot_range = np.linspace(spot * 0.8, spot * 1.2, 100)
-    df = compute_option_scenario(greeks, spot_range, vol_shift=0.0, time_decay_days=7)
+    df = compute_option_scenario(
+        spot0=spot, strike=strike, tau=tau, rate=rate, sigma=sigma,
+        spot_range=spot_range, option_type=option_type,
+        vol_shift=0.0, time_decay_days=7, entry_price=price,
+    )
     chart_col, table_col = st.columns([3, 4])
     with chart_col:
         fig = line_chart(
-            {"7d Greeks P&L": df["pnl"]},
-            title="Greeks Scenario (7d fwd)",
+            {"7d P&L": df["pnl"]},
+            title=f"{option_type.title()} Scenario (7d fwd, BS repriced)",
             y_unit="P&L ($)", x_unit="Spot ($)",
         )
         fig.update_layout(height=260, margin={"l": 36, "r": 10, "t": 28, "b": 28})
@@ -68,7 +80,7 @@ def render_scenario(greeks: dict[str, float], spot: float, price: float) -> None
             nearest_pos = int(np.abs(idx_values - target).argmin())
             nearest = df.index[nearest_pos]
             pnl = float(df.loc[nearest, "pnl"])
-            opt_value = max(0.0, premium + pnl)
+            opt_value = float(df.loc[nearest, "value"])
             pnl_pct = (pnl / premium) * 100.0 if premium > 0 else float("nan")
             rows.append({
                 "Spot":      f"${float(nearest):,.2f}",
@@ -78,7 +90,6 @@ def render_scenario(greeks: dict[str, float], spot: float, price: float) -> None
                 "P&L %":     f"{pnl_pct:+.1f}%" if pnl_pct == pnl_pct else "n/a",
             })
         table = pd.DataFrame(rows)
-        # Right-align every numeric column and force monospace.
         num_cols = ["Spot", "Move", "Opt Val", "P&L $", "P&L %"]
         styler = (
             colored_dataframe(table, ["P&L $", "P&L %"])

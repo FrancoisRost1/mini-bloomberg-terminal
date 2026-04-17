@@ -25,12 +25,52 @@ def test_option_payoff_put_otm_decreases():
     assert df["pnl"].iloc[0] > df["pnl"].iloc[-1]
 
 
-def test_option_scenario_linear_in_delta():
-    greeks = {"spot": 100, "delta": 0.5, "gamma": 0, "vega": 0, "theta": 0}
-    grid = np.array([90, 100, 110])
-    df = compute_option_scenario(greeks, grid)
-    assert np.isclose(df["pnl"].iloc[0], 0.5 * (90 - 100))
-    assert np.isclose(df["pnl"].iloc[-1], 0.5 * (110 - 100))
+def test_option_scenario_long_call_loss_bounded_on_down_move():
+    """A long call crashing 20% into deep OTM territory cannot profit.
+
+    This is the P0 regression from the 2026-04-17 terminal audit: the
+    delta-gamma Taylor expansion was showing a +6497% P&L when spot
+    fell 20% on an ATM call. BS repricing keeps P&L inside the true
+    payoff surface. The loss is bounded below by -premium.
+    """
+    spot, strike = 263.40, 262.50
+    tau, rate, sigma = 30 / 365.0, 0.04, 0.25
+    grid = np.array([spot * 0.8, spot, spot * 1.2])
+    df = compute_option_scenario(
+        spot0=spot, strike=strike, tau=tau, rate=rate, sigma=sigma,
+        spot_range=grid, option_type="call",
+        vol_shift=0.0, time_decay_days=7,
+    )
+    entry_price = df["value"].iloc[1] - df["pnl"].iloc[1]
+    assert df["pnl"].iloc[0] < 0, "long call must lose on -20% spot"
+    assert df["pnl"].iloc[0] >= -entry_price - 1e-6, "loss cannot exceed premium"
+    assert df["pnl"].iloc[-1] > df["pnl"].iloc[0], "P&L must be monotonic in spot"
+    assert df["pnl"].iloc[-1] > 0, "long call must gain on +20% spot"
+
+
+def test_option_scenario_long_put_gains_on_down_move():
+    """Dual: long put must profit on spot crash and lose on spot rally."""
+    spot, strike = 100.0, 100.0
+    tau, rate, sigma = 30 / 365.0, 0.04, 0.25
+    grid = np.array([80.0, 100.0, 120.0])
+    df = compute_option_scenario(
+        spot0=spot, strike=strike, tau=tau, rate=rate, sigma=sigma,
+        spot_range=grid, option_type="put",
+        vol_shift=0.0, time_decay_days=7,
+    )
+    assert df["pnl"].iloc[0] > 0, "long put must gain on -20% spot"
+    assert df["pnl"].iloc[-1] < 0, "long put must lose on +20% spot"
+
+
+def test_option_scenario_returns_value_column():
+    """Contract: scenario frame must include both the repriced value and P&L."""
+    grid = np.array([95.0, 100.0, 105.0])
+    df = compute_option_scenario(
+        spot0=100.0, strike=100.0, tau=30 / 365.0, rate=0.04, sigma=0.20,
+        spot_range=grid, option_type="call",
+    )
+    assert {"value", "pnl"}.issubset(df.columns)
+    assert (df["value"] >= 0).all(), "BS price is non-negative"
 
 
 def test_lbo_equity_bridge_sums_correctly():

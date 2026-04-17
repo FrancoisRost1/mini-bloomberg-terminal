@@ -64,6 +64,29 @@ def test_run_recommendation_insufficient_data(config):
     assert result["rating"] == "INSUFFICIENT_DATA"
 
 
+def test_insufficient_data_score_is_nan_not_100(config):
+    """Regression for the 2026-04-17 audit.
+
+    Before the fix, a partial sub-score set (one engine returning a
+    real number, others NaN) flowed into compute_composite and produced
+    a non-NaN composite like 100.0. Because the gate short-circuits to
+    INSUFFICIENT_DATA before classify(), the UI banner showed
+    'INSUFFICIENT_DATA 100.0 / 100 GRADE D', which is a contradiction.
+    The gate now returns NaN regardless of partial-score arithmetic.
+    """
+    result = run_recommendation(
+        sub_scores={"valuation": 100.0, "quality": float("nan"),
+                    "momentum": float("nan"), "risk": float("nan")},
+        engine_confidences={"pe": 0.1},  # below min_confidence to force the gate
+        flags={},
+        research_cfg=config["research"],
+    )
+    assert result["rating"] == "INSUFFICIENT_DATA"
+    assert math.isnan(result["composite_score"]), (
+        f"INSUFFICIENT_DATA must not carry a real composite score; got {result['composite_score']}"
+    )
+
+
 def test_config_mutation_changes_classification(config):
     scores = {"valuation": 66, "quality": 66, "momentum": 66, "risk": 66}
     confidences = {"pe": 0.9, "factor": 0.9, "tsmom": 0.9, "lbo": 0.9}

@@ -39,25 +39,39 @@ def compute_option_payoff(
 
 
 def compute_option_scenario(
-    greeks: dict[str, float],
+    spot0: float,
+    strike: float,
+    tau: float,
+    rate: float,
+    sigma: float,
     spot_range: np.ndarray,
+    option_type: str = "call",
+    dividend: float = 0.0,
     vol_shift: float = 0.0,
     time_decay_days: int = 0,
+    entry_price: float | None = None,
 ) -> pd.DataFrame:
-    """Greeks-based pre-expiry P&L across a spot grid.
+    """Pre-expiry P&L across a spot grid via Black-Scholes repricing.
 
-    Approximation: ``dP ~= delta*dS + 0.5*gamma*dS^2 + vega*dSigma + theta*dT``.
-    Good enough for the Options Lab scenario widget; not intended to
-    replace a full repricing engine.
+    Why BS repricing and not a delta-gamma Taylor expansion: for near-ATM
+    options with non-trivial gamma, the quadratic term ``0.5*gamma*dS^2``
+    is unbounded and strictly positive. At +/-20% spot moves a long call
+    scenario ended up showing profit on down-moves, which is a mathematical
+    impossibility (a long call's max loss is premium paid). BS repricing
+    at each scenario point stays inside the real payoff surface.
     """
-    spot0 = float(greeks.get("spot", 0.0))
-    delta = float(greeks.get("delta", 0.0))
-    gamma = float(greeks.get("gamma", 0.0))
-    vega = float(greeks.get("vega", 0.0))
-    theta = float(greeks.get("theta", 0.0))
-    dS = spot_range - spot0
-    pnl = delta * dS + 0.5 * gamma * dS ** 2 + vega * vol_shift + theta * (time_decay_days / 365.0)
-    return pd.DataFrame({"spot": spot_range, "pnl": pnl}).set_index("spot")
+    from terminal.adapters.options_adapter import black_scholes
+
+    new_tau = max(0.0, tau - time_decay_days / 365.0)
+    new_sigma = max(1e-6, sigma + vol_shift)
+    if entry_price is None:
+        entry_price = black_scholes(spot0, strike, tau, rate, sigma, dividend, option_type)
+    values = np.array([
+        black_scholes(float(s), strike, new_tau, rate, new_sigma, dividend, option_type)
+        for s in spot_range
+    ])
+    pnl = values - float(entry_price)
+    return pd.DataFrame({"spot": spot_range, "value": values, "pnl": pnl}).set_index("spot")
 
 
 def compute_lbo_equity_bridge(lbo_snapshot: dict[str, Any]) -> dict[str, float]:

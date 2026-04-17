@@ -66,20 +66,24 @@ data:
 # MARKET WORKSPACE
 # -------------------------------------------------------------------
 market:
-  # Global indices
+  # Global indices strip. Labels use the ETF ticker (not the underlying
+  # index name) because the Last column shows the ETF's share price, not
+  # the index level. A PE or quant reader immediately flags "S&P 500
+  # 701.66" as wrong because the index trades at ~5,700; the ETF trades
+  # at ~701. The honest rendering is "SPY (S&P 500 ETF)".
   indices:
     - ticker: "SPY"
-      label: "S&P 500"
+      label: "SPY (S&P 500 ETF)"
     - ticker: "QQQ"
-      label: "NASDAQ 100"
+      label: "QQQ (NASDAQ 100 ETF)"
     - ticker: "DIA"
-      label: "Dow Jones"
+      label: "DIA (Dow 30 ETF)"
     - ticker: "IWM"
-      label: "Russell 2000"
+      label: "IWM (Russell 2000 ETF)"
     - ticker: "EFA"
-      label: "EAFE"
+      label: "EFA (MSCI EAFE ETF)"
     - ticker: "EEM"
-      label: "EM"
+      label: "EEM (MSCI EM ETF)"
 
   # Macro series (FRED codes)
   macro_series:

@@ -106,16 +106,25 @@ def run_recommendation(
 
 
 def _insufficient(
-    composite: float,
+    composite: float,  # noqa: ARG001 - kept for trace-only consumers
     confidence: float,
     trace: list[str],
     cfg: dict[str, Any],
     reason: str,
 ) -> dict[str, Any]:
+    """Insufficient-data result. The composite MUST be NaN here.
+
+    The 2026-04-17 audit caught a contradiction where the decision
+    banner rendered ``INSUFFICIENT_DATA`` next to ``100.0 / 100 GRADE D``
+    because partial sub-scores had still averaged to a real number
+    before the data gate short-circuited the classification. A ticker
+    that failed the gate does not have a legitimate composite score,
+    so we return NaN unconditionally and let the UI format it as n/a.
+    """
     trace.append(f"insufficient:{reason}")
     return {
         "rating": "INSUFFICIENT_DATA",
-        "composite_score": composite,
+        "composite_score": float("nan"),
         "sub_scores": {},
         "confidence": confidence,
         "confidence_grade": grade_confidence(confidence, cfg["confidence_grades"]),
