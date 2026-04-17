@@ -46,16 +46,29 @@ def _fundamentals_unavailable(fundamentals) -> bool:
     return (not has_fin) and mkt_cap <= 0
 
 
-def _looks_like_non_equity(prices, fundamentals) -> bool:
+def _fundamentals_out_of_scope(prices, fundamentals) -> bool:
     """Detect tickers the stock provider resolves with price data but no financials.
 
-    Indices and broad ETFs (DJI, SPY, VIX, etc.) DO have price history
-    but have no income statement and no market cap under FMP. This
-    branch sends the user to Market Overview instead of rendering an
-    n/a KPI strip with stale chart data. A ticker that has NEITHER
-    prices NOR fundamentals is handled separately as TICKER NOT FOUND.
+    Two legitimate cases collapse into this branch:
+    1. Indices and broad ETFs (DJI, SPY, VIX, etc.) - they have price
+       history but no income statement by definition.
+    2. Non-US listings on the FMP Starter tier (MC.PA, ASML.AS, BP.L,
+       etc.) - FMP Starter covers US equities only, so any European or
+       Asian single stock comes back price-only.
+
+    In both cases the Research workspace cannot build a single-stock
+    analysis, so we stop here with an honest explanation instead of
+    rendering an n/a KPI strip with stale chart data. Tickers that
+    have NEITHER prices NOR fundamentals are handled separately as
+    TICKER NOT FOUND above.
     """
     return (not _price_unavailable(prices)) and _fundamentals_unavailable(fundamentals)
+
+
+# Backwards-compatible alias. Older call sites (tests, helpers) may
+# still import the previous name; the docstring above explains why it
+# was renamed.
+_looks_like_non_equity = _fundamentals_out_of_scope
 
 
 def _render_not_found_state(ticker: str) -> None:
@@ -81,6 +94,14 @@ def _render_not_found_state(ticker: str) -> None:
 
 
 def _render_non_equity_state(ticker: str) -> None:
+    """Render the out-of-scope-fundamentals card.
+
+    Honest copy: the FMP Starter tier covers US equities only, so any
+    non-US listing (MC.PA, ASML.AS, BP.L) lands here alongside actual
+    ETFs and indices (SPY, VIX, DJI). The card calls out both cases
+    so a reader typing LVMH does not walk away thinking the app
+    confused their stock for a fund.
+    """
     accent = TOKENS["accent_primary"]
     st.markdown(
         f'<div style="font-family:{TOKENS["font_mono"]};font-size:0.82rem;'
@@ -88,12 +109,18 @@ def _render_non_equity_state(ticker: str) -> None:
         f'border:1px solid {TOKENS["border_default"]};'
         f'border-left:3px solid {accent};padding:0.8rem 1rem;margin:0.4rem 0;">'
         f'<span style="color:{accent};font-weight:800;letter-spacing:0.08em;'
-        f'text-transform:uppercase;">Index or ETF detected.</span><br/>'
+        f'text-transform:uppercase;">No fundamentals coverage.</span><br/>'
         f'<span style="color:{TOKENS["text_secondary"]};font-size:0.72rem;">'
-        f'The Research workspace runs on single-stock fundamentals from FMP. '
-        f'<b>{ticker}</b> has no income statement or market cap on the provider '
-        f'and is almost certainly an index, sector ETF, currency, or future. '
-        f'Use <b>Market Overview</b> for cross-asset and index context.</span>'
+        f'The Research workspace runs on single-stock fundamentals from '
+        f'Financial Modeling Prep. <b>{ticker}</b> resolved a price series '
+        f'but has no income statement or market cap on the provider. Two '
+        f'cases land here: <b>non-US listings</b> (FMP Starter covers US '
+        f'equities only, so MC.PA / ASML.AS / BP.L are out of scope) and '
+        f'<b>indices, sector ETFs, currencies, or futures</b> (they have '
+        f'no financials by definition). Use <b>Market Overview</b> for '
+        f'cross-asset context. International coverage is a config swap '
+        f'away, the provider interface supports Polygon and higher FMP '
+        f'tiers with zero code changes.</span>'
         f'</div>',
         unsafe_allow_html=True,
     )
